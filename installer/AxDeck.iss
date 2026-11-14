@@ -301,7 +301,7 @@ function CanWrite(const Dir: String): Boolean;
 var
   Probe: String;
 begin
-  Probe := AddBackslash(Dir) + '.brimdeck-write-test';
+  Probe := AddBackslash(Dir) + '.axdeck-write-test';
   Result := SaveStringToFile(Probe, 'AxDeck', False) and DeleteFile(Probe);
 end;
 

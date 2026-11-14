@@ -47,7 +47,7 @@ $rightsCase = if ($ownRights) { 'a folder outside Program Files and the profile 
     else { 'a folder in Program Files or the profile keeps its inherited rights' }
 function ExpectedRights {
     $rights = if ($ownRights) { PrivateRights } else { !(Get-Acl -LiteralPath $installPath).AreAccessRulesProtected }
-    $rights -and !(Test-Path -LiteralPath (Join-Path $installPath '.brimdeck-write-test'))
+    $rights -and !(Test-Path -LiteralPath (Join-Path $installPath '.axdeck-write-test'))
 }
 function PrivateRights {
     $me = [Security.Principal.WindowsIdentity]::GetCurrent().User.Value
@@ -100,9 +100,9 @@ try {
     New-ItemProperty -Path $runKey -Name $runValue -Value "`"$installPath\AxDeck.UpdateHarness.exe`"" -Force | Out-Null
     $start = [Diagnostics.ProcessStartInfo]::new((Join-Path $installPath 'AxDeck.UpdateHarness.exe'))
     $start.UseShellExecute = $false
-    $start.Environment['BRIMDECK_UPDATE_TEST_ROOT'] = $testRoot
-    $start.Environment['BRIMDECK_UPDATE_TEST_APPID'] = "{$appId}"
-    $start.Environment['BRIMDECK_UPDATE_TEST_MUTEX'] = $mutexPrefix
+    $start.Environment['AXDECK_UPDATE_TEST_ROOT'] = $testRoot
+    $start.Environment['AXDECK_UPDATE_TEST_APPID'] = "{$appId}"
+    $start.Environment['AXDECK_UPDATE_TEST_MUTEX'] = $mutexPrefix
     $process = [Diagnostics.Process]::Start($start)
     if (!$process.WaitForExit(60000)) { $process.Kill(); throw 'Test app did not exit after starting the installer.' }
     $result = Join-Path $testRoot 'result.txt'

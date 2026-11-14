@@ -124,7 +124,7 @@ internal static class PortableUpdateTests
             && !Directory.Exists(Path.Combine(target, "runtimes")));
         check("files the package never listed stay", File.ReadAllText(Path.Combine(target, "notes.txt")) == "mine");
         check("the new file list replaces the old one and no backup is left", PortableUpdate.Files(target).Contains(@"shared\added.dll")
-            && !PortableUpdate.Files(target).Contains("only-old.txt") && Directory.GetDirectories(target, ".brimdeck-update-*").Length == 0);
+            && !PortableUpdate.Files(target).Contains("only-old.txt") && Directory.GetDirectories(target, ".axdeck-update-*").Length == 0);
 
         // A folder in the way of a new file makes the copy fail after the old files were moved aside.
         var blocked = Path.Combine(root, "blocked");
@@ -135,7 +135,7 @@ internal static class PortableUpdateTests
         try { PortableUpdate.Apply(source, blocked); } catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { failed = true; }
         check("a failed replacement restores every old file", failed && File.ReadAllText(Path.Combine(blocked, "AxDeck.exe")) == "old"
             && File.ReadAllText(Path.Combine(blocked, @"runtimes\old.dll")) == "old" && PortableUpdate.Files(blocked).Contains(@"runtimes\old.dll")
-            && !File.Exists(Path.Combine(blocked, @"shared\kept.dll")) && Directory.GetDirectories(blocked, ".brimdeck-update-*").Length == 0);
+            && !File.Exists(Path.Combine(blocked, @"shared\kept.dll")) && Directory.GetDirectories(blocked, ".axdeck-update-*").Length == 0);
 
         File.Delete(Path.Combine(source, @"shared\added.dll")); failed = false;
         try { PortableUpdate.Apply(source, blocked); } catch (InvalidDataException) { failed = true; }

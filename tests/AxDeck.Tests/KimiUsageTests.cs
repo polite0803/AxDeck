@@ -316,7 +316,7 @@ static class KimiUsageTests
         void Sign(DateTimeOffset expires, string? value = null) => File.WriteAllText(KimiUsage.Credentials(home),
             $$"""{"access_token":"{{value ?? token}}","refresh_token":"fixture-refresh","expires_at":{{expires.ToUnixTimeSeconds()}},"scope":"kimi-code","token_type":"Bearer","expires_in":900}""");
         check("The account is read from the token's user_id claim", KimiUsage.Account(token) == "user-1" && KimiUsage.Account("not-a-jwt") == "" && KimiUsage.Account("a.!!.b") == "");
-        var cache = Path.Combine(root, "kimi-brimdeck", KimiQuotaCache.FileName);
+        var cache = Path.Combine(root, "kimi-axdeck", KimiQuotaCache.FileName);
 
         using var handler = new Handler(); using var http = new HttpClient(handler);
         var service = new UsageService(new NoDesktop(), locations, http, () => now, kimiQuotaCache: cache);

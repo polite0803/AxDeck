@@ -6,9 +6,9 @@ using AxDeck.Updates;
 // one, with its own identity and data folder, so the test never touches the user's AxDeck installation or settings.
 // Like AxDeck.exe, the new portable version also runs as the helper that replaces the old version's files.
 if (PortableUpdate.TryRun(args, out var helperExit)) { Environment.ExitCode = helperExit; return; }
-var testRoot = Environment.GetEnvironmentVariable("BRIMDECK_UPDATE_TEST_ROOT");
-var appId = Environment.GetEnvironmentVariable("BRIMDECK_UPDATE_TEST_APPID");
-var mutexPrefix = Environment.GetEnvironmentVariable("BRIMDECK_UPDATE_TEST_MUTEX");
+var testRoot = Environment.GetEnvironmentVariable("AXDECK_UPDATE_TEST_ROOT");
+var appId = Environment.GetEnvironmentVariable("AXDECK_UPDATE_TEST_APPID");
+var mutexPrefix = Environment.GetEnvironmentVariable("AXDECK_UPDATE_TEST_MUTEX");
 if (string.IsNullOrWhiteSpace(testRoot) || !File.Exists(Path.Combine(testRoot, ".update-test-root")) || appId is null || mutexPrefix is null) return;
 // Held like the app's single-instance mutex; the installer waits until this process exits.
 using var instance = new Mutex(true, @"Local\" + mutexPrefix + Environment.UserName);

@@ -199,7 +199,7 @@ public sealed partial class SettingsWindow : Window, IKeepsAppFonts
     {
         var brand = new StackPanel { Margin = margin, VerticalAlignment = VerticalAlignment.Center };
         // The wordmark carries the application icon's status dot at its top right: 7 px at the 24 px size, centred on the cap line,
-        // 4 px clear of the final letter. The brim line underneath stays.
+        // 4 px clear of the final letter. The line underneath stays.
         var name = Wordmark(size);
         double dot = Math.Round(size * .3), gap = Math.Round(size * .17);
         name.Margin = new Thickness(0, 0, dot + gap, 0);
@@ -212,11 +212,11 @@ public sealed partial class SettingsWindow : Window, IKeepsAppFonts
             Background = new LinearGradientBrush((Color)ColorConverter.ConvertFromString(TextTertiary), Colors.Transparent, 0) });
         return brand;
     }
-    // The product name on one line: a heavier "Brim" followed by a light "Deck".
+    // The product name on one line: a heavier "Ax" followed by a light "Deck".
     private TextBlock Wordmark(double size)
     {
         var name = new TextBlock { FontFamily = Fonts.PlainOf(UiFontRole.Text), FontSize = size, Foreground = UI.Brush(TextPrimary) };
-        name.Inlines.Add(new Run("Brim") { FontWeight = FontWeights.SemiBold });
+        name.Inlines.Add(new Run("Ax") { FontWeight = FontWeights.SemiBold });
         name.Inlines.Add(new Run("Deck") { FontWeight = FontWeights.Light, Foreground = UI.Brush(_palette.Dark ? "#C5C5CB" : "#565661") });
         AutomationProperties.SetName(name, "AxDeck"); return name;
     }

@@ -22,7 +22,7 @@ public static class PortableUpdate
     public const string Failed = "failed";
     public const string HelperArgument = "--portable-update";
     public const string ElevatedArgument = "--portable-replace";
-    private const string BackupPrefix = ".brimdeck-update-";
+    private const string BackupPrefix = ".axdeck-update-";
     private const int Cancelled = 1223;
     private static readonly TimeSpan ExitTimeout = TimeSpan.FromMinutes(2);
 

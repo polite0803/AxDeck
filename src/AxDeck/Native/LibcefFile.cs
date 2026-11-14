@@ -59,7 +59,7 @@ internal static class LibcefFile
     // The player holds the file: a changed copy is made and put in its place, and the held file is renamed until it can go.
     private static void Replace(string library, LibcefPatch profile, bool patch, bool elevated)
     {
-        string copy = library + ".brimdeck-new", held = library + ".brimdeck-old-" + Environment.TickCount64.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        string copy = library + ".axdeck-new", held = library + ".axdeck-old-" + Environment.TickCount64.ToString(System.Globalization.CultureInfo.InvariantCulture);
         File.Copy(library, copy, overwrite: true);
         try
         {
@@ -76,7 +76,7 @@ internal static class LibcefFile
     {
         try
         {
-            foreach (var held in Directory.EnumerateFiles(Path.GetDirectoryName(library)!, Path.GetFileName(library) + ".brimdeck-old-*"))
+            foreach (var held in Directory.EnumerateFiles(Path.GetDirectoryName(library)!, Path.GetFileName(library) + ".axdeck-old-*"))
                 try { File.Delete(held); } catch (IOException) { } catch (UnauthorizedAccessException) { }
         }
         catch (IOException) { }

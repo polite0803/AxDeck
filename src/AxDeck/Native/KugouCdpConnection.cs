@@ -165,7 +165,7 @@ internal sealed class KugouCdpConnection : IMediaPlayerConnection
     // 3 seconds counts as none.
     internal static string Call(int number, object? fields = null) => $$"""
         new Promise(function (resolve) {
-            var name = "__brimDeckKugou" + Date.now() + Math.random().toString(36).slice(2);
+            var name = "__axDeckKugou" + Date.now() + Math.random().toString(36).slice(2);
             var timer = setTimeout(function () { window[name] = null; resolve(""); }, 3000);
             window[name] = function (data) { clearTimeout(timer); window[name] = null; resolve(typeof data === "string" ? data : JSON.stringify(data)); };
             try { external.SuperCall({{number}}, JSON.stringify(Object.assign({{JsonSerializer.Serialize(fields ?? new { })}}, { callback: name }))); }

@@ -4,10 +4,10 @@ internal sealed partial class NeteaseCdpConnection
 {
     // The page keeps a bridge until the player restarts, so a bridge with new abilities needs a new name; the script
     // below installs and looks for this one.
-    internal const string BridgeObject = "__brimDeckMusicV2";
+    internal const string BridgeObject = "__axDeckMusicV2";
     internal const string BridgeScript = """
     (() => {
-      const binding = '__brimDeckMediaPush';
+      const binding = '__axDeckMediaPush';
       const withLeases = bridge => {
         if (bridge.leaseVersion === 1) return bridge;
         const attach = bridge.attach.bind(bridge), detach = bridge.detach.bind(bridge);
@@ -15,7 +15,7 @@ internal sealed partial class NeteaseCdpConnection
         // Upgrade an already installed bridge in place: do not add another native subscription set.
         // Older clients have a grace period to reconnect with the heartbeat-capable implementation.
         for (const name of Object.getOwnPropertyNames(window)) {
-          if (/^__brimDeckMediaPush_[a-f0-9]{32}$/.test(name)) clients.set(name, Date.now() + lifetime);
+          if (/^__axDeckMediaPush_[a-f0-9]{32}$/.test(name)) clients.set(name, Date.now() + lifetime);
         }
         const prune = keep => {
           const now = Date.now();
@@ -39,12 +39,12 @@ internal sealed partial class NeteaseCdpConnection
         bridge.leaseVersion = 1;
         return bridge;
       };
-      const existing = window.__brimDeckMusicV2;
+      const existing = window.__axDeckMusicV2;
       if (existing && existing.version === 2) return withLeases(existing).attach(binding);
       // Startup still changes window visibility and restores playback asynchronously.
       if (typeof window._enterAppTime === 'number') return { ready: false };
-      let loader = window.__brimDeckMusicLoaderV1;
-      const key = 'brimDeckMedia' + Date.now();
+      let loader = window.__axDeckMusicLoaderV1;
+      const key = 'axDeckMedia' + Date.now();
       if (!loader && window.webpackJsonp && typeof window.webpackJsonp.push === 'function') {
         const modules = {}; modules[key] = function (module, exports, require) { loader = require; };
         window.webpackJsonp.push([[key], modules, [[key]]]);
@@ -53,7 +53,7 @@ internal sealed partial class NeteaseCdpConnection
         if (chunks) window[chunks].push([[key], {}, require => { loader = require; }]);
       }
       if (!loader || !loader.c) return { ready: false };
-      window.__brimDeckMusicLoaderV1 = loader;
+      window.__axDeckMusicLoaderV1 = loader;
       // Inspect only already evaluated module exports, once. Do not execute arbitrary module factories.
       const exports = Object.values(loader.c).map(m => m && m.exports).filter(Boolean);
       const tool = exports.map(e => e.a).find(e => e && typeof e.getStore === 'function' && typeof e.getDispatch === 'function');
@@ -64,9 +64,9 @@ internal sealed partial class NeteaseCdpConnection
       if (!store.getState().playing) return { ready: false };
       // A bridge from an earlier AxDeck keeps its native subscriptions, which have no removal; its clients are
       // released so that it stops pushing.
-      const older = window.__brimDeckMusicV1;
+      const older = window.__axDeckMusicV1;
       if (older && typeof older.detach === 'function')
-        for (const name of Object.getOwnPropertyNames(window)) if (/^__brimDeckMediaPush(_[a-f0-9]{32})?$/.test(name)) older.detach(name);
+        for (const name of Object.getOwnPropertyNames(window)) if (/^__axDeckMediaPush(_[a-f0-9]{32})?$/.test(name)) older.detach(name);
       const outputs = new Set();
       let position = null, positionTrack = '', latest = null, lastWire = '', lastProgress = 0;
       const modes = ['playOrder', 'playCycle', 'playOneCycle', 'playRandom'];
@@ -181,7 +181,7 @@ internal sealed partial class NeteaseCdpConnection
           return { dispatched: true };
         }
       };
-      window.__brimDeckMusicV2 = withLeases(bridge);
+      window.__axDeckMusicV2 = withLeases(bridge);
       restoreSaved();
       return bridge.attach(binding);
     })()

@@ -25,9 +25,9 @@ function RunUpdate {
     if (Test-Path -LiteralPath $result) { Remove-Item -LiteralPath $result }
     $start = [Diagnostics.ProcessStartInfo]::new($exe)
     $start.UseShellExecute = $false
-    $start.Environment['BRIMDECK_UPDATE_TEST_ROOT'] = $testRoot
-    $start.Environment['BRIMDECK_UPDATE_TEST_APPID'] = "{$([Guid]::NewGuid().ToString().ToUpperInvariant())}"
-    $start.Environment['BRIMDECK_UPDATE_TEST_MUTEX'] = "AxDeck.PortableTest.$testId."
+    $start.Environment['AXDECK_UPDATE_TEST_ROOT'] = $testRoot
+    $start.Environment['AXDECK_UPDATE_TEST_APPID'] = "{$([Guid]::NewGuid().ToString().ToUpperInvariant())}"
+    $start.Environment['AXDECK_UPDATE_TEST_MUTEX'] = "AxDeck.PortableTest.$testId."
     $process = [Diagnostics.Process]::Start($start)
     if (!$process.WaitForExit(60000)) { $process.Kill(); throw 'Test app did not exit after starting the update.' }
     $deadline = [DateTime]::UtcNow.AddSeconds(90)
@@ -70,7 +70,7 @@ try {
     Write-Output "PASS $($text.Trim())"
     Assert ((Get-Item -LiteralPath $exe).VersionInfo.ProductVersion -like '0.1.0*' -and (Test-Path -LiteralPath $staleFile) -and (ListedFiles) -contains 'only-in-0.1.0.txt') `
         'a failed replacement restores the old version and its file list'
-    Assert (!(Get-ChildItem -LiteralPath $appPath -Directory -Filter '.brimdeck-update-*')) 'a failed replacement leaves no backup folder'
+    Assert (!(Get-ChildItem -LiteralPath $appPath -Directory -Filter '.axdeck-update-*')) 'a failed replacement leaves no backup folder'
 
     $text = RunUpdate
     if (!$text.StartsWith('PASS')) { throw $text }
@@ -78,7 +78,7 @@ try {
     Assert ((Get-Item -LiteralPath $exe).VersionInfo.ProductVersion -like '0.1.1*') 'the folder now holds the new version'
     Assert (!(Test-Path -LiteralPath $staleFile) -and !((ListedFiles) -contains 'only-in-0.1.0.txt')) 'files the new version no longer lists are removed'
     Assert ((Get-Content -Raw -LiteralPath $userFile).Trim() -eq 'mine') 'files the package never listed stay'
-    Assert (!(Get-ChildItem -LiteralPath $appPath -Directory -Filter '.brimdeck-update-*')) 'no backup folder is left'
+    Assert (!(Get-ChildItem -LiteralPath $appPath -Directory -Filter '.axdeck-update-*')) 'no backup folder is left'
     Write-Output "Evidence: $testRoot"
 }
 finally { Pop-Location }
