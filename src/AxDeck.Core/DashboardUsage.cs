@@ -17,7 +17,22 @@ public static class DashboardUsage
     private static ProviderSnapshot Find(IReadOnlyList<ProviderSnapshot> snapshots, ProviderId id)
         => snapshots.FirstOrDefault(snapshot => snapshot.Id == id && !snapshot.Configurations.Contains(ProviderCatalog.LocalQuota)) ?? new ProviderSnapshot(id);
 
-    public static ProviderSnapshot Quota(AppEntry entry, IReadOnlyList<ProviderSnapshot> snapshots) => WithBalanceTarget(entry, Find(entry, snapshots));
+    public static ProviderSnapshot Quota(AppEntry entry, IReadOnlyList<ProviderSnapshot> snapshots)
+        => WithBalanceTarget(entry, entry.QuotaSource == ProviderId.Credits ? Credits(entry) : Find(entry, snapshots));
+
+    // A product without a quota API shows the credits entered for its column. No request is made for these rows.
+    private static ProviderSnapshot Credits(AppEntry entry)
+    {
+        var label = Loc.T("积分余额", "Credits");
+        var snapshot = new ProviderSnapshot(ProviderId.Credits)
+        { LiveQuota = true, Source = entry.Name, StatusLabel = label, Status = label };
+        if (entry.CreditBalance is { } balance)
+            snapshot.Metrics = [new UsageMetric(MetricKind.Balance, label)
+            { Id = "credits", Amount = balance, Total = entry.CreditTotal, Currency = entry.CreditUnit,
+              Note = Loc.T("在设置中更新", "Update in settings") }];
+        else snapshot.Status = Loc.T("请在设置中填写当前积分余额。", "Enter the remaining credits in settings.");
+        return snapshot;
+    }
 
     // The row's target balance becomes the total of its account balance, and each other target (AppEntry.QuotaTargets) the total
     // of its balance or amount spent, so the rings, the panel and the level notices read them as used shares. Several rows can

@@ -829,21 +829,58 @@ public sealed partial class SettingsWindow : Window, IKeepsAppFonts
         list.Children.Add(headings);
         list.Children.Add(new Border { Child = _appRows, BorderBrush = UI.Brush(Divider), BorderThickness = new Thickness(0, 1, 0, 1) });
         bool atLimit = S.Apps.Count >= AppPresets.MaximumApps;
-        var add = ActionButton("", () =>
-        {
-            if (S.Apps.Count >= AppPresets.MaximumApps) return;
-            Change(s => s.Apps.Add(new AppEntry { QuotaSource = ProviderId.Claude, UsageSource = ProviderId.Claude }));
-            ShowPage(3);
-        });
-        add.IsEnabled = !atLimit; add.Opacity = atLimit ? .45 : 1;
+        var add = new DropDownButton { Style = (Style)FindResource("SettingsButton"), Value = () => Loc.T("添加应用", "Add app"),
+            HorizontalAlignment = HorizontalAlignment.Left, Margin = new Thickness(10, 6, 0, 6), Padding = new Thickness(10, 6, 12, 6), Height = 34 };
         var addContent = new StackPanel { Orientation = Orientation.Horizontal };
         addContent.Children.Add(Stroke("M 5,0 L 5,10 M 0,5 L 10,5", 10, 10, TextSecondary));
         var addLabel = TextLine(Loc.T("添加应用", "Add app"), 12.5, TextSecondary); addLabel.Margin = new Thickness(8, 0, 0, 0); addLabel.VerticalAlignment = VerticalAlignment.Center; addContent.Children.Add(addLabel);
-        add.Content = addContent; add.HorizontalAlignment = HorizontalAlignment.Left; add.Margin = new Thickness(10, 6, 0, 6); add.Padding = new Thickness(10, 6, 12, 6);
+        add.Content = addContent;
+        add.IsEnabled = !atLimit; add.Opacity = atLimit ? .45 : 1;
         add.ToolTip = atLimit ? Loc.T($"最多配置 {AppPresets.MaximumApps} 个应用；移除一行后可以继续添加", $"Up to {AppPresets.MaximumApps} apps. Remove a row to add another.")
-            : Loc.T($"最多配置 {AppPresets.MaximumApps} 个应用；同一配额来源或统计应用可以重复选择", $"Up to {AppPresets.MaximumApps} apps. The same quota source or usage app can be chosen more than once.");
+            : Loc.T($"从智能体软件库中添加，最多 {AppPresets.MaximumApps} 个应用；名称、颜色、来源、顺序都可以再改", $"Add from the agent library, up to {AppPresets.MaximumApps} apps. The name, color, sources and order can all be changed later.");
         ToolTipService.SetShowOnDisabled(add, true);
         AutomationProperties.SetName(add, Loc.T("添加应用", "Add app"));
+
+        // The product library: domestic and international agents, plus a blank column for anything else.
+        var menu = new Popup { PlacementTarget = add, Placement = PlacementMode.Bottom, StaysOpen = false, AllowsTransparency = true, VerticalOffset = 4 };
+        var items = new StackPanel { Width = 250 };
+        void AddFromLibrary(AgentPreset? preset)
+        {
+            menu.IsOpen = false;
+            if (S.Apps.Count >= AppPresets.MaximumApps) return;
+            Change(s => s.Apps.Add(preset is null
+                ? new AppEntry { QuotaSource = ProviderId.Claude, UsageSource = ProviderId.Claude }
+                : AgentCatalog.Create(preset)));
+            ShowPage(3);
+        }
+        foreach (var region in new[] { AgentRegion.Domestic, AgentRegion.International })
+        {
+            if (region == AgentRegion.International)
+                items.Children.Add(new Border { Height = 1, Background = UI.Brush(_palette.RowDivider), Margin = new Thickness(4, 5, 4, 3) });
+            var header = TextLine(region == AgentRegion.Domestic ? Loc.T("国内产品", "Domestic products") : Loc.T("国外产品", "International products"), 10.5, TextTertiary);
+            header.Margin = new Thickness(10, 4, 10, 3); items.Children.Add(header);
+            foreach (var preset in AgentCatalog.In(region))
+            {
+                var item = MenuEntry(preset.Name, preset.UsesCredits ? Loc.T("积分", "Credits") : "", true, false);
+                item.ToolTip = preset.Note;
+                item.Click += (_, _) => PopupMotion.AfterClose(() => AddFromLibrary(preset));
+                AutomationProperties.SetName(item, Loc.T("添加 ", "Add ") + preset.Name);
+                items.Children.Add(item);
+            }
+        }
+        items.Children.Add(new Border { Height = 1, Background = UI.Brush(_palette.RowDivider), Margin = new Thickness(4, 5, 4, 3) });
+        var custom = MenuEntry(Loc.T("自定义应用", "Custom app"), "", true, false);
+        custom.Click += (_, _) => PopupMotion.AfterClose(() => AddFromLibrary(null));
+        AutomationProperties.SetName(custom, Loc.T("添加自定义应用", "Add a custom app"));
+        items.Children.Add(custom);
+        var listScroll = new ScrollViewer { Style = (Style)FindResource("SettingsScrollViewer"), Content = items, Focusable = false,
+            VerticalScrollBarVisibility = ScrollBarVisibility.Auto, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled };
+        var surface = new Border { Child = listScroll, Background = UI.Brush(_palette.Popup), BorderBrush = UI.Brush(_palette.Border),
+            BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(8), Padding = new Thickness(5) };
+        menu.Child = surface;
+        add.Tag = menu; add.Menu = menu;
+        add.Click += (_, _) => { if (!menu.IsOpen) FitMenuToScreen(add, menu, surface); };
+        TogglePopup(add, menu);
         list.Children.Add(add);
         _content.Children.Add(list);
     }

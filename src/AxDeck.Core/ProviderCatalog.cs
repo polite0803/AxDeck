@@ -10,7 +10,8 @@ public static class ProviderCatalog
     public static readonly ProviderId[] BuiltIns = [ProviderId.Claude, ProviderId.Codex, ProviderId.Antigravity, ProviderId.Cursor];
     // Sources read automatically from local applications; only the first four are added to new settings by default.
     public static readonly ProviderId[] AutomaticSources = [.. BuiltIns, ProviderId.GrokBot, ProviderId.ZCode, ProviderId.Dsh, ProviderId.Kimi, ProviderId.OpenCode];
-    public static readonly ProviderId[] Sources = [.. AutomaticSources, ProviderId.GlmChina, ProviderId.GlmGlobal, ProviderId.DeepSeek, ProviderId.KimiApi, ProviderId.OpenCodeGo, ProviderId.OpenRouter, ProviderId.NewApi, ProviderId.Sub2Api, ProviderId.Custom];
+    // Credits is a column whose balance is entered by hand, for products without a quota API.
+    public static readonly ProviderId[] Sources = [.. AutomaticSources, ProviderId.GlmChina, ProviderId.GlmGlobal, ProviderId.DeepSeek, ProviderId.KimiApi, ProviderId.OpenCodeGo, ProviderId.OpenRouter, ProviderId.NewApi, ProviderId.Sub2Api, ProviderId.Custom, ProviderId.Credits];
     // Grok Bot is quota-only; Pi is usage-only and must never appear in the quota-source menu.
     public static readonly ProviderId[] UsageSources = [.. BuiltIns, ProviderId.ZCode, ProviderId.Dsh, ProviderId.Kimi, ProviderId.OpenCode, ProviderId.Pi];
     public static bool IsBuiltIn(ProviderId id) => AutomaticSources.Contains(id);
@@ -44,6 +45,7 @@ public static class ProviderCatalog
             "The OpenCode Go allowance of the workspace OpenCode signed in to OpenCode Console with; the sign-in is never renewed"),
         ProviderId.OpenCodeGo => Loc.T("API 密钥所属工作区的 OpenCode Go 额度", "The OpenCode Go allowance of the workspace the API key belongs to"),
         ProviderId.OpenRouter => Loc.T("API 密钥所属账户的余额，以及这个密钥的限额与消费", "The balance of the account the API key belongs to, and the limit and spending of this key"),
+        ProviderId.Credits => Loc.T("填写当前积分余额；填了总积分后会显示已用比例", "Enter the remaining credits; a total is optional and gives a used share"),
         _ => ""
     };
     public static string QuotaTip(ProviderId id) => Loc.T("配额来源：", "Quota source: ") + Name(id) + (QuotaDescription(id) is { Length: > 0 } text ? "\n" + text : "");
@@ -51,12 +53,12 @@ public static class ProviderCatalog
     public static string Group(ProviderId id) => IsBuiltIn(id) ? Loc.T("自动读取", "Read automatically") : Loc.T("手动填写", "Entered by hand");
     public static string Name(ProviderId id) => id switch
     {
-        ProviderId.GlmChina => Loc.T("智谱 GLM", "Zhipu GLM"), ProviderId.GlmGlobal => "Z.ai GLM", ProviderId.Dsh => "DeepSeek Harness", ProviderId.GrokBot => "Grok Bot", ProviderId.Kimi => "Kimi Code", ProviderId.KimiApi => "Kimi Code API", ProviderId.OpenCode => "OpenCode", ProviderId.OpenCodeGo => "OpenCode Go", ProviderId.OpenRouter => "OpenRouter", ProviderId.DeepSeek => "DeepSeek", ProviderId.NewApi => "New API", ProviderId.Sub2Api => "Sub2API", ProviderId.Custom => Loc.T("自定义", "Custom"),
+        ProviderId.GlmChina => Loc.T("智谱 GLM", "Zhipu GLM"), ProviderId.GlmGlobal => "Z.ai GLM", ProviderId.Dsh => "DeepSeek Harness", ProviderId.GrokBot => "Grok Bot", ProviderId.Kimi => "Kimi Code", ProviderId.KimiApi => "Kimi Code API", ProviderId.OpenCode => "OpenCode", ProviderId.OpenCodeGo => "OpenCode Go", ProviderId.OpenRouter => "OpenRouter", ProviderId.DeepSeek => "DeepSeek", ProviderId.NewApi => "New API", ProviderId.Sub2Api => "Sub2API", ProviderId.Custom => Loc.T("自定义", "Custom"), ProviderId.Credits => Loc.T("积分余额", "Credits balance"),
         _ => id.ToString()
     };
     public static string Key(ProviderId id) => id switch
     {
-        ProviderId.GlmChina => "glm-cn", ProviderId.GlmGlobal => "glm-global", ProviderId.NewApi => "newapi", ProviderId.Sub2Api => "sub2api", ProviderId.KimiApi => "kimi-api", ProviderId.OpenCodeGo => "opencode-go",
+        ProviderId.Credits => "credits", ProviderId.GlmChina => "glm-cn", ProviderId.GlmGlobal => "glm-global", ProviderId.NewApi => "newapi", ProviderId.Sub2Api => "sub2api", ProviderId.KimiApi => "kimi-api", ProviderId.OpenCodeGo => "opencode-go",
         _ => id.ToString().ToLowerInvariant()
     };
     // Claude and Grok Bot rows each choose between the account API and the record the desktop app keeps on this PC.

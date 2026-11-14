@@ -267,7 +267,8 @@ public sealed class ConfiguredProviders : IDisposable
     }
     public async Task<List<ProviderSnapshot>> RefreshAsync(IEnumerable<AppEntry> entries, CancellationToken ct)
     {
-        var configurations = entries.Where(e => !ProviderCatalog.IsBuiltIn(e.QuotaSource)).Select(e => (Entry: e.Copy(), Secret: ReadSecret(e))).ToList();
+        // Credits rows hold a balance entered by hand; they make no request and need no secret.
+        var configurations = entries.Where(e => !ProviderCatalog.IsBuiltIn(e.QuotaSource) && e.QuotaSource != ProviderId.Credits).Select(e => (Entry: e.Copy(), Secret: ReadSecret(e))).ToList();
         var groups = configurations.GroupBy(p => ProviderCatalog.RequestKey(p.Entry, p.Secret)).ToList();
         // State kept for a site or key that is no longer configured is dropped, so edits do not accumulate it.
         var current = groups.Select(g => g.Key).ToHashSet();

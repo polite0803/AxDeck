@@ -88,12 +88,12 @@ internal static class DashboardUsageTests
         var normalized = new[] { 0m, -5m, 0.001m, 12.345m, 2_000_000_000m }.Select(value => { var row = new AppEntry { QuotaSource = ProviderId.DeepSeek, BalanceTarget = value }; row.Normalize(); return row.BalanceTarget; }).ToList();
         check("Target balances keep positive amounts to the cent", normalized.SequenceEqual([null, null, null, 12.35m, null]));
 
-        var oversized = new DeckSettings { Apps = Enumerable.Range(1, 9).Select(i => new AppEntry
+        var oversized = new DeckSettings { Apps = Enumerable.Range(1, 15).Select(i => new AppEntry
             { QuotaSource = ProviderId.Claude, UsageSource = ProviderId.Claude, DisplayName = "应用 " + i, Enabled = i != 1 }).ToList() };
-        var retained = oversized.Apps.Take(7).Select(a => a.InstanceId).ToArray();
+        var retained = oversized.Apps.Take(AppPresets.MaximumApps).Select(a => a.InstanceId).ToArray();
         oversized.Normalize();
-        check("Application configuration is limited to seven rows including hidden rows", oversized.Apps.Count == 7 && oversized.EnabledApps.Count == 6);
-        check("Oversized configurations preserve the first seven identities and their order", oversized.Apps.Select(a => a.InstanceId).SequenceEqual(retained));
+        check("Application configuration is limited to the library maximum including hidden rows", oversized.Apps.Count == AppPresets.MaximumApps && oversized.EnabledApps.Count == AppPresets.MaximumApps - 1);
+        check("Oversized configurations preserve the first identities and their order", oversized.Apps.Select(a => a.InstanceId).SequenceEqual(retained));
 
         var directory = Path.Combine(root, "source-requests");
         var locations = DataLocations.Resolve(Path.Combine(directory, "home"), Path.Combine(directory, "roaming"), Path.Combine(directory, "local"), null, null);

@@ -210,6 +210,56 @@ public sealed partial class SettingsWindow
             return box;
         }
 
+        // Credits rows need no site, key, script or connection test: the balance is entered here and shown at once.
+        if (entry.QuotaSource == ProviderId.Credits)
+        {
+            static string Format(decimal? value) => value?.ToString("0.##", CultureInfo.InvariantCulture) ?? "";
+            var balanceBox = Plain("credits-balance", Loc.T("当前积分", "Credits left"));
+            var totalBox = Plain("credits-total", Loc.T("总积分", "Total credits"));
+            var unitBox = Plain("credits-unit", Loc.T("单位", "Unit"));
+            balanceBox.Text = Format(entry.CreditBalance); totalBox.Text = Format(entry.CreditTotal); unitBox.Text = entry.CreditUnit;
+            var balanceHint = TextLine(Loc.T("剩余积分余额", "Remaining credits"), 12.5, TextTertiary);
+            var totalHint = TextLine(Loc.T("填写后显示已用比例", "Gives a used share"), 12.5, TextTertiary);
+            var unitHint = TextLine(Loc.T("例如：积分、点、Credits", "e.g. credits, points"), 12.5, TextTertiary);
+            void ToggleHint(TextBox box, TextBlock hint) => hint.Visibility = box.Text.Length == 0 ? Visibility.Visible : Visibility.Collapsed;
+            foreach (var (box, hint) in new[] { (balanceBox, balanceHint), (totalBox, totalHint), (unitBox, unitHint) })
+            {
+                box.TextChanged += (_, _) => ToggleHint(box, hint);
+                ToggleHint(box, hint);
+            }
+            void CommitCredits()
+            {
+                if (S.Entry(entry.InstanceId) is not { } current) return;
+                decimal? Parse(TextBox box, bool allowZero)
+                {
+                    var text = box.Text.Trim();
+                    if (text.Length == 0) return null;
+                    if (!decimal.TryParse(text, NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture, out var value)
+                        || value < 0 || (!allowZero && value == 0) || value > AppPresets.MaximumBalanceTarget)
+                    { SaveStatus(Loc.T("积分必须是 0 到 1,000,000,000 之间的数字。", "Credits must be a number between 0 and 1,000,000,000."), true); return null; }
+                    return decimal.Round(value, 2, MidpointRounding.AwayFromZero);
+                }
+                var balance = Parse(balanceBox, true); var total = Parse(totalBox, false);
+                var unit = unitBox.Text.Trim(); if (unit.Length > 12) unit = unit[..12];
+                if (balance != current.CreditBalance || total != current.CreditTotal || unit != current.CreditUnit)
+                    Change(s =>
+                    {
+                        var changed = s.Entry(entry.InstanceId)!;
+                        changed.CreditBalance = balance; changed.CreditTotal = total; changed.CreditUnit = unit;
+                    });
+                balanceBox.Text = Format(balance); totalBox.Text = Format(total); unitBox.Text = unit;
+            }
+            foreach (var box in new[] { balanceBox, totalBox, unitBox })
+            {
+                box.LostKeyboardFocus += (_, _) => CommitCredits();
+                box.KeyDown += (_, e) => { if (e.Key == Key.Enter) { CommitCredits(); e.Handled = true; } };
+            }
+            Line(Loc.T("当前积分", "Credits left"), Field(balanceBox, balanceHint));
+            Line(Loc.T("总积分（可选）", "Total credits (optional)"), Field(totalBox, totalHint));
+            Line(Loc.T("单位（可选）", "Unit (optional)"), Field(unitBox, unitHint));
+            return grid;
+        }
+
         if (ProviderCatalog.NeedsSite(entry.QuotaSource))
         {
             bool custom = entry.QuotaSource == ProviderId.Custom;

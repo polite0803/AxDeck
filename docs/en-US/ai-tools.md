@@ -27,8 +27,17 @@ The same tool can appear in several columns. It is read only once, and totals ar
 | OpenRouter | ✓ | | Enter an OpenRouter API key in settings |
 | New API, Sub2API relay sites | ✓ | | Enter the site address and key in settings |
 | Custom | ✓ | | Write a short JavaScript script |
+| Credits balance (entered by hand) | ✓ | | Expand the row and enter the credits left; a total and a unit are optional |
 
 Sources you enter by hand and Grok Bot have no local usage records; choose another tool as the usage app for Today and Week.
+
+## Agent library and credits balance
+
+**Settings › Quotas and usage › Add app** now opens an agent library grouped into **Domestic products / International products**. Domestic entries include WorkBuddy, Trae, Qoder, Tongyi Lingma, Comate, CodeBuddy, CodeGeeX, MarsCode, Qwen Code, Fitten Code, MiniMax, SiliconFlow, Alibaba Bailian and Volcengine Ark; international entries include GitHub Copilot, Gemini CLI, Windsurf, Cline, Roo Code, Aider, Kiro / Amazon Q, Augment Code, Tabnine and Grok Build. Products AxDeck already reads automatically (Claude Code, Codex, Cursor, Antigravity, Kimi Code, Zhipu GLM, DeepSeek, ZCode, OpenCode, OpenRouter) are in the library too. A picked product brings its name and theme color; up to **12 columns** can be configured.
+
+- **Sources stay editable**: products without a public quota API default to the **Credits balance** source. The column's quota source can be changed to any other source at any time, including **Custom** with a short JavaScript reader.
+- **Credits balance**: expand the row and enter **Credits left**. Entering **Total credits** also draws a used share, (total − left) / total, which the quota rings, bars, warning colors and notices follow. **Unit** is optional, for example "credits", "points" or "Credits". These values are kept in local settings and **make no network requests**; update them by hand when the balance changes.
+- **Fully customizable**: every column can be renamed, recolored, pointed at another usage app, hidden or reordered by dragging. **Custom app** starts from a blank column. Library entries are only templates used when adding a column; they never overwrite existing settings.
 
 ## Cost estimates
 

@@ -27,8 +27,17 @@ AI 用量页的每一列可以在"设置 › 配额与统计"中分别配置：
 | OpenRouter | ✓ | | 在设置中填写 OpenRouter API 密钥 |
 | New API、Sub2API 中转站 | ✓ | | 在设置中填写站点地址和密钥 |
 | 自定义 | ✓ | | 编写一段 JavaScript 脚本 |
+| 积分余额（手动填写） | ✓ | | 展开该行填写当前积分，可选填总积分与单位 |
 
 手动填写的来源与 Grok Bot 没有本地用量记录，"今日"和"七日"可以另选一个工具统计。
+
+## 智能体软件库与积分余额
+
+「设置 › 配额与统计 › 添加应用」现在打开一个按**国内产品 / 国外产品**分组的智能体软件库：国内有 WorkBuddy、Trae、Qoder、通义灵码、文心快码 Comate、CodeBuddy、CodeGeeX、豆包 MarsCode、Qwen Code、Fitten Code、MiniMax、硅基流动、阿里云百炼、火山方舟等，国外有 GitHub Copilot、Gemini CLI、Windsurf、Cline、Roo Code、Aider、Kiro / Amazon Q、Augment Code、Tabnine、Grok Build 等；已有自动读取能力的 Claude Code、Codex、Cursor、Antigravity、Kimi Code、智谱 GLM、DeepSeek、ZCode、OpenCode、OpenRouter 同样在库中。选中后自动带出名称与主题色，最多可配置 **12 列**。
+
+- **来源可换**：没有公开额度接口的产品默认使用「积分余额」来源。随时可以把这一列的配额来源改成任何其他来源，或改为「自定义」写一段 JavaScript 脚本读取。
+- **积分余额**：展开该行填写「当前积分」；填了「总积分」后会按 (总积分 − 当前积分) / 总积分 显示已用比例，配额环、进度条、预警颜色与提醒同样按它计算。单位可选，例如「积分」「点」「Credits」。这些数值保存在本机设置中，**不会发起任何网络请求**；积分变化时手动更新即可。
+- **完全自定义**：每一列都能改名、改颜色、改统计应用、启停和拖拽排序；也可以选「自定义应用」从空白列开始。库里的产品只是添加时的模板，不影响已有设置。
 
 ## 费用估算
 

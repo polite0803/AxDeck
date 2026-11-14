@@ -40,7 +40,7 @@ public sealed record IgnoredMediaApp(string AppId = "", string Name = "", string
 // local records; OpenCodeGo reads the same allowance with an OpenCode Console API key entered by hand.
 // Statistics sources are saved as numbers. 8 and 9 were a short-lived split of Claude and are retired:
 // SettingsMigrations maps them back to Claude, and later members keep their saved numbers.
-public enum ProviderId { Claude, Codex, Antigravity, Cursor, GlmChina, NewApi, Sub2Api, Custom, ZCode = 10, GlmGlobal = 11, Dsh = 12, DeepSeek = 13, GrokBot = 14, Kimi = 15, KimiApi = 16, OpenCode = 17, OpenCodeGo = 18, OpenRouter = 19, Pi = 20 }
+public enum ProviderId { Claude, Codex, Antigravity, Cursor, GlmChina, NewApi, Sub2Api, Custom, ZCode = 10, GlmGlobal = 11, Dsh = 12, DeepSeek = 13, GrokBot = 14, Kimi = 15, KimiApi = 16, OpenCode = 17, OpenCodeGo = 18, OpenRouter = 19, Pi = 20, Credits = 21 }
 public enum SettingsTheme { System, Light, Dark }
 // Pages are saved as numbers, so new members go at the end; their order in the page switch is DeckSettings.PageOrder.
 public enum DeckPage { Usage, Music, Monitor, Clipboard, Devices }
@@ -132,6 +132,12 @@ public sealed class AppEntry
     [JsonIgnore] public ProviderId Id { get => QuotaSource; set => QuotaSource = value; }
     // Empty means the automatically supplied quota-source name.
     public string DisplayName { get; set; } = "";
+    // The product-library preset this column came from; empty for older or hand-added columns.
+    public string AgentKey { get; set; } = "";
+    // Credits shown for products without a quota API. Total is optional; without it only the amount is shown.
+    public decimal? CreditBalance { get; set; }
+    public decimal? CreditTotal { get; set; }
+    public string CreditUnit { get; set; } = "";
     [JsonIgnore] public string Name => string.IsNullOrWhiteSpace(DisplayName) ? AppPresets.Name(QuotaSource) : DisplayName;
     public bool Enabled { get; set; } = true;
     public string ThemeColor { get; set; } = "";
@@ -199,6 +205,12 @@ public sealed class AppEntry
         SingleRingQuota = (SingleRingQuota ?? "").Trim();
         if (SingleRingQuota.Length > 500) SingleRingQuota = "";
         RingQuotas = QuotaRing.Slots(RingQuotas);
+        AgentKey = (AgentKey ?? "").Trim();
+        if (AgentKey.Length > 64) AgentKey = "";
+        CreditUnit = (CreditUnit ?? "").Trim();
+        if (CreditUnit.Length > 12) CreditUnit = CreditUnit[..12];
+        CreditBalance = CreditBalance is >= 0 and <= AppPresets.MaximumBalanceTarget ? decimal.Round(CreditBalance.Value, 2, MidpointRounding.AwayFromZero) : null;
+        CreditTotal = CreditTotal is > 0 and <= AppPresets.MaximumBalanceTarget ? decimal.Round(CreditTotal.Value, 2, MidpointRounding.AwayFromZero) : null;
         QuotaTargets = (QuotaTargets ?? []).Where(pair => pair.Key.Length is > 0 and <= 500 && pair.Value > 0 && pair.Value <= AppPresets.MaximumBalanceTarget).Take(32)
             .ToDictionary(pair => pair.Key, pair => decimal.Round(pair.Value, 2, MidpointRounding.AwayFromZero));
     }
@@ -234,7 +246,8 @@ public sealed class OffPeakPeriod
 
 public static class AppPresets
 {
-    public const int MaximumApps = 7;
+    // The product library can hold more columns; the panel pages them by width.
+    public const int MaximumApps = 12;
     // A long list would be hard to review, and the exceptions are meant for a few shell-level apps.
     public const int MaximumFullscreenExceptions = 32;
     public const int MaximumIgnoredMediaApps = 32;
@@ -253,7 +266,7 @@ public static class AppPresets
     // The original preset colors: coral for Claude, mint for Codex, periwinkle for Antigravity, light gray for Cursor.
     public static string ThemeColor(ProviderId id) => id switch
     { ProviderId.Claude => "#E5A385", ProviderId.Codex => "#98DBB0", ProviderId.Antigravity => "#9CB9FF", ProviderId.ZCode => "#3A538D", ProviderId.Dsh => "#6081DA", ProviderId.Kimi => "#68CDEB", ProviderId.OpenCode => "#8E8E93",
-      ProviderId.GlmChina or ProviderId.GlmGlobal or ProviderId.DeepSeek or ProviderId.KimiApi or ProviderId.OpenCodeGo or ProviderId.OpenRouter or ProviderId.NewApi or ProviderId.Sub2Api or ProviderId.Custom => ManualColor, _ => "#D4D5DF" };
+      ProviderId.GlmChina or ProviderId.GlmGlobal or ProviderId.DeepSeek or ProviderId.KimiApi or ProviderId.OpenCodeGo or ProviderId.OpenRouter or ProviderId.NewApi or ProviderId.Sub2Api or ProviderId.Custom or ProviderId.Credits => ManualColor, _ => "#D4D5DF" };
     // Sources entered by hand share one purple by default.
     public const string ManualColor = "#CC9EED";
     public static int Level(double usedPercent) => usedPercent >= CriticalPercent ? 2 : usedPercent >= WarningPercent ? 1 : 0;
