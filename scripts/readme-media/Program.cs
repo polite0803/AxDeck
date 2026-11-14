@@ -340,7 +340,7 @@ internal sealed class Renderer(App app, string output, string language, string[]
         data.Clips.AddRange(
         [
             Clip(ClipKind.Text, Loc.T("周三上午十点评审 1.3.0 的更新说明", "Review the 1.3.0 release notes on Wednesday at 10"), 1, "notepad", work.Id),
-            Clip(ClipKind.Link, "https://github.com/OWNER/AxDeck/releases", 4, "chrome"),
+            Clip(ClipKind.Link, "https://github.com/polite0803/AxDeck/releases", 4, "chrome"),
             Clip(ClipKind.Code, "var total = entries.Sum(entry => entry.Tokens);\nvar average = total / 7;\nreturn average;", 6, "Code", code.Id),
             picture,
             Clip(ClipKind.Color, "#9CB9FF", 15, "Code"),

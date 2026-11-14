@@ -7,8 +7,7 @@ namespace AxDeck.Updates;
 
 internal static class GitHubUpdates
 {
-    // TODO: replace OWNER with the GitHub account that hosts AxDeck releases before enabling in-app updates.
-    public const string RepositoryUrl = "https://github.com/OWNER/AxDeck";
+    public const string RepositoryUrl = "https://github.com/polite0803/AxDeck";
     // Must match AppId in installer/AxDeck.iss. Inno Setup registers the uninstall entry as "<AppId>_is1".
     public const string InstallerAppId = "{CD0C54FB-5EF0-4444-B123-B72D58D4B749}";
     public static string BuildVersion => ApplicationVersion.Current;

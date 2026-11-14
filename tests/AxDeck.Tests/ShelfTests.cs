@@ -7,7 +7,7 @@ internal static class ShelfTests
     internal static void Run(Action<string, bool> check)
     {
         check("Shelf kinds: a single web address is a link, other text is not",
-            Shelf.Classify("https://github.com/OWNER/AxDeck/pull/175") == ClipKind.Link && Shelf.Classify("see https://example.com") == ClipKind.Text
+            Shelf.Classify("https://github.com/polite0803/AxDeck/pull/175") == ClipKind.Link && Shelf.Classify("see https://example.com") == ClipKind.Text
             && Shelf.Classify("ftp://example.com/file") != ClipKind.Link);
         check("Shelf kinds: colors in hex and rgb() are colors",
             Shelf.Classify("#0A84FF") == ClipKind.Color && Shelf.Classify("#fff") == ClipKind.Color && Shelf.Classify("rgb(10, 132, 255)") == ClipKind.Color

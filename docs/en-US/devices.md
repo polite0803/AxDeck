@@ -27,7 +27,7 @@ HID devices that carry the standard battery report are shown too.
 | Controllers | Xbox, PlayStation, Steam Controller |
 
 - Only known models of each brand are supported; other models of the same brand may not report a battery.
-- Some models are implemented from public protocol documentation and have not been checked on real hardware. If a battery does not show or reads wrong, please report the model in [Issues](https://github.com/OWNER/AxDeck/issues).
+- Some models are implemented from public protocol documentation and have not been checked on real hardware. If a battery does not show or reads wrong, please report the model in [Issues](https://github.com/polite0803/AxDeck/issues).
 - While a device sleeps or is out of range, the last charge its receiver recorded is shown.
 
 ## Display and settings

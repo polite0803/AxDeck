@@ -27,7 +27,7 @@ AxDeck 只读取电量：不会配对、断开或改动任何设备与 Windows �
 | 手柄 | Xbox、PlayStation、Steam Controller |
 
 - 每个品牌只支持已知的型号，同一品牌的其他型号不一定能读到电量。
-- 部分型号按公开的协议资料实现，尚未在实物上验证。读不到电量或读数不正确时，欢迎在 [Issues](https://github.com/OWNER/AxDeck/issues) 中反馈设备型号。
+- 部分型号按公开的协议资料实现，尚未在实物上验证。读不到电量或读数不正确时，欢迎在 [Issues](https://github.com/polite0803/AxDeck/issues) 中反馈设备型号。
 - 设备休眠或超出接收范围时，显示接收器记录的上一次电量。
 
 ## 显示与设置

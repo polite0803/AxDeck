@@ -11,8 +11,8 @@ AxDeck is a Dynamic Island for Windows 11 that brings your AI coding tool quotas
 It stays collapsed at the top of the screen and opens only when you need it.<br>
 A native Windows app built with C# and WPF, designed for performance and smoothness.
 
-[![Download](https://img.shields.io/badge/Download-Windows%2011%20x64-9CB9FF?style=flat-square)](https://github.com/OWNER/AxDeck/releases/latest)
-[![Latest release](https://img.shields.io/github/v/release/OWNER/AxDeck?style=flat-square&label=Latest&color=98DBB0)](https://github.com/OWNER/AxDeck/releases/latest)
+[![Download](https://img.shields.io/badge/Download-Windows%2011%20x64-9CB9FF?style=flat-square)](https://github.com/polite0803/AxDeck/releases/latest)
+[![Latest release](https://img.shields.io/github/v/release/polite0803/AxDeck?style=flat-square&label=Latest&color=98DBB0)](https://github.com/polite0803/AxDeck/releases/latest)
 [![License](https://img.shields.io/badge/License-Apache%202.0-E5A385?style=flat-square)](LICENSE)
 ![Interface languages](https://img.shields.io/badge/Interface-English%20%7C%20%E7%AE%80%E4%BD%93%E4%B8%AD%E6%96%87-B9A8FF?style=flat-square)
 
@@ -153,7 +153,7 @@ For how to use it and its settings, see [Clipboard and file transfer](docs/en-US
 
 Requires Windows 11 (x64). Windows 10 (version 2004 or later) has limited support.
 
-1. Download one of these files from [Releases](https://github.com/OWNER/AxDeck/releases/latest):
+1. Download one of these files from [Releases](https://github.com/polite0803/AxDeck/releases/latest):
    - Installer: `AxDeck-<version>-Setup.exe`. Run it and follow the steps.
    - Portable: `AxDeck-<version>-Portable-x64.zip`. Extract it and run `AxDeck.exe` in the `AxDeck` folder.
 2. If Windows shows "Windows protected your PC", select "More info", then "Run anyway".
@@ -198,16 +198,16 @@ No. Costs come from the amounts reported by each service or from public model pr
 On many PCs Windows does not provide either. Turn on enhanced sensors under Settings › Enhanced sensors, or run HWiNFO or LibreHardwareMonitor alongside. See [Enhanced sensors](docs/en-US/enhanced-sensors.md).
 
 **My mouse, keyboard or headset shows no battery. Why?**
-The device has to be connected and be one of the connections or models listed in [Supported devices](docs/en-US/devices.md). For a device that is not listed, you are welcome to report its model in [Issues](https://github.com/OWNER/AxDeck/issues).
+The device has to be connected and be one of the connections or models listed in [Supported devices](docs/en-US/devices.md). For a device that is not listed, you are welcome to report its model in [Issues](https://github.com/polite0803/AxDeck/issues).
 
 ## Contributing
 
-You are welcome to report problems, suggest features or ask for more tools, players and devices in [Issues](https://github.com/OWNER/AxDeck/issues), and to contribute through pull requests.
+You are welcome to report problems, suggest features or ask for more tools, players and devices in [Issues](https://github.com/polite0803/AxDeck/issues), and to contribute through pull requests.
 
 - Do not open pull requests against `main`:
   - Open new features and general fixes against the `dev` branch.
   - When a version enters testing, it gets a `release/<version>` branch (for example `release/1.3.0`). Open fixes for that version against that branch. It accepts fixes only, not new features.
-- Upcoming work is listed in the [AxDeck roadmap](https://github.com/OWNER/AxDeck/discussions/57). Suggest features under that post, and reply there when you want to take on one of its items. Other topics are welcome in [Discussions](https://github.com/OWNER/AxDeck/discussions).
+- Upcoming work is listed in the [AxDeck roadmap](https://github.com/polite0803/AxDeck/discussions/57). Suggest features under that post, and reply there when you want to take on one of its items. Other topics are welcome in [Discussions](https://github.com/polite0803/AxDeck/discussions).
 
 ## License
 

@@ -11,8 +11,8 @@ AxDeck 是 Windows 11 上的灵动岛，在屏幕顶部集中显示 AI 编程工
 平时收起在屏幕顶部，只在需要时展开。<br>
 Windows 原生应用，使用 C# 与 WPF 开发，注重性能与流畅度。
 
-[![下载](https://img.shields.io/badge/下载-Windows%2011%20x64-9CB9FF?style=flat-square)](https://github.com/OWNER/AxDeck/releases/latest)
-[![最新版本](https://img.shields.io/github/v/release/OWNER/AxDeck?style=flat-square&label=%E6%9C%80%E6%96%B0%E7%89%88%E6%9C%AC&color=98DBB0)](https://github.com/OWNER/AxDeck/releases/latest)
+[![下载](https://img.shields.io/badge/下载-Windows%2011%20x64-9CB9FF?style=flat-square)](https://github.com/polite0803/AxDeck/releases/latest)
+[![最新版本](https://img.shields.io/github/v/release/polite0803/AxDeck?style=flat-square&label=%E6%9C%80%E6%96%B0%E7%89%88%E6%9C%AC&color=98DBB0)](https://github.com/polite0803/AxDeck/releases/latest)
 [![许可证](https://img.shields.io/badge/许可证-Apache%202.0-E5A385?style=flat-square)](LICENSE)
 ![界面语言](https://img.shields.io/badge/界面-简体中文%20%7C%20English-B9A8FF?style=flat-square)
 
@@ -153,7 +153,7 @@ AxDeck 平时位于屏幕顶部中央，提供刘海（默认）、胶囊和指�
 
 需要 Windows 11（x64）。对 Windows 10（2004 及以上版本）提供有限支持。
 
-1. 从 [Releases](https://github.com/OWNER/AxDeck/releases/latest) 下载以下任一文件：
+1. 从 [Releases](https://github.com/polite0803/AxDeck/releases/latest) 下载以下任一文件：
    - 安装版：`AxDeck-<版本>-Setup.exe`，运行后按提示安装。
    - 免安装版：`AxDeck-<版本>-Portable-x64.zip`，解压后运行 `AxDeck` 文件夹中的 `AxDeck.exe`。
 2. 如出现“Windows 已保护你的电脑”提示，点击“更多信息”→“仍要运行”。
@@ -198,16 +198,16 @@ AxDeck 平时位于屏幕顶部中央，提供刘海（默认）、胶囊和指�
 很多电脑的 Windows 不提供这两项数据。可以在“设置 › 增强传感器”中启用增强传感器，或同时运行 HWiNFO、LibreHardwareMonitor，详见[增强传感器](docs/zh-CN/enhanced-sensors.md)。
 
 **我的鼠标、键盘或耳机没有显示电量？**
-设备需要处于连接状态，并且属于[设备电量支持](docs/zh-CN/devices.md)中列出的连接方式或型号。没有列出的设备，欢迎在 [Issues](https://github.com/OWNER/AxDeck/issues) 中反馈型号。
+设备需要处于连接状态，并且属于[设备电量支持](docs/zh-CN/devices.md)中列出的连接方式或型号。没有列出的设备，欢迎在 [Issues](https://github.com/polite0803/AxDeck/issues) 中反馈型号。
 
 ## 参与开发
 
-欢迎通过 [Issues](https://github.com/OWNER/AxDeck/issues) 反馈问题、提出功能建议，或申请适配更多工具、播放器与设备，也欢迎提交 Pull Request 参与开发。
+欢迎通过 [Issues](https://github.com/polite0803/AxDeck/issues) 反馈问题、提出功能建议，或申请适配更多工具、播放器与设备，也欢迎提交 Pull Request 参与开发。
 
 - Pull Request 不要直接合入 `main`：
   - 新功能和一般修复以 `dev` 分支为目标。
   - 某个版本进入测试阶段后，会有对应的 `release/<版本>` 分支（例如 `release/1.3.0`）。针对这个版本的问题修复以该分支为目标；该分支只接受问题修复，不接受新功能。
-- 后续规划见 [AxDeck 路线图](https://github.com/OWNER/AxDeck/discussions/57)。功能建议可以在帖子下讨论，想认领其中某项功能时，也可以直接在帖子下留言。其他话题可以在 [Discussions](https://github.com/OWNER/AxDeck/discussions) 中讨论。
+- 后续规划见 [AxDeck 路线图](https://github.com/polite0803/AxDeck/discussions/57)。功能建议可以在帖子下讨论，想认领其中某项功能时，也可以直接在帖子下留言。其他话题可以在 [Discussions](https://github.com/polite0803/AxDeck/discussions) 中讨论。
 
 ## 许可证
 
