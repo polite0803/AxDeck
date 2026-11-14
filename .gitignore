@@ -1,0 +1,44 @@
+# .NET build output
+[Bb]in/
+[Oo]bj/
+artifacts/
+.artifacts/
+
+# Local environment variables
+.env
+.env.*
+*.env
+!.env.example
+!.env.*.example
+
+# Logs
+*.log
+*.binlog
+[Ll]og/
+[Ll]ogs/
+
+# Editor local history and settings
+.history/
+.localhistory/
+.vscode/
+
+# Operating system temporary files
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Local AI assistant instructions and configuration
+CLAUDE.md
+AGENTS.md
+.claude/
+.agents/
+.codex/
+
+# Local design drafts
+output/
+
+# Local development notes: architecture, design decisions, plans, release steps
+dev-docs/
+
+# Local AI assistant workspace memory (not part of the source tree)
+.workbuddy/
