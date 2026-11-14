@@ -51,6 +51,47 @@ public sealed class DesktopSources : IDesktopSources
         }
     }
 
+    // Some applications keep a quota snapshot in an encrypted safeStorage value: a VS Code-style secret is either a
+    // "cursor-safe-storage:v1:" prefix followed by base64, or Electron's {"type":"Buffer","data":[…]} JSON. Both start
+    // with "v10", a 12-byte nonce, the AES-256-GCM ciphertext and a 16-byte tag. Only the decrypted text is returned;
+    // the key and plaintext are cleared, and nothing is written back to the application's data.
+    public string? DecryptSecret(string localState, string value)
+    {
+        byte[]? data = null;
+        try
+        {
+            const string prefix = "cursor-safe-storage:v1:";
+            if (value.StartsWith(prefix, StringComparison.Ordinal)) data = Convert.FromBase64String(value[prefix.Length..]);
+            else if (value.AsSpan().TrimStart().Length > 0 && value.AsSpan().TrimStart()[0] == '{')
+            {
+                using var doc = System.Text.Json.JsonDocument.Parse(value);
+                var buffer = doc.RootElement.Get("data");
+                if (string.Equals(doc.RootElement.Get("type").Text(), "Buffer", StringComparison.OrdinalIgnoreCase)
+                    && buffer.ValueKind == System.Text.Json.JsonValueKind.Array)
+                    data = [.. buffer.EnumerateArray().Where(item => item.ValueKind == System.Text.Json.JsonValueKind.Number)
+                        .Select(item => (byte)item.GetInt32())];
+            }
+            if (data is null || data.Length < 31 || !data.AsSpan().StartsWith("v10"u8)) return null;
+            byte[]? key = null, plain = null;
+            try
+            {
+                key = ChromiumSecrets.Key(localState);
+                plain = new byte[data.Length - 31];
+                using var aes = new AesGcm(key, 16);
+                aes.Decrypt(data.AsSpan(3, 12), data.AsSpan(15, plain.Length), data.AsSpan(data.Length - 16, 16), plain);
+                return System.Text.Encoding.UTF8.GetString(plain).Trim();
+            }
+            finally
+            {
+                if (key is not null) CryptographicOperations.ZeroMemory(key);
+                if (plain is not null) CryptographicOperations.ZeroMemory(plain);
+            }
+        }
+        catch (Exception ex) when (ex is CryptographicException or FormatException or System.Text.Json.JsonException
+            or IOException or UnauthorizedAccessException or ArgumentException or InvalidOperationException or OverflowException)
+        { return null; }
+    }
+
     public IReadOnlyList<string?[]>? QueryDatabase(string database, string sql)
     {
         if (!File.Exists(database)) return null;

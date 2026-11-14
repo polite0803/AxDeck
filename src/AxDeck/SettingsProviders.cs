@@ -172,6 +172,9 @@ public sealed partial class SettingsWindow
         var result = new StackPanel { Visibility = Visibility.Collapsed, Margin = new Thickness(6, 4, 6, 4) };
         Func<bool> commitSite = () => true;
         Action commitScript = () => { };
+        bool local = ProviderCatalog.IsLocalApp(entry.QuotaSource);
+        string testLabel = local ? Loc.T("重新读取", "Read again") : Loc.T("测试连接", "Test connection");
+        TextBlock? localStatus = null;
         void InvalidateTest() { result.Visibility = Visibility.Collapsed; _sourceTestCancellation?.Cancel(); }
         TextBlock? Line(string label, FrameworkElement control, int span = 5)
         {
@@ -210,57 +213,40 @@ public sealed partial class SettingsWindow
             return box;
         }
 
-        // Credits rows need no site, key, script or connection test: the balance is entered here and shown at once.
-        if (entry.QuotaSource == ProviderId.Credits)
+        // Local-app rows read the application's own quota record. There is nothing to type in: the status line shows
+        // exactly what the last automatic read found, and the optional path only says where to look.
+        if (local)
         {
-            static string Format(decimal? value) => value?.ToString("0.##", CultureInfo.InvariantCulture) ?? "";
-            var balanceBox = Plain("credits-balance", Loc.T("当前积分", "Credits left"));
-            var totalBox = Plain("credits-total", Loc.T("总积分", "Total credits"));
-            var unitBox = Plain("credits-unit", Loc.T("单位", "Unit"));
-            balanceBox.Text = Format(entry.CreditBalance); totalBox.Text = Format(entry.CreditTotal); unitBox.Text = entry.CreditUnit;
-            var balanceHint = TextLine(Loc.T("剩余积分余额", "Remaining credits"), 12.5, TextTertiary);
-            var totalHint = TextLine(Loc.T("填写后显示已用比例", "Gives a used share"), 12.5, TextTertiary);
-            var unitHint = TextLine(Loc.T("例如：积分、点、Credits", "e.g. credits, points"), 12.5, TextTertiary);
-            void ToggleHint(TextBox box, TextBlock hint) => hint.Visibility = box.Text.Length == 0 ? Visibility.Visible : Visibility.Collapsed;
-            foreach (var (box, hint) in new[] { (balanceBox, balanceHint), (totalBox, totalHint), (unitBox, unitHint) })
-            {
-                box.TextChanged += (_, _) => ToggleHint(box, hint);
-                ToggleHint(box, hint);
-            }
-            void CommitCredits()
+            var reading = DashboardUsage.Quota(entry, _app.Deck.Snapshots);
+            localStatus = TextLine(reading.StatusLabel + (reading.Status != reading.StatusLabel ? Loc.T(" · ", " · ") + reading.Status : ""), 12, TextSecondary);
+            localStatus.TextWrapping = TextWrapping.Wrap;
+            Line(Loc.T("读取状态", "Read state"), localStatus);
+
+            var pathBox = Plain("local-data-path", Loc.T("本地数据文件（可选）", "Local data file (optional)"));
+            pathBox.MaxLength = 260; pathBox.Text = entry.LocalDataPath;
+            var pathHint = TextLine(Loc.T("留空则自动查找该应用在本机的状态库；也可填 JSON / state.vscdb 的完整路径或通配符",
+                "Blank looks in the app's own state database; or give a full path (or wildcard) to a JSON / state.vscdb file"), 12.5, TextTertiary);
+            void TogglePathHint() => pathHint.Visibility = pathBox.Text.Length == 0 ? Visibility.Visible : Visibility.Collapsed;
+            pathBox.TextChanged += (_, _) => { TogglePathHint(); InvalidateTest(); };
+            TogglePathHint();
+            void CommitPath()
             {
                 if (S.Entry(entry.InstanceId) is not { } current) return;
-                decimal? Parse(TextBox box, bool allowZero)
-                {
-                    var text = box.Text.Trim();
-                    if (text.Length == 0) return null;
-                    if (!decimal.TryParse(text, NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture, out var value)
-                        || value < 0 || (!allowZero && value == 0) || value > AppPresets.MaximumBalanceTarget)
-                    { SaveStatus(Loc.T("积分必须是 0 到 1,000,000,000 之间的数字。", "Credits must be a number between 0 and 1,000,000,000."), true); return null; }
-                    return decimal.Round(value, 2, MidpointRounding.AwayFromZero);
-                }
-                var balance = Parse(balanceBox, true); var total = Parse(totalBox, false);
-                var unit = unitBox.Text.Trim(); if (unit.Length > 12) unit = unit[..12];
-                if (balance != current.CreditBalance || total != current.CreditTotal || unit != current.CreditUnit)
-                    Change(s =>
-                    {
-                        var changed = s.Entry(entry.InstanceId)!;
-                        changed.CreditBalance = balance; changed.CreditTotal = total; changed.CreditUnit = unit;
-                    });
-                balanceBox.Text = Format(balance); totalBox.Text = Format(total); unitBox.Text = unit;
+                var value = pathBox.Text.Trim();
+                if (value.Length > 260 || value.Any(char.IsControl)) { SaveStatus(Loc.T("路径最长 260 个字符，且不能包含换行。", "A path is at most 260 characters and cannot contain line breaks."), true); value = ""; }
+                if (value != current.LocalDataPath) Change(s => s.Entry(entry.InstanceId)!.LocalDataPath = value);
+                pathBox.Text = value;
             }
-            foreach (var box in new[] { balanceBox, totalBox, unitBox })
-            {
-                box.LostKeyboardFocus += (_, _) => CommitCredits();
-                box.KeyDown += (_, e) => { if (e.Key == Key.Enter) { CommitCredits(); e.Handled = true; } };
-            }
-            Line(Loc.T("当前积分", "Credits left"), Field(balanceBox, balanceHint));
-            Line(Loc.T("总积分（可选）", "Total credits (optional)"), Field(totalBox, totalHint));
-            Line(Loc.T("单位（可选）", "Unit (optional)"), Field(unitBox, unitHint));
-            return grid;
+            pathBox.LostKeyboardFocus += (_, _) => CommitPath();
+            pathBox.KeyDown += (_, e) => { if (e.Key == Key.Enter) { CommitPath(); e.Handled = true; } };
+            Line(Loc.T("本地数据文件（可选）", "Local data file (optional)"), Field(pathBox, pathHint));
+            var note = TextLine(Loc.T("每次同步自动重读；文件变化时会立即刷新。读不到数据时如实显示状态，不会用估算值填充。",
+                "Reread on every sync and immediately when the file changes. When nothing can be read, the column says so; no estimate is shown."), 11.5, TextTertiary);
+            note.TextWrapping = TextWrapping.Wrap;
+            Line("", note);
         }
 
-        if (ProviderCatalog.NeedsSite(entry.QuotaSource))
+        if (!local && ProviderCatalog.NeedsSite(entry.QuotaSource))
         {
             bool custom = entry.QuotaSource == ProviderId.Custom;
             var site = Plain("site", Loc.T("站点地址", "Site address")); site.Text = entry.Site;
@@ -414,7 +400,7 @@ public sealed partial class SettingsWindow
         }
         password.LostKeyboardFocus += (_, _) => { if (!swapping) SaveSecret(); };
         visible.LostKeyboardFocus += (_, _) => { if (!swapping) SaveSecret(); };
-        Line(entry.QuotaSource == ProviderId.Custom ? Loc.T("API 密钥（可选）", "API key (optional)") : Loc.T("API 密钥", "API key"), Field(inputs, keyHint, reveal));
+        if (!local) Line(entry.QuotaSource == ProviderId.Custom ? Loc.T("API 密钥（可选）", "API key (optional)") : Loc.T("API 密钥", "API key"), Field(inputs, keyHint, reveal));
 
         if (entry.QuotaSource == ProviderId.Custom)
         {
@@ -429,7 +415,7 @@ public sealed partial class SettingsWindow
             frame.Margin = new Thickness(0, 5, 6, 5);
         }
 
-        var test = ActionButton(Loc.T("测试连接", "Test connection"), () => { }); test.Style = (Style)FindResource("SettingsOutlineButton");
+        var test = ActionButton(testLabel, () => { }); test.Style = (Style)FindResource("SettingsOutlineButton");
         test.Height = 34; test.HorizontalAlignment = HorizontalAlignment.Left;
         AutomationProperties.SetAutomationId(test, "test-source-" + entry.InstanceId.ToString("N"));
         test.Click += async (_, _) =>
@@ -441,13 +427,15 @@ public sealed partial class SettingsWindow
             _sourceTestCancellation?.Cancel();
             var cancellation = CancellationTokenSource.CreateLinkedTokenSource(_app.Lifetime.Token); _sourceTestCancellation = cancellation;
             var configuration = current.ConfigurationKey;
-            test.IsEnabled = false; test.Content = Loc.T("正在测试…", "Testing…"); result.Visibility = Visibility.Collapsed;
+            test.IsEnabled = false; test.Content = local ? Loc.T("正在读取…", "Reading…") : Loc.T("正在测试…", "Testing…"); result.Visibility = Visibility.Collapsed;
             try
             {
                 var response = await _app.Usage.TestProviderAsync(current, cancellation.Token);
                 if (cancellation.IsCancellationRequested || S.Entry(entry.InstanceId)?.ConfigurationKey != configuration) return;
                 result.Children.Clear(); result.Visibility = Visibility.Visible;
                 var snapshot = response.Snapshot;
+                if (localStatus is not null)
+                    localStatus.Text = snapshot.StatusLabel + (snapshot.Status != snapshot.StatusLabel ? Loc.T(" · ", " · ") + snapshot.Status : "");
                 result.Children.Add(TextLine(snapshot.StatusLabel + Loc.T($" · {response.Seconds:0.0} 秒", $" · {response.Seconds:0.0} s"), 12, TextPrimary, FontWeights.SemiBold));
                 // The first line already names the state, so only the extra explanation is shown below it.
                 string separator = Loc.T("；", "; ");
@@ -459,7 +447,7 @@ public sealed partial class SettingsWindow
                 if (response.Logs.Count > 0) { var logs = TextLine(string.Join("\n", response.Logs), 11.5, TextSecondary); logs.TextWrapping = TextWrapping.Wrap; result.Children.Add(logs); }
             }
             catch (OperationCanceledException) { }
-            finally { test.Content = Loc.T("测试连接", "Test connection"); test.IsEnabled = true; if (_sourceTestCancellation == cancellation) _sourceTestCancellation = null; cancellation.Dispose(); }
+            finally { test.Content = testLabel; test.IsEnabled = true; if (_sourceTestCancellation == cancellation) _sourceTestCancellation = null; cancellation.Dispose(); }
         };
         Line("", test);
         Line("", result);

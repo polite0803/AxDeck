@@ -267,8 +267,9 @@ public sealed class ConfiguredProviders : IDisposable
     }
     public async Task<List<ProviderSnapshot>> RefreshAsync(IEnumerable<AppEntry> entries, CancellationToken ct)
     {
-        // Credits rows hold a balance entered by hand; they make no request and need no secret.
-        var configurations = entries.Where(e => !ProviderCatalog.IsBuiltIn(e.QuotaSource) && e.QuotaSource != ProviderId.Credits).Select(e => (Entry: e.Copy(), Secret: ReadSecret(e))).ToList();
+        // Local-app rows are read by LocalAgentUsage from the application's own files on this PC. They have no HTTP
+        // session and no secret, so they are excluded here; the refresh cycle still rereads them every time.
+        var configurations = entries.Where(e => !ProviderCatalog.IsBuiltIn(e.QuotaSource) && !ProviderCatalog.IsLocalApp(e.QuotaSource)).Select(e => (Entry: e.Copy(), Secret: ReadSecret(e))).ToList();
         var groups = configurations.GroupBy(p => ProviderCatalog.RequestKey(p.Entry, p.Secret)).ToList();
         // State kept for a site or key that is no longer configured is dropped, so edits do not accumulate it.
         var current = groups.Select(g => g.Key).ToHashSet();

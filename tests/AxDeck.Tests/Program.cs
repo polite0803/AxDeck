@@ -85,6 +85,7 @@ try
     LanguageTests.Run(root, Check);
     await ConfiguredProviderTests.Run(Check);
     await AgentCatalogTests.Run(Check);
+    LocalAgentUsageTests.Run(Check);
     await ZCodeUsageTests.Run(root, Check);
     await DshUsageTests.Run(root, Check);
     await KimiUsageTests.Run(root, Check);

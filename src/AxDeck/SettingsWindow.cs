@@ -861,8 +861,9 @@ public sealed partial class SettingsWindow : Window, IKeepsAppFonts
             header.Margin = new Thickness(10, 4, 10, 3); items.Children.Add(header);
             foreach (var preset in AgentCatalog.In(region))
             {
-                var item = MenuEntry(preset.Name, preset.UsesCredits ? Loc.T("积分", "Credits") : "", true, false);
-                item.ToolTip = preset.Note;
+                var item = MenuEntry(preset.Name, preset.UsesLocalApp ? Loc.T("本机读取", "Local data") : "", true, false);
+                item.ToolTip = preset.Note + (preset.UsesLocalApp ? "\n" + Loc.T("自动读取该应用保存在本机的额度/积分记录；读不到时如实显示状态",
+                    "Rereads the quota/credits record the app keeps on this PC; when it cannot be read, the column says so") : "");
                 item.Click += (_, _) => PopupMotion.AfterClose(() => AddFromLibrary(preset));
                 AutomationProperties.SetName(item, Loc.T("添加 ", "Add ") + preset.Name);
                 items.Children.Add(item);

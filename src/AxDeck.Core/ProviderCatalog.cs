@@ -10,11 +10,12 @@ public static class ProviderCatalog
     public static readonly ProviderId[] BuiltIns = [ProviderId.Claude, ProviderId.Codex, ProviderId.Antigravity, ProviderId.Cursor];
     // Sources read automatically from local applications; only the first four are added to new settings by default.
     public static readonly ProviderId[] AutomaticSources = [.. BuiltIns, ProviderId.GrokBot, ProviderId.ZCode, ProviderId.Dsh, ProviderId.Kimi, ProviderId.OpenCode];
-    // Credits is a column whose balance is entered by hand, for products without a quota API.
-    public static readonly ProviderId[] Sources = [.. AutomaticSources, ProviderId.GlmChina, ProviderId.GlmGlobal, ProviderId.DeepSeek, ProviderId.KimiApi, ProviderId.OpenCodeGo, ProviderId.OpenRouter, ProviderId.NewApi, ProviderId.Sub2Api, ProviderId.Custom, ProviderId.Credits];
+    // LocalApp reads the quota record a locally installed application keeps on this PC; it joins the automatic group.
+    public static readonly ProviderId[] Sources = [.. AutomaticSources, ProviderId.LocalApp, ProviderId.GlmChina, ProviderId.GlmGlobal, ProviderId.DeepSeek, ProviderId.KimiApi, ProviderId.OpenCodeGo, ProviderId.OpenRouter, ProviderId.NewApi, ProviderId.Sub2Api, ProviderId.Custom];
     // Grok Bot is quota-only; Pi is usage-only and must never appear in the quota-source menu.
     public static readonly ProviderId[] UsageSources = [.. BuiltIns, ProviderId.ZCode, ProviderId.Dsh, ProviderId.Kimi, ProviderId.OpenCode, ProviderId.Pi];
     public static bool IsBuiltIn(ProviderId id) => AutomaticSources.Contains(id);
+    public static bool IsLocalApp(ProviderId id) => id == ProviderId.LocalApp;
     public static bool IsUsageSource(ProviderId id) => UsageSources.Contains(id);
     // Which clients a statistics source covers; each reads the local records all of its clients share.
     public static string UsageTip(ProviderId id) => id switch
@@ -45,20 +46,21 @@ public static class ProviderCatalog
             "The OpenCode Go allowance of the workspace OpenCode signed in to OpenCode Console with; the sign-in is never renewed"),
         ProviderId.OpenCodeGo => Loc.T("API 密钥所属工作区的 OpenCode Go 额度", "The OpenCode Go allowance of the workspace the API key belongs to"),
         ProviderId.OpenRouter => Loc.T("API 密钥所属账户的余额，以及这个密钥的限额与消费", "The balance of the account the API key belongs to, and the limit and spending of this key"),
-        ProviderId.Credits => Loc.T("填写当前积分余额；填了总积分后会显示已用比例", "Enter the remaining credits; a total is optional and gives a used share"),
+        ProviderId.LocalApp => Loc.T("每次同步自动读取该应用保存在本机的额度/积分记录；找不到时如实显示「未检测到本地数据」，不需要也不允许手填数值",
+            "Rereads the quota/credits record the app keeps on this PC on every sync; when it cannot be read, the column says so instead of asking for a number"),
         _ => ""
     };
     public static string QuotaTip(ProviderId id) => Loc.T("配额来源：", "Quota source: ") + Name(id) + (QuotaDescription(id) is { Length: > 0 } text ? "\n" + text : "");
-    // The quota-source menu groups sources by whether the user has to fill anything in.
-    public static string Group(ProviderId id) => IsBuiltIn(id) ? Loc.T("自动读取", "Read automatically") : Loc.T("手动填写", "Entered by hand");
+    // The quota-source menu groups sources by whether they are read automatically or need a key or a script.
+    public static string Group(ProviderId id) => IsBuiltIn(id) || IsLocalApp(id) ? Loc.T("自动读取", "Read automatically") : Loc.T("手动填写", "Entered by hand");
     public static string Name(ProviderId id) => id switch
     {
-        ProviderId.GlmChina => Loc.T("智谱 GLM", "Zhipu GLM"), ProviderId.GlmGlobal => "Z.ai GLM", ProviderId.Dsh => "DeepSeek Harness", ProviderId.GrokBot => "Grok Bot", ProviderId.Kimi => "Kimi Code", ProviderId.KimiApi => "Kimi Code API", ProviderId.OpenCode => "OpenCode", ProviderId.OpenCodeGo => "OpenCode Go", ProviderId.OpenRouter => "OpenRouter", ProviderId.DeepSeek => "DeepSeek", ProviderId.NewApi => "New API", ProviderId.Sub2Api => "Sub2API", ProviderId.Custom => Loc.T("自定义", "Custom"), ProviderId.Credits => Loc.T("积分余额", "Credits balance"),
+        ProviderId.GlmChina => Loc.T("智谱 GLM", "Zhipu GLM"), ProviderId.GlmGlobal => "Z.ai GLM", ProviderId.Dsh => "DeepSeek Harness", ProviderId.GrokBot => "Grok Bot", ProviderId.Kimi => "Kimi Code", ProviderId.KimiApi => "Kimi Code API", ProviderId.OpenCode => "OpenCode", ProviderId.OpenCodeGo => "OpenCode Go", ProviderId.OpenRouter => "OpenRouter", ProviderId.DeepSeek => "DeepSeek", ProviderId.NewApi => "New API", ProviderId.Sub2Api => "Sub2API", ProviderId.Custom => Loc.T("自定义", "Custom"), ProviderId.LocalApp => Loc.T("本地应用数据", "Local app data"),
         _ => id.ToString()
     };
     public static string Key(ProviderId id) => id switch
     {
-        ProviderId.Credits => "credits", ProviderId.GlmChina => "glm-cn", ProviderId.GlmGlobal => "glm-global", ProviderId.NewApi => "newapi", ProviderId.Sub2Api => "sub2api", ProviderId.KimiApi => "kimi-api", ProviderId.OpenCodeGo => "opencode-go",
+        ProviderId.LocalApp => "local-app", ProviderId.GlmChina => "glm-cn", ProviderId.GlmGlobal => "glm-global", ProviderId.NewApi => "newapi", ProviderId.Sub2Api => "sub2api", ProviderId.KimiApi => "kimi-api", ProviderId.OpenCodeGo => "opencode-go",
         _ => id.ToString().ToLowerInvariant()
     };
     // Claude and Grok Bot rows each choose between the account API and the record the desktop app keeps on this PC.
@@ -71,7 +73,9 @@ public static class ProviderCatalog
     public static bool HasAccountBalance(ProviderId id) => id is ProviderId.Dsh or ProviderId.DeepSeek or ProviderId.OpenRouter or ProviderId.NewApi or ProviderId.Sub2Api;
     public static bool IsAccountBalance(UsageMetric metric) => metric is { Kind: MetricKind.Balance, Label: "账户余额", Total: null };
     // Rows that allow HTTP are read apart from otherwise identical rows that do not; the keys of other rows stay as they were.
-    public static string ConfigurationKey(AppEntry entry) => Hash(JsonSerializer.Serialize(new { entry.QuotaSource, entry.Site, entry.Script, entry.SecretRevision }))
+    // Local-app rows also include which product and which file they read, so two products never share one snapshot.
+    public static string ConfigurationKey(AppEntry entry) => Hash(JsonSerializer.Serialize(new { entry.QuotaSource, entry.Site, entry.Script, entry.SecretRevision,
+        agent = IsLocalApp(entry.QuotaSource) ? entry.AgentKey : "", file = IsLocalApp(entry.QuotaSource) ? entry.LocalDataPath : "" }))
         + (ReadsLocalQuota(entry) ? ":" + LocalQuota : "") + (entry.AllowHttp ? ":" + HttpAllowed : "");
     public static string RequestKey(AppEntry entry, string secret) => Hash(JsonSerializer.Serialize(new { entry.QuotaSource, entry.Site, entry.Script, secret }))
         + (entry.AllowHttp ? ":" + HttpAllowed : "");
@@ -118,6 +122,8 @@ public sealed class QuotaSourceConverter : JsonConverter<ProviderId>
         if (reader.TokenType == JsonTokenType.String)
         {
             var key = reader.GetString();
+            // The first version of the agent library wrote "credits" for columns that now read local application data.
+            if (string.Equals(key, "credits", StringComparison.OrdinalIgnoreCase)) return ProviderId.LocalApp;
             foreach (var source in ProviderCatalog.Sources)
                 if (string.Equals(key, ProviderCatalog.Key(source), StringComparison.OrdinalIgnoreCase) || string.Equals(key, source.ToString(), StringComparison.OrdinalIgnoreCase)) return source;
         }

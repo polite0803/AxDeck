@@ -27,16 +27,18 @@ The same tool can appear in several columns. It is read only once, and totals ar
 | OpenRouter | ✓ | | Enter an OpenRouter API key in settings |
 | New API, Sub2API relay sites | ✓ | | Enter the site address and key in settings |
 | Custom | ✓ | | Write a short JavaScript script |
-| Credits balance (entered by hand) | ✓ | | Expand the row and enter the credits left; a total and a unit are optional |
+| Local app data | ✓ | | Rereads the quota/credits record the app keeps on this PC; the column says so when nothing can be read |
 
 Sources you enter by hand and Grok Bot have no local usage records; choose another tool as the usage app for Today and Week.
 
-## Agent library and credits balance
+## Agent library and local app data
 
 **Settings › Quotas and usage › Add app** now opens an agent library grouped into **Domestic products / International products**. Domestic entries include WorkBuddy, Trae, Qoder, Tongyi Lingma, Comate, CodeBuddy, CodeGeeX, MarsCode, Qwen Code, Fitten Code, MiniMax, SiliconFlow, Alibaba Bailian and Volcengine Ark; international entries include GitHub Copilot, Gemini CLI, Windsurf, Cline, Roo Code, Aider, Kiro / Amazon Q, Augment Code, Tabnine and Grok Build. Products AxDeck already reads automatically (Claude Code, Codex, Cursor, Antigravity, Kimi Code, Zhipu GLM, DeepSeek, ZCode, OpenCode, OpenRouter) are in the library too. A picked product brings its name and theme color; up to **12 columns** can be configured.
 
-- **Sources stay editable**: products without a public quota API default to the **Credits balance** source. The column's quota source can be changed to any other source at any time, including **Custom** with a short JavaScript reader.
-- **Credits balance**: expand the row and enter **Credits left**. Entering **Total credits** also draws a used share, (total − left) / total, which the quota rings, bars, warning colors and notices follow. **Unit** is optional, for example "credits", "points" or "Credits". These values are kept in local settings and **make no network requests**; update them by hand when the balance changes.
+- **Sources stay editable**: products without a public quota API default to the **Local app data** source. The column's quota source can be changed to any other source at any time, including **Custom** with a short JavaScript reader.
+- **Automatic reads, never typed in**: on every sync (every 60 seconds by default) AxDeck rereads the quota/credits record the agent **keeps on this PC** — for example `User/globalStorage/state.vscdb` for VS Code/Electron apps, or `quota.json` in the app's own config folder. Encrypted records are decrypted locally with the application's own `Local State` key; the key and plaintext are cleared afterwards. A change to one of those files also triggers an immediate refresh. Fields such as `remaining`, `total` and `used` become a balance and a used share that the quota rings, bars, warning colors and notices follow, together with the local record's write time.
+- **Honest when unavailable**: with no data for the product on this PC the column says **No local data found**; when data exists but has no recognizable quota field (or is encrypted and cannot be decrypted) it says **No local quota record**; a record older than 7 days is marked as possibly out of date. **No estimate, stale value or hand-entered number is ever passed off as the current balance**, and these columns send no requests to the product's servers.
+- **Optional location**: by default AxDeck looks in the product's known data folders. If an app writes its quota elsewhere, **Local data file (optional)** accepts a full path (or wildcard) to a JSON / JSONL file or a `state.vscdb`. That is a *location*, not a value: it is still reread automatically on every sync.
 - **Fully customizable**: every column can be renamed, recolored, pointed at another usage app, hidden or reordered by dragging. **Custom app** starts from a blank column. Library entries are only templates used when adding a column; they never overwrite existing settings.
 
 ## Cost estimates

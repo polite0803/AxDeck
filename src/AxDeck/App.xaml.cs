@@ -117,6 +117,11 @@ public partial class App : Application
         Lyrics = new LyricsService(appleLyricsFile: Path.Combine(folder, "apple-music-lyrics.json"));
         Usage = new UsageService(new DesktopSources(), secrets: Secrets, quotaCache: Path.Combine(folder, ClaudeQuotaCache.FileName),
             kimiQuotaCache: Path.Combine(folder, KimiQuotaCache.FileName), cursorPriceCache: Path.Combine(folder, CursorPrices.FileName));
+        // A local application wrote new data: refresh now instead of waiting for the next 60-second cycle.
+        Usage.LocalDataChanged += () => Dispatcher.BeginInvoke(new Action(() =>
+        {
+            if (MainWindow is MainWindow deck) _ = deck.RefreshAutomaticallyAsync(queueIfBusy: true);
+        }));
         WindowDrags = new WindowDrags();
         Shelf = new ShelfService(folder, Dispatcher); Shelf.Apply(Settings);
         Deck = new MainWindow(this); MainWindow = Deck;

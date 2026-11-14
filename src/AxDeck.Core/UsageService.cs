@@ -14,14 +14,25 @@ public interface IDesktopSources
     Task<IReadOnlyList<LocalEndpoint>> FindAntigravityAsync(CancellationToken cancellation);
     // Runs a read-only query against a local SQLite database; null means the database could not be opened or queried.
     IReadOnlyList<string?[]>? QueryDatabase(string database, string sql) => null;
+    // Decrypts one value an Electron application stored with its own safeStorage key (Local State). Only the caller's
+    // own machine can decrypt it; null means it is not encrypted, or the key is unavailable.
+    string? DecryptSecret(string localState, string value) => null;
 }
 
 // quotaCache is the file that keeps the last Claude quota read online across restarts (ClaudeQuotaCache); null keeps none.
 // kimiQuotaCache does the same for Kimi Code (KimiQuotaCache). cursorPriceCache keeps the readings and prices of a merged Cursor
 // plan (CursorPrices); null keeps none. jitter (0 to 1) is the share of a pause after a 429 that is added to it
 // (RateLimitBackoff); a test passes a fixed one.
-public sealed class UsageService(IDesktopSources desktop, DataLocations? locations = null, HttpClient? http = null, Func<DateTimeOffset>? clock = null, IProviderSecrets? secrets = null, Func<IReadOnlyList<WslHome>>? wsl = null, TimeSpan? wslTimeout = null, string? quotaCache = null, string? kimiQuotaCache = null, Func<double>? jitter = null, string? cursorPriceCache = null) : IDisposable
+public sealed class UsageService(IDesktopSources desktop, DataLocations? locations = null, HttpClient? http = null, Func<DateTimeOffset>? clock = null, IProviderSecrets? secrets = null, Func<IReadOnlyList<WslHome>>? wsl = null, TimeSpan? wslTimeout = null, string? quotaCache = null, string? kimiQuotaCache = null, Func<double>? jitter = null, string? cursorPriceCache = null, LocalAgentPaths? agentPaths = null) : IDisposable
 {
+    // Columns that read a locally installed application's own quota record. They join the same refresh cycle as every
+    // other source, and a change to one of those files asks for an earlier read (App wires LocalDataChanged).
+    private readonly LocalAgentUsage _localAgents = new(desktop, agentPaths ?? LocalAgentPaths.Detect(), clock);
+    public event Action? LocalDataChanged
+    {
+        add => _localAgents.Changed += value;
+        remove => _localAgents.Changed -= value;
+    }
     // Every provider uses the panel's shared refresh cycle. Claude may display local history
     // after an unsuccessful request, but it does not delay the next scheduled refresh.
     private static string ClaudeUsageNote => Loc.T(" Token 统计来自本机 Claude Code 会话，不包含桌面版普通聊天。",
@@ -133,7 +144,9 @@ public sealed class UsageService(IDesktopSources desktop, DataLocations? locatio
     }
     private static string Clock(DateTimeOffset time, DateTimeOffset now) => time.LocalDateTime.ToString(time.LocalDateTime.Date == now.LocalDateTime.Date ? "HH:mm" : "MM-dd HH:mm");
     private readonly ConfiguredProviders _configured = new(secrets, http, clock);
-    public Task<ProviderTestResult> TestProviderAsync(AppEntry entry, CancellationToken ct = default) => _configured.TestAsync(entry, ct);
+    // A local-app column has no HTTP session to test; its "test connection" reads the same files a sync would.
+    public Task<ProviderTestResult> TestProviderAsync(AppEntry entry, CancellationToken ct = default)
+        => ProviderCatalog.IsLocalApp(entry.QuotaSource) ? Task.FromResult(_localAgents.Test(entry)) : _configured.TestAsync(entry, ct);
 
     public async Task<List<ProviderSnapshot>> RefreshAsync(DeckSettings settings, CancellationToken cancellation = default, DateTime? usageStart = null)
     {
@@ -159,6 +172,8 @@ public sealed class UsageService(IDesktopSources desktop, DataLocations? locatio
             List<ProviderSnapshot> results = [.. await Task.WhenAll(tasks), .. await configured];
             if (claudeLocal) results.Add(ReadClaudeLocal(usageStart));
             if (grokBotLocal) results.Add(ReadGrokBotLocal(usageStart));
+            // Products without a public quota API are reread from their own local data on every refresh, never entered by hand.
+            results.AddRange(_localAgents.Read(settings.EnabledApps));
             return results;
         }
         finally { _gate.Release(); }
@@ -1379,5 +1394,5 @@ public sealed class UsageService(IDesktopSources desktop, DataLocations? locatio
     private static JsonDocument? ReadJson(string path) => SharedFile.ReadJson(path);
     private static void Connected(ProviderSnapshot snapshot, string source, DateTimeOffset now)
     { snapshot.LiveQuota = true; snapshot.QuotaTime = now; snapshot.Source = source; snapshot.Status = Loc.T("已连接", "Connected"); snapshot.StatusLabel = Loc.T("已连接", "Connected"); }
-    public void Dispose() { _configured.Dispose(); if (http is null) { _http.Dispose(); _zcodeHttp.Dispose(); } _gate.Dispose(); }
+    public void Dispose() { _configured.Dispose(); _localAgents.Dispose(); if (http is null) { _http.Dispose(); _zcodeHttp.Dispose(); } _gate.Dispose(); }
 }
