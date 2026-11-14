@@ -34,7 +34,7 @@ Sources you enter by hand and Grok Bot have no local usage records; choose anoth
 
 When a record carries its own amount (Cursor and OpenCode, for example), that amount is used. Other records are costed at the prices in the OpenRouter model list.
 
-A price in that list usually comes from the cheapest provider and can differ from the model maker's list price. For example, GLM-5.3 is listed at 0.07 and 1.4 USD per million input and output tokens, while Z.AI charges 1.4 and 4.4. So for each model your records use, BrimDeck looks up the model maker's own endpoint on OpenRouter and uses its prices instead; a model whose maker has no endpoint there keeps the list price. Each model's endpoint prices are looked up once a day and saved on this PC; when a lookup fails, the prices saved before are used. Prices added by hand take precedence.
+A price in that list usually comes from the cheapest provider and can differ from the model maker's list price. For example, GLM-5.3 is listed at 0.07 and 1.4 USD per million input and output tokens, while Z.AI charges 1.4 and 4.4. So for each model your records use, AxDeck looks up the model maker's own endpoint on OpenRouter and uses its prices instead; a model whose maker has no endpoint there keeps the list price. Each model's endpoint prices are looked up once a day and saved on this PC; when a lookup fails, the prices saved before are used. Prices added by hand take precedence.
 
 ## Quota rings and off-peak time
 
@@ -46,7 +46,7 @@ Expand an app's row under Settings › Quotas and usage › Apps to set:
 
 ## Usage in WSL
 
-When "Include usage from WSL" is turned on in Settings › Quotas and usage, BrimDeck reads the Claude Code and Codex CLI session records inside installed WSL distributions and counts them in the tokens and cost of Claude and Codex. Only Claude and Codex support WSL at present.
+When "Include usage from WSL" is turned on in Settings › Quotas and usage, AxDeck reads the Claude Code and Codex CLI session records inside installed WSL distributions and counts them in the tokens and cost of Claude and Codex. Only Claude and Codex support WSL at present.
 
 - The records of the root user and of every user under `/home` in each distribution are read. The distributions that Docker Desktop and Rancher Desktop add are not read.
 - Reading starts a distribution that is not running, so this option is off by default.
@@ -55,7 +55,7 @@ When "Include usage from WSL" is turned on in Settings › Quotas and usage, Bri
 
 Rows whose quota source is Claude or Grok Bot can be expanded, and each row has its own "Fetch quota online" switch (on by default):
 
-- **On**: the app's sign-in on this PC is used to read the account quota online. If a read fails, the last successful reading or the quota the desktop app recorded on this PC is shown, with its time. For Claude it is still shown after restarting BrimDeck, for the same account. When a Claude account belongs to several organizations (a personal Pro and a Team, for example), the row shows the quotas of each, the personal subscription first; click the column for the next page. When Claude's account API answers that there are too many requests (429), requests pause for the wait it names (a wait over 7 days is taken as invalid), or for 2, 4, 8 and 16 minutes in turn (30 at most) when it names none. No request goes out each minute during the pause, a manual refresh does not go round it, and the status gives the time of the next request.
+- **On**: the app's sign-in on this PC is used to read the account quota online. If a read fails, the last successful reading or the quota the desktop app recorded on this PC is shown, with its time. For Claude it is still shown after restarting AxDeck, for the same account. When a Claude account belongs to several organizations (a personal Pro and a Team, for example), the row shows the quotas of each, the personal subscription first; click the column for the next page. When Claude's account API answers that there are too many requests (429), requests pause for the wait it names (a wait over 7 days is taken as invalid), or for 2, 4, 8 and 16 minutes in turn (30 at most) when it names none. No request goes out each minute during the pause, a manual refresh does not go round it, and the status gives the time of the next request.
 - **Off**: no sign-in is read and nothing is sent; only the latest quota the desktop app recorded on this PC is shown. This data is marked as old and does not trigger quota alerts.
 
 ## Grok Bot
@@ -89,7 +89,7 @@ Reads local session usage and cost statistics from Pi Coding Agent (`~/.pi/agent
 
 - **Usage app**: select Pi under "Usage app" and pair it with an existing quota source. Pi is not offered under "Quota source". No Pi sign-in, third-party subscription quota or Pi account switching is read or provided.
 - **Tokens and cost**: reads session records from `~/.pi/agent/sessions` and counts token usage and Pi-recorded costs for Today and Week, not subscription charges.
-- **Session path**: `PI_CODING_AGENT_SESSION_DIR` takes precedence; otherwise reads `sessions` under `PI_CODING_AGENT_DIR`, or the default directory when neither is set. Pi-specific resolution supports `~`, `~/...`, relative paths and local `file://` URLs; Windows also supports `~\...` and Git Bash/MSYS/Cygwin/WSL drive paths. Relative paths use the BrimDeck process working directory, which may differ from Pi running in another terminal. Only the selected directory is read; other Pi profiles are not automatically scanned.
+- **Session path**: `PI_CODING_AGENT_SESSION_DIR` takes precedence; otherwise reads `sessions` under `PI_CODING_AGENT_DIR`, or the default directory when neither is set. Pi-specific resolution supports `~`, `~/...`, relative paths and local `file://` URLs; Windows also supports `~\...` and Git Bash/MSYS/Cygwin/WSL drive paths. Relative paths use the AxDeck process working directory, which may differ from Pi running in another terminal. Only the selected directory is read; other Pi profiles are not automatically scanned.
 
 ## OpenCode
 

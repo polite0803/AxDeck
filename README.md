@@ -3,29 +3,29 @@
 <a href="README.md"><img src="https://img.shields.io/badge/English-0A84FF?style=for-the-badge" alt="English"></a>
 <a href="README.zh-CN.md"><img src="https://img.shields.io/badge/%E7%AE%80%E4%BD%93%E4%B8%AD%E6%96%87-3A3A3C?style=for-the-badge" alt="简体中文"></a>
 
-<img src="docs/icon.png" width="96" alt="BrimDeck icon">
+<img src="docs/icon.png" width="96" alt="AxDeck icon">
 
-# BrimDeck - A Dynamic Island for Windows
+# AxDeck - A Dynamic Island for Windows
 
-BrimDeck is a Dynamic Island for Windows 11 that brings your AI coding tool quotas and usage, the music you are playing, system readings and wireless device batteries together at the top of the screen, with a clipboard history and a file transfer.<br>
+AxDeck is a Dynamic Island for Windows 11 that brings your AI coding tool quotas and usage, the music you are playing, system readings and wireless device batteries together at the top of the screen, with a clipboard history and a file transfer.<br>
 It stays collapsed at the top of the screen and opens only when you need it.<br>
 A native Windows app built with C# and WPF, designed for performance and smoothness.
 
-[![Download](https://img.shields.io/badge/Download-Windows%2011%20x64-9CB9FF?style=flat-square)](https://github.com/MoFeng2223/BrimDeck/releases/latest)
-[![Latest release](https://img.shields.io/github/v/release/MoFeng2223/BrimDeck?style=flat-square&label=Latest&color=98DBB0)](https://github.com/MoFeng2223/BrimDeck/releases/latest)
+[![Download](https://img.shields.io/badge/Download-Windows%2011%20x64-9CB9FF?style=flat-square)](https://github.com/OWNER/AxDeck/releases/latest)
+[![Latest release](https://img.shields.io/github/v/release/OWNER/AxDeck?style=flat-square&label=Latest&color=98DBB0)](https://github.com/OWNER/AxDeck/releases/latest)
 [![License](https://img.shields.io/badge/License-Apache%202.0-E5A385?style=flat-square)](LICENSE)
 ![Interface languages](https://img.shields.io/badge/Interface-English%20%7C%20%E7%AE%80%E4%BD%93%E4%B8%AD%E6%96%87-B9A8FF?style=flat-square)
 
 <p><a href="#features">Features</a> · <a href="#install">Install</a> · <a href="#quick-start">Quick start</a> · <a href="#privacy">Privacy</a> · <a href="#faq">FAQ</a> · <a href="#contributing">Contributing</a> · <a href="README.zh-CN.md">简体中文</a></p>
 
-<img src="docs/en-US/images/hero.png" width="100%" alt="BrimDeck opens from the notch at the top of the screen into the AI usage panel, switches to the music page, the system monitor page, the clipboard and file transfer page and the device batteries page, then collapses">
+<img src="docs/en-US/images/hero.png" width="100%" alt="AxDeck opens from the notch at the top of the screen into the AI usage panel, switches to the music page, the system monitor page, the clipboard and file transfer page and the device batteries page, then collapses">
 
 </div>
 
-## Why BrimDeck
+## Why AxDeck
 
 - **All quotas in one place**: Quotas for Claude, Codex, Cursor, Antigravity and more are shown in a single panel, so you no longer open each website, command line or app to check them.
-- **Quota checks made simple**: BrimDeck stays collapsed at the top of the screen. Move the pointer over it to open it, and move away to close it.
+- **Quota checks made simple**: AxDeck stays collapsed at the top of the screen. Move the pointer over it to open it, and move away to close it.
 - **Media control**: Preview and control the song that is playing inline; the cover, equalizer and lyrics follow the music.
 - **System monitor**: CPU, memory, network speed and other readings stay in the notch or capsule, visible at a glance.
 - **Device batteries**: The batteries of your wireless mouse, keyboard, headset and controller in one place, changing color when one runs low.
@@ -38,7 +38,7 @@ A native Windows app built with C# and WPF, designed for performance and smoothn
 
 ### Collapsed styles
 
-BrimDeck sits at the top center of the screen and comes in three styles: Notch (default), Capsule and Indicator.
+AxDeck sits at the top center of the screen and comes in three styles: Notch (default), Capsule and Indicator.
 
 <table>
   <tr>
@@ -127,7 +127,7 @@ For the supported connections, brands and models, see [Supported devices](docs/e
 <img src="docs/en-US/images/clipboard.png" width="100%" alt="Clipboard and file transfer page: copied text, a link, code, a picture and a color on the left; held files with their sizes on the right">
 
 - **Clipboard**: Keeps the text and pictures you copy; click an entry to paste it into the window you are working in. Links, code and color values each show in their own style.
-- The history is stored encrypted on this PC and cleared when BrimDeck exits; what is in Favorites or in a category set to be kept stays. You can choose apps that are not recorded.
+- The history is stored encrypted on this PC and cleared when AxDeck exits; what is in Favorites or in a category set to be kept stays. You can choose apps that are not recorded.
 - **File transfer**: Drag files onto the notch, the capsule or the panel to hold them, then click to paste them into the current window or drag them to where you need them. Only each file's location is kept, never a copy.
 - Both columns have categories with rules for what goes in by itself, and can be searched together.
 
@@ -153,29 +153,29 @@ For how to use it and its settings, see [Clipboard and file transfer](docs/en-US
 
 Requires Windows 11 (x64). Windows 10 (version 2004 or later) has limited support.
 
-1. Download one of these files from [Releases](https://github.com/MoFeng2223/BrimDeck/releases/latest):
-   - Installer: `BrimDeck-<version>-Setup.exe`. Run it and follow the steps.
-   - Portable: `BrimDeck-<version>-Portable-x64.zip`. Extract it and run `BrimDeck.exe` in the `BrimDeck` folder.
+1. Download one of these files from [Releases](https://github.com/OWNER/AxDeck/releases/latest):
+   - Installer: `AxDeck-<version>-Setup.exe`. Run it and follow the steps.
+   - Portable: `AxDeck-<version>-Portable-x64.zip`. Extract it and run `AxDeck.exe` in the `AxDeck` folder.
 2. If Windows shows "Windows protected your PC", select "More info", then "Run anyway".
 
-Both versions update from within the app, and both keep settings and data in `%LOCALAPPDATA%\BrimDeck`.
+Both versions update from within the app, and both keep settings and data in `%LOCALAPPDATA%\AxDeck`.
 
-- The app offers releases only; turn on "Receive beta updates" on the About BrimDeck page of settings to be offered betas too.
+- The app offers releases only; turn on "Receive beta updates" on the About AxDeck page of settings to be offered betas too.
 - When the portable version is in a folder that needs administrator rights to change, such as `C:\Program Files`, the update asks for administrator approval.
 
 ## Quick start
 
-1. After you install and start BrimDeck, the panel appears at the top center of the primary display, showing Claude and Codex by default.
+1. After you install and start AxDeck, the panel appears at the top center of the primary display, showing Claude and Codex by default.
 2. Move the pointer over the panel to open it; move away or press Esc to close it.
 3. Use the page switch at the top left of the open panel to move between AI usage, music, the system monitor, the clipboard and file transfer, and device batteries; pages you do not need can be turned off or reordered under Settings › Expanded view.
 4. Select the settings button at the top right of the open panel to add tools or change settings. You can also right-click the open panel, double-click the tray icon, or right-click the tray icon.
 
 ## Uninstall
 
-- Installer: uninstall BrimDeck from Apps in Windows Settings.
+- Installer: uninstall AxDeck from Apps in Windows Settings.
 - Portable: turn off starting with Windows in settings if it is on, then delete its folder.
 
-To remove settings and data as well, also delete `%LOCALAPPDATA%\BrimDeck`. If you turned on enhanced sensors, uninstalling the installed version removes the sensor service too; with the portable version, turn it off under Settings › Enhanced sensors first.
+To remove settings and data as well, also delete `%LOCALAPPDATA%\AxDeck`. If you turned on enhanced sensors, uninstalling the installed version removes the sensor service too; with the portable version, turn it off under Settings › Enhanced sensors first.
 
 ## Privacy
 
@@ -184,12 +184,12 @@ To remove settings and data as well, also delete `%LOCALAPPDATA%\BrimDeck`. If y
 - The clipboard history and the file transfer's list are stored only on this PC, encrypted by Windows, and never uploaded.
 - Goes online only to read quotas and usage, update model prices, fetch lyrics and covers, and check for updates. Conversations are never uploaded, and no usage data is collected.
 
-For the files BrimDeck reads and the addresses it connects to, see [Data and privacy](docs/en-US/privacy.md).
+For the files AxDeck reads and the addresses it connects to, see [Data and privacy](docs/en-US/privacy.md).
 
 ## FAQ
 
 **A tool shows "Not connected" or "Waiting for update". What should I do?**
-Make sure the tool is signed in on this PC; for example, Antigravity needs its desktop app running for its quota to be read. When BrimDeck cannot read the data, it shows the actual status and never makes up numbers.
+Make sure the tool is signed in on this PC; for example, Antigravity needs its desktop app running for its quota to be read. When AxDeck cannot read the data, it shows the actual status and never makes up numbers.
 
 **Is the cost shown what I actually pay?**
 No. Costs come from the amounts reported by each service or from public model prices, and are meant to show how much you use. Your actual subscription charges are on each provider's bill.
@@ -198,20 +198,20 @@ No. Costs come from the amounts reported by each service or from public model pr
 On many PCs Windows does not provide either. Turn on enhanced sensors under Settings › Enhanced sensors, or run HWiNFO or LibreHardwareMonitor alongside. See [Enhanced sensors](docs/en-US/enhanced-sensors.md).
 
 **My mouse, keyboard or headset shows no battery. Why?**
-The device has to be connected and be one of the connections or models listed in [Supported devices](docs/en-US/devices.md). For a device that is not listed, you are welcome to report its model in [Issues](https://github.com/MoFeng2223/BrimDeck/issues).
+The device has to be connected and be one of the connections or models listed in [Supported devices](docs/en-US/devices.md). For a device that is not listed, you are welcome to report its model in [Issues](https://github.com/OWNER/AxDeck/issues).
 
 ## Contributing
 
-You are welcome to report problems, suggest features or ask for more tools, players and devices in [Issues](https://github.com/MoFeng2223/BrimDeck/issues), and to contribute through pull requests.
+You are welcome to report problems, suggest features or ask for more tools, players and devices in [Issues](https://github.com/OWNER/AxDeck/issues), and to contribute through pull requests.
 
 - Do not open pull requests against `main`:
   - Open new features and general fixes against the `dev` branch.
   - When a version enters testing, it gets a `release/<version>` branch (for example `release/1.3.0`). Open fixes for that version against that branch. It accepts fixes only, not new features.
-- Upcoming work is listed in the [BrimDeck roadmap](https://github.com/MoFeng2223/BrimDeck/discussions/57). Suggest features under that post, and reply there when you want to take on one of its items. Other topics are welcome in [Discussions](https://github.com/MoFeng2223/BrimDeck/discussions).
+- Upcoming work is listed in the [AxDeck roadmap](https://github.com/OWNER/AxDeck/discussions/57). Suggest features under that post, and reply there when you want to take on one of its items. Other topics are welcome in [Discussions](https://github.com/OWNER/AxDeck/discussions).
 
 ## License
 
-BrimDeck is licensed under the [Apache License 2.0](LICENSE). Third-party licenses are listed in [ThirdPartyNotices.txt](src/BrimDeck/ThirdPartyNotices.txt).
+AxDeck is licensed under the [Apache License 2.0](LICENSE). Third-party licenses are listed in [ThirdPartyNotices.txt](src/AxDeck/ThirdPartyNotices.txt).
 
 - The system monitor page is adapted from [ftop](https://github.com/Nongfsq/ftop) by Nongfsq, licensed under the MIT License; thanks to its author.
 - Parts of the device battery protocols are ported from several open-source projects, listed in [Supported devices](docs/en-US/devices.md#acknowledgements); thanks to their authors.

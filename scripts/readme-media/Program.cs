@@ -8,13 +8,13 @@ using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
-using BrimDeck;
-using BrimDeck.Core;
-using BrimDeck.Native;
+using AxDeck;
+using AxDeck.Core;
+using AxDeck.Native;
 
 namespace ReadmeMedia;
 
-// Renders the README images with BrimDeck's own panel code and invented data. Nothing is read from this computer:
+// Renders the README images with AxDeck's own panel code and invented data. Nothing is read from this computer:
 // every snapshot, song and cover below is made up, the usage service points at an empty folder, the network is
 // replaced by a handler that always fails, and media detection is never started. The panel window stays transparent
 // and off screen; each image is taken from its visual tree with RenderTargetBitmap.
@@ -36,7 +36,7 @@ internal static class Program
         int exit = 0;
         var app = new App();
         app.InitializeComponent();
-        // App raises Startup as soon as the dispatcher runs, even without Application.Run. BrimDeck's OnStartup would
+        // App raises Startup as soon as the dispatcher runs, even without Application.Run. AxDeck's OnStartup would
         // start a real instance with real data, or ask the running one to open its settings. OnStartup calls the base
         // method first, so an exception from the Startup event ends it before anything else happens.
         app.Startup += (_, _) => throw new StartupSkipped();
@@ -96,7 +96,7 @@ internal sealed class Renderer(App app, string output, string language, string[]
     public async Task RunAsync()
     {
         Loc.Use(language); _english = Loc.IsEnglish;
-        var folder = Path.Combine(Path.GetTempPath(), "BrimDeck.ReadmeMedia." + Guid.NewGuid().ToString("N"));
+        var folder = Path.Combine(Path.GetTempPath(), "AxDeck.ReadmeMedia." + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(folder);
         var offline = new HttpClient(new Offline());
         _settings = BuildSettings();
@@ -108,15 +108,15 @@ internal sealed class Renderer(App app, string output, string language, string[]
         // The panel subscribes to the lyrics as it is made; this one finds none offline and reads no Apple Music cache.
         Program.SetProperty(app, "Lyrics", new LyricsService(offline, () => [], Path.Combine(folder, "apple-music-lyrics.json")));
         // The toolbar reads the update notice on every render.
-        var backend = Type.GetType("BrimDeck.Updates.GitHubUpdates, BrimDeck")!.GetMethod("Create", [typeof(string)])!.Invoke(null, [folder]);
+        var backend = Type.GetType("AxDeck.Updates.GitHubUpdates, AxDeck")!.GetMethod("Create", [typeof(string)])!.Invoke(null, [folder]);
         Program.SetProperty(app, "Updates", new AppUpdates((IAppUpdateBackend)backend!, folder));
         // The clipboard and file transfer: the service is made on an empty folder of this run and never told to record.
-        _shelf = Activator.CreateInstance(Type.GetType("BrimDeck.ShelfService, BrimDeck")!, Program.Any, null, [folder, Dispatcher.CurrentDispatcher], null)!;
+        _shelf = Activator.CreateInstance(Type.GetType("AxDeck.ShelfService, AxDeck")!, Program.Any, null, [folder, Dispatcher.CurrentDispatcher], null)!;
         Program.SetProperty(app, "Shelf", _shelf);
         FillShelf(folder);
         // The devices: the object the panels read, made without its constructor, so none of its sources exists. Disposed, it
         // ignores every demand; its roster holds the invented readings.
-        var devices = System.Runtime.CompilerServices.RuntimeHelpers.GetUninitializedObject(Type.GetType("BrimDeck.Native.DeviceBatteries, BrimDeck")!);
+        var devices = System.Runtime.CompilerServices.RuntimeHelpers.GetUninitializedObject(Type.GetType("AxDeck.Native.DeviceBatteries, AxDeck")!);
         var roster = new DeviceRoster();
         foreach (var group in InventedDevices().GroupBy(device => device.Source)) roster.Set(group.Key, [.. group]);
         Program.SetField(devices, "_roster", roster);
@@ -340,7 +340,7 @@ internal sealed class Renderer(App app, string output, string language, string[]
         data.Clips.AddRange(
         [
             Clip(ClipKind.Text, Loc.T("周三上午十点评审 1.3.0 的更新说明", "Review the 1.3.0 release notes on Wednesday at 10"), 1, "notepad", work.Id),
-            Clip(ClipKind.Link, "https://github.com/MoFeng2223/BrimDeck/releases", 4, "chrome"),
+            Clip(ClipKind.Link, "https://github.com/OWNER/AxDeck/releases", 4, "chrome"),
             Clip(ClipKind.Code, "var total = entries.Sum(entry => entry.Tokens);\nvar average = total / 7;\nreturn average;", 6, "Code", code.Id),
             picture,
             Clip(ClipKind.Color, "#9CB9FF", 15, "Code"),
@@ -359,7 +359,7 @@ internal sealed class Renderer(App app, string output, string language, string[]
         [
             (Loc.T("发布说明 1.3.0.docx", "Release notes 1.3.0.docx"), 86 * KB, send.Id),
             (Loc.T("界面截图.png", "Screenshot.png"), (long)(1.4 * MB), send.Id),
-            ("BrimDeck-1.3.0-Portable-x64.zip", 58 * MB, setup.Id),
+            ("AxDeck-1.3.0-Portable-x64.zip", 58 * MB, setup.Id),
             (Loc.T("季度数据.xlsx", "Quarterly figures.xlsx"), 312 * KB, null),
             (Loc.T("演示录屏.mp4", "Demo recording.mp4"), 24 * MB, null),
             (Loc.T("会议纪要.txt", "Meeting notes.txt"), 4 * KB, null)
@@ -607,7 +607,7 @@ internal sealed class Renderer(App app, string output, string language, string[]
     private async Task ClockStyles()
     {
         const double scale = 2;
-        var face = Type.GetType("BrimDeck.ClockFace, BrimDeck")!;
+        var face = Type.GetType("AxDeck.ClockFace, AxDeck")!;
         var time = new DateTime(2026, 9, 27, 15, 25, 0);
         (ClockStyle Style, ClockColor Color, bool Alone)[] samples =
         [
@@ -653,7 +653,7 @@ internal sealed class Renderer(App app, string output, string language, string[]
     private async Task Themes()
     {
         const double scale = 2;
-        var folder = Path.Combine(Path.GetTempPath(), "BrimDeck.ReadmeThemes." + Guid.NewGuid().ToString("N"));
+        var folder = Path.Combine(Path.GetTempPath(), "AxDeck.ReadmeThemes." + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(folder);
         File.WriteAllText(Path.Combine(folder, "warm-paper.json"), CustomTheme);
         string[] ids = [PanelThemes.Dark, PanelThemes.Light, PanelThemes.IslandHoliday2, PanelThemes.PixelBlocks, PanelThemes.Demo, "warm-paper"];
@@ -661,7 +661,7 @@ internal sealed class Renderer(App app, string output, string language, string[]
         // set to begin an hour before now and to last twelve hours.
         var dawn = TimeSpan.FromHours((DateTime.Now.Hour + 23) % 24);
         _settings.ThemeDaylight = PanelThemes.FormatDaylight(dawn, TimeSpan.FromHours((dawn.Hours + 12) % 24));
-        var theme = Type.GetType("BrimDeck.PanelTheme, BrimDeck")!;
+        var theme = Type.GetType("AxDeck.PanelTheme, AxDeck")!;
         theme.GetField("_loaded", Program.Any)!.SetValue(null, true);
         theme.GetProperty("UserThemes", Program.Any)!.SetValue(null, PanelThemes.LoadFolder(folder));
         var use = theme.GetMethod("Use", Program.Any)!;
@@ -808,8 +808,8 @@ internal sealed class Renderer(App app, string output, string language, string[]
                 new("VideoEncode", 0), new("Compute", Math.Max(0, .03 + .02 * Jump(tick, 43)))]
         };
         // The icons are the only thing taken from this computer: each app's icon is read from its executable where it is
-        // installed, as BrimDeck does. An app that is not installed shows its initial instead.
-        var prepare = Type.GetType("BrimDeck.ProcessIcons, BrimDeck")!.GetMethod("Prepare", Program.Any)!;
+        // installed, as AxDeck does. An app that is not installed shows its initial instead.
+        var prepare = Type.GetType("AxDeck.ProcessIcons, AxDeck")!.GetMethod("Prepare", Program.Any)!;
         // Each app's processor use over five seconds, repeated. The figures change every second, and once in the clip (at tick 2)
         // Chrome overtakes Visual Studio Code, so the list reorders once. Tick 0 is the still image.
         ProcessSample App(int pid, string name, string exe, double[] cpuPercents, double memoryMb, int members = 1, params string[] places)

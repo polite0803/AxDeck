@@ -4,7 +4,7 @@ The "Clipboard and file transfer" page of the open panel has two columns: the cl
 
 ## Clipboard
 
-BrimDeck keeps the text and pictures you copy, newest first.
+AxDeck keeps the text and pictures you copy, newest first.
 
 - **Display**: text shows its first line, with the number of further lines at the end; a link shows its domain and path in two colors, code in a monospaced font, a color value with a swatch, and a picture as a thumbnail with its size.
 - **Click**: pastes the entry into the window you are working in.
@@ -15,7 +15,7 @@ BrimDeck keeps the text and pictures you copy, newest first.
 ### How long entries are kept
 
 - The history is stored on this PC, encrypted by Windows.
-- Ordinary entries are cleared when BrimDeck exits.
+- Ordinary entries are cleared when AxDeck exits.
 - What is in Favorites, or in a category set to "Kept", stays until you delete it.
 - One entry holds up to 1,000,000 characters; longer copies are not recorded.
 
@@ -52,4 +52,4 @@ The file transfer holds files you will need shortly. It keeps only where each fi
 
 ## Where the data is stored
 
-The clipboard history, the file transfer's list and the categories are stored in `%LOCALAPPDATA%\BrimDeck\shelf.dat`, and copied pictures in `%LOCALAPPDATA%\BrimDeck\shelf\`. Both are encrypted for the current Windows user, used only on this PC and never uploaded. See [Data and privacy](privacy.md).
+The clipboard history, the file transfer's list and the categories are stored in `%LOCALAPPDATA%\AxDeck\shelf.dat`, and copied pictures in `%LOCALAPPDATA%\AxDeck\shelf\`. Both are encrypted for the current Windows user, used only on this PC and never uploaded. See [Data and privacy](privacy.md).

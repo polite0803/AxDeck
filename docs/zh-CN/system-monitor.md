@@ -41,12 +41,12 @@
 
 读不到 CPU 温度时，有两种办法：
 
-- 启用[增强传感器](enhanced-sensors.md)，由 BrimDeck 的传感器服务直接从处理器读取。
-- 同时运行 HWiNFO（开启共享内存）或 LibreHardwareMonitor（开启远程网页服务器），BrimDeck 会从中读取。
+- 启用[增强传感器](enhanced-sensors.md)，由 AxDeck 的传感器服务直接从处理器读取。
+- 同时运行 HWiNFO（开启共享内存）或 LibreHardwareMonitor（开启远程网页服务器），AxDeck 会从中读取。
 
 温度的悬停提示会标明读数来源。
 
-如果读取某一项温度或功率时电脑卡住，BrimDeck 下次启动时会停止读取这一项。已停止的项目列在“展开时”一节中，可以逐项重新开启。
+如果读取某一项温度或功率时电脑卡住，AxDeck 下次启动时会停止读取这一项。已停止的项目列在“展开时”一节中，可以逐项重新开启。
 
 ## 整机功耗
 

@@ -2,7 +2,7 @@
 
 The device batteries page shows the battery of the connected wireless mice, keyboards, headsets, controllers and pens; the notch and capsule can show them too. The settings are under Settings › Display and devices.
 
-BrimDeck only reads batteries: it never pairs, disconnects or changes any device or Windows setting, needs no administrator rights and installs no driver. Devices are read only while the device batteries page is open, the notch or capsule shows device batteries, or Settings › Display and devices is open.
+AxDeck only reads batteries: it never pairs, disconnects or changes any device or Windows setting, needs no administrator rights and installs no driver. Devices are read only while the device batteries page is open, the notch or capsule shows device batteries, or Settings › Display and devices is open.
 
 ## Supported connections
 
@@ -27,7 +27,7 @@ HID devices that carry the standard battery report are shown too.
 | Controllers | Xbox, PlayStation, Steam Controller |
 
 - Only known models of each brand are supported; other models of the same brand may not report a battery.
-- Some models are implemented from public protocol documentation and have not been checked on real hardware. If a battery does not show or reads wrong, please report the model in [Issues](https://github.com/MoFeng2223/BrimDeck/issues).
+- Some models are implemented from public protocol documentation and have not been checked on real hardware. If a battery does not show or reads wrong, please report the model in [Issues](https://github.com/OWNER/AxDeck/issues).
 - While a device sleeps or is out of range, the last charge its receiver recorded is shown.
 
 ## Display and settings
@@ -38,7 +38,7 @@ HID devices that carry the standard battery report are shown too.
 
 ## Acknowledgements
 
-Parts of the protocols are ported from or follow these open-source projects; the full licenses are in [ThirdPartyNotices.txt](../../src/BrimDeck/ThirdPartyNotices.txt):
+Parts of the protocols are ported from or follow these open-source projects; the full licenses are in [ThirdPartyNotices.txt](../../src/AxDeck/ThirdPartyNotices.txt):
 
 - [device-battery-viewer](https://github.com/CharlesGool/device-battery-viewer) (Logitech HID++)
 - [razer-battery-report](https://github.com/xzeldon/razer-battery-report) (Razer)

@@ -3,26 +3,26 @@
 <a href="README.md"><img src="https://img.shields.io/badge/English-3A3A3C?style=for-the-badge" alt="English"></a>
 <a href="README.zh-CN.md"><img src="https://img.shields.io/badge/%E7%AE%80%E4%BD%93%E4%B8%AD%E6%96%87-0A84FF?style=for-the-badge" alt="简体中文"></a>
 
-<img src="docs/icon.png" width="96" alt="BrimDeck 图标">
+<img src="docs/icon.png" width="96" alt="AxDeck 图标">
 
-# BrimDeck - Windows 灵动岛
+# AxDeck - Windows 灵动岛
 
-BrimDeck 是 Windows 11 上的灵动岛，在屏幕顶部集中显示 AI 编程工具的额度与用量、正在播放的音乐、系统读数和无线设备电量，并提供剪贴板记录与文件中转。<br>
+AxDeck 是 Windows 11 上的灵动岛，在屏幕顶部集中显示 AI 编程工具的额度与用量、正在播放的音乐、系统读数和无线设备电量，并提供剪贴板记录与文件中转。<br>
 平时收起在屏幕顶部，只在需要时展开。<br>
 Windows 原生应用，使用 C# 与 WPF 开发，注重性能与流畅度。
 
-[![下载](https://img.shields.io/badge/下载-Windows%2011%20x64-9CB9FF?style=flat-square)](https://github.com/MoFeng2223/BrimDeck/releases/latest)
-[![最新版本](https://img.shields.io/github/v/release/MoFeng2223/BrimDeck?style=flat-square&label=%E6%9C%80%E6%96%B0%E7%89%88%E6%9C%AC&color=98DBB0)](https://github.com/MoFeng2223/BrimDeck/releases/latest)
+[![下载](https://img.shields.io/badge/下载-Windows%2011%20x64-9CB9FF?style=flat-square)](https://github.com/OWNER/AxDeck/releases/latest)
+[![最新版本](https://img.shields.io/github/v/release/OWNER/AxDeck?style=flat-square&label=%E6%9C%80%E6%96%B0%E7%89%88%E6%9C%AC&color=98DBB0)](https://github.com/OWNER/AxDeck/releases/latest)
 [![许可证](https://img.shields.io/badge/许可证-Apache%202.0-E5A385?style=flat-square)](LICENSE)
 ![界面语言](https://img.shields.io/badge/界面-简体中文%20%7C%20English-B9A8FF?style=flat-square)
 
 <p><a href="#功能">功能</a> · <a href="#安装">安装</a> · <a href="#快速开始">快速开始</a> · <a href="#隐私">隐私</a> · <a href="#常见问题">常见问题</a> · <a href="#参与开发">参与开发</a> · <a href="README.md">English</a></p>
 
-<img src="docs/zh-CN/images/hero.png" width="100%" alt="BrimDeck 从屏幕顶部的刘海展开为 AI 用量面板，依次切换到音乐页、系统监控页、剪贴板与文件中转页和设备电量页，最后收起">
+<img src="docs/zh-CN/images/hero.png" width="100%" alt="AxDeck 从屏幕顶部的刘海展开为 AI 用量面板，依次切换到音乐页、系统监控页、剪贴板与文件中转页和设备电量页，最后收起">
 
 </div>
 
-## 为什么选择 BrimDeck
+## 为什么选择 AxDeck
 
 - **额度集中显示**：Claude、Codex、Cursor、Antigravity 等工具的额度集中在一个面板上，不必逐个打开网页、命令行或应用查看。
 - **简化额度查询操作**：平时收起在屏幕顶部，鼠标移上去即展开，移开即收起。
@@ -38,7 +38,7 @@ Windows 原生应用，使用 C# 与 WPF 开发，注重性能与流畅度。
 
 ### 收起形态
 
-BrimDeck 平时位于屏幕顶部中央，提供刘海（默认）、胶囊和指示条三种样式。
+AxDeck 平时位于屏幕顶部中央，提供刘海（默认）、胶囊和指示条三种样式。
 
 <table>
   <tr>
@@ -127,7 +127,7 @@ BrimDeck 平时位于屏幕顶部中央，提供刘海（默认）、胶囊和�
 <img src="docs/zh-CN/images/clipboard.png" width="100%" alt="剪贴板与文件中转页：左栏是复制过的文字、链接、代码、图片和颜色，右栏是暂存的文件及其大小">
 
 - **剪贴板**：记录复制过的文字和图片，单击即可粘贴到正在使用的窗口；链接、代码和颜色值按各自的样式显示。
-- 记录加密保存在本机，退出 BrimDeck 时清除；放入“常用”或一直保留的分类的内容不会清除。可以指定不记录的应用。
+- 记录加密保存在本机，退出 AxDeck 时清除；放入“常用”或一直保留的分类的内容不会清除。可以指定不记录的应用。
 - **文件中转**：把文件拖到刘海、胶囊或面板上即可暂存，之后单击粘贴到当前窗口，或拖到需要的位置。只记录文件的位置，不复制文件。
 - 两栏都可以建立分类并设置自动归类的规则，也可以一起搜索。
 
@@ -153,19 +153,19 @@ BrimDeck 平时位于屏幕顶部中央，提供刘海（默认）、胶囊和�
 
 需要 Windows 11（x64）。对 Windows 10（2004 及以上版本）提供有限支持。
 
-1. 从 [Releases](https://github.com/MoFeng2223/BrimDeck/releases/latest) 下载以下任一文件：
-   - 安装版：`BrimDeck-<版本>-Setup.exe`，运行后按提示安装。
-   - 免安装版：`BrimDeck-<版本>-Portable-x64.zip`，解压后运行 `BrimDeck` 文件夹中的 `BrimDeck.exe`。
+1. 从 [Releases](https://github.com/OWNER/AxDeck/releases/latest) 下载以下任一文件：
+   - 安装版：`AxDeck-<版本>-Setup.exe`，运行后按提示安装。
+   - 免安装版：`AxDeck-<版本>-Portable-x64.zip`，解压后运行 `AxDeck` 文件夹中的 `AxDeck.exe`。
 2. 如出现“Windows 已保护你的电脑”提示，点击“更多信息”→“仍要运行”。
 
-两种版本都可以在应用内更新，设置和数据都保存在 `%LOCALAPPDATA%\BrimDeck`。
+两种版本都可以在应用内更新，设置和数据都保存在 `%LOCALAPPDATA%\AxDeck`。
 
-- 应用内更新默认只提示正式版；在设置的“关于 BrimDeck”页开启“接收测试版更新”后，也会提示测试版。
+- 应用内更新默认只提示正式版；在设置的“关于 AxDeck”页开启“接收测试版更新”后，也会提示测试版。
 - 免安装版放在需要管理员权限才能修改的文件夹（例如 `C:\Program Files`）中时，更新会请求管理员确认。
 
 ## 快速开始
 
-1. 安装并启动 BrimDeck 后，面板会出现在主显示器顶部中央，默认显示 Claude 和 Codex。
+1. 安装并启动 AxDeck 后，面板会出现在主显示器顶部中央，默认显示 Claude 和 Codex。
 2. 将鼠标移到面板上即可展开，移开鼠标或按 Esc 收起。
 3. 点击展开面板左上角的页面切换按钮，在 AI 用量、音乐、系统监控、剪贴板与文件中转、设备电量之间切换；不需要的页面可以在“设置 › 展开外观”中关闭或调整顺序。
 4. 点击展开面板右上角的设置按钮，即可添加工具或调整设置；也可在展开的面板上点击右键，或双击系统托盘图标、通过托盘图标的右键菜单进入设置。
@@ -175,7 +175,7 @@ BrimDeck 平时位于屏幕顶部中央，提供刘海（默认）、胶囊和�
 - 安装版：前往 Windows 设置中的“应用”卸载。
 - 免安装版：先在设置中关闭开机自启动（如已开启），再删除它的文件夹。
 
-如需同时删除设置和数据，再删除 `%LOCALAPPDATA%\BrimDeck`。启用过增强传感器的，卸载安装版时会一并删除传感器服务；免安装版请先在“设置 › 增强传感器”中停用。
+如需同时删除设置和数据，再删除 `%LOCALAPPDATA%\AxDeck`。启用过增强传感器的，卸载安装版时会一并删除传感器服务；免安装版请先在“设置 › 增强传感器”中停用。
 
 ## 隐私
 
@@ -189,7 +189,7 @@ BrimDeck 平时位于屏幕顶部中央，提供刘海（默认）、胶囊和�
 ## 常见问题
 
 **某个工具显示"未连接"或"等待更新"怎么办？**
-请确认该工具已在这台电脑上登录；例如 Antigravity 读取配额时需要桌面版正在运行。BrimDeck 读取不到数据时，只显示实际状态，不会显示虚假的数值。
+请确认该工具已在这台电脑上登录；例如 Antigravity 读取配额时需要桌面版正在运行。AxDeck 读取不到数据时，只显示实际状态，不会显示虚假的数值。
 
 **显示的费用是我实际支付的金额吗？**
 不是。费用按接口金额或公开的模型单价计算，适合用来了解用量高低；订阅套餐的实际扣费以各服务商的账单为准。
@@ -198,20 +198,20 @@ BrimDeck 平时位于屏幕顶部中央，提供刘海（默认）、胶囊和�
 很多电脑的 Windows 不提供这两项数据。可以在“设置 › 增强传感器”中启用增强传感器，或同时运行 HWiNFO、LibreHardwareMonitor，详见[增强传感器](docs/zh-CN/enhanced-sensors.md)。
 
 **我的鼠标、键盘或耳机没有显示电量？**
-设备需要处于连接状态，并且属于[设备电量支持](docs/zh-CN/devices.md)中列出的连接方式或型号。没有列出的设备，欢迎在 [Issues](https://github.com/MoFeng2223/BrimDeck/issues) 中反馈型号。
+设备需要处于连接状态，并且属于[设备电量支持](docs/zh-CN/devices.md)中列出的连接方式或型号。没有列出的设备，欢迎在 [Issues](https://github.com/OWNER/AxDeck/issues) 中反馈型号。
 
 ## 参与开发
 
-欢迎通过 [Issues](https://github.com/MoFeng2223/BrimDeck/issues) 反馈问题、提出功能建议，或申请适配更多工具、播放器与设备，也欢迎提交 Pull Request 参与开发。
+欢迎通过 [Issues](https://github.com/OWNER/AxDeck/issues) 反馈问题、提出功能建议，或申请适配更多工具、播放器与设备，也欢迎提交 Pull Request 参与开发。
 
 - Pull Request 不要直接合入 `main`：
   - 新功能和一般修复以 `dev` 分支为目标。
   - 某个版本进入测试阶段后，会有对应的 `release/<版本>` 分支（例如 `release/1.3.0`）。针对这个版本的问题修复以该分支为目标；该分支只接受问题修复，不接受新功能。
-- 后续规划见 [BrimDeck 路线图](https://github.com/MoFeng2223/BrimDeck/discussions/57)。功能建议可以在帖子下讨论，想认领其中某项功能时，也可以直接在帖子下留言。其他话题可以在 [Discussions](https://github.com/MoFeng2223/BrimDeck/discussions) 中讨论。
+- 后续规划见 [AxDeck 路线图](https://github.com/OWNER/AxDeck/discussions/57)。功能建议可以在帖子下讨论，想认领其中某项功能时，也可以直接在帖子下留言。其他话题可以在 [Discussions](https://github.com/OWNER/AxDeck/discussions) 中讨论。
 
 ## 许可证
 
-BrimDeck 采用 [Apache License 2.0](LICENSE)。第三方组件的许可证见 [ThirdPartyNotices.txt](src/BrimDeck/ThirdPartyNotices.txt)。
+AxDeck 采用 [Apache License 2.0](LICENSE)。第三方组件的许可证见 [ThirdPartyNotices.txt](src/AxDeck/ThirdPartyNotices.txt)。
 
 - 系统监控页参考并改编自 Nongfsq 的 [ftop](https://github.com/Nongfsq/ftop)，ftop 采用 MIT 许可证，感谢原作者。
 - 设备电量的部分协议移植自多个开源项目，名单见[设备电量支持](docs/zh-CN/devices.md#致谢)，感谢各位作者。

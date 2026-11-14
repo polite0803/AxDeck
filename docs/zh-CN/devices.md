@@ -2,7 +2,7 @@
 
 设备电量页显示已连接的无线鼠标、键盘、耳机、手柄和触控笔的电量；刘海与胶囊也可以显示。相关设置在“设置 › 显示与设备”中。
 
-BrimDeck 只读取电量：不会配对、断开或改动任何设备与 Windows 设置，不需要管理员权限，也不安装驱动。只在设备电量页打开、刘海或胶囊显示设备电量，或“设置 › 显示与设备”打开时读取。
+AxDeck 只读取电量：不会配对、断开或改动任何设备与 Windows 设置，不需要管理员权限，也不安装驱动。只在设备电量页打开、刘海或胶囊显示设备电量，或“设置 › 显示与设备”打开时读取。
 
 ## 支持的连接方式
 
@@ -27,7 +27,7 @@ BrimDeck 只读取电量：不会配对、断开或改动任何设备与 Windows
 | 手柄 | Xbox、PlayStation、Steam Controller |
 
 - 每个品牌只支持已知的型号，同一品牌的其他型号不一定能读到电量。
-- 部分型号按公开的协议资料实现，尚未在实物上验证。读不到电量或读数不正确时，欢迎在 [Issues](https://github.com/MoFeng2223/BrimDeck/issues) 中反馈设备型号。
+- 部分型号按公开的协议资料实现，尚未在实物上验证。读不到电量或读数不正确时，欢迎在 [Issues](https://github.com/OWNER/AxDeck/issues) 中反馈设备型号。
 - 设备休眠或超出接收范围时，显示接收器记录的上一次电量。
 
 ## 显示与设置
@@ -38,7 +38,7 @@ BrimDeck 只读取电量：不会配对、断开或改动任何设备与 Windows
 
 ## 致谢
 
-部分协议移植自或参考了以下开源项目，许可证全文见 [ThirdPartyNotices.txt](../../src/BrimDeck/ThirdPartyNotices.txt)：
+部分协议移植自或参考了以下开源项目，许可证全文见 [ThirdPartyNotices.txt](../../src/AxDeck/ThirdPartyNotices.txt)：
 
 - [device-battery-viewer](https://github.com/CharlesGool/device-battery-viewer)（罗技 HID++）
 - [razer-battery-report](https://github.com/xzeldon/razer-battery-report)（雷蛇）

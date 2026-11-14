@@ -10,7 +10,7 @@ The Notch, Capsule and Indicator, the quota notice, the expanded panel and its p
 
 Each theme remembers the theme, warning and critical colors of the app columns and the clock's style and color you change while using it: they are saved when you switch to another theme and come back when you return. A theme chosen for the first time uses its own colors and suggested clock. Restoring defaults in "Quotas and usage" or "Collapsed view" restores the current theme's defaults.
 
-One Dark Pro, GitHub Dark, GitHub Light, Dracula Official and Night Owl are ported from open-source VS Code themes and use their colors under each theme's MIT License: [One Dark Pro](https://github.com/Binaryify/OneDark-Pro), [GitHub Theme](https://github.com/primer/github-vscode-theme), [Dracula Official](https://github.com/dracula/visual-studio-code) and [Night Owl](https://github.com/sdras/night-owl-vscode-theme). The copyright and license notices of these projects ship with BrimDeck in `ThirdPartyNotices.txt`.
+One Dark Pro, GitHub Dark, GitHub Light, Dracula Official and Night Owl are ported from open-source VS Code themes and use their colors under each theme's MIT License: [One Dark Pro](https://github.com/Binaryify/OneDark-Pro), [GitHub Theme](https://github.com/primer/github-vscode-theme), [Dracula Official](https://github.com/dracula/visual-studio-code) and [Night Owl](https://github.com/sdras/night-owl-vscode-theme). The copyright and license notices of these projects ship with AxDeck in `ThirdPartyNotices.txt`.
 
 ## Changing colors in settings
 
@@ -24,13 +24,13 @@ A changed item is marked "Unsaved" and can be undone on its own, or all at once 
 - **Save current theme** (blue, in place of "New from current theme"): saves the current theme with the changes as a new custom theme and switches to it. A built-in theme cannot be changed and is saved this way only.
 - **Overwrite current theme** (amber, in place of the chosen custom theme's card): writes the changes into that theme's file. Only the changed values are rewritten; comments and layout stay as they were.
 
-Unsaved changes are kept while BrimDeck runs and are lost when it exits. The surface and rim gradients, the clock's preset colors and gradients, and the color picker's presets are still set in the theme file.
+Unsaved changes are kept while AxDeck runs and are lost when it exits. The surface and rim gradients, the clock's preset colors and gradients, and the color picker's presets are still set in the theme file.
 
 ## Theme files
 
 Like a VS Code theme extension, a theme is a JSON file:
 
-- The themes folder is `%LOCALAPPDATA%\BrimDeck\themes` ("Open themes folder" on the settings page).
+- The themes folder is `%LOCALAPPDATA%\AxDeck\themes` ("Open themes folder" on the settings page).
 - Every `*.json` in the folder, and every `theme.json` in a subfolder, is a theme.
 - Comments (`//`) and trailing commas are allowed; unknown properties are ignored.
 - Every theme has a **base theme** (`base`, `dark` if left out); the file only needs what differs from it.
@@ -46,7 +46,7 @@ The smallest theme is a few lines:
 }
 ```
 
-The full template is [`theme-template.json`](../../src/BrimDeck.Core/Templates/theme-template.json). It lists every color, app color and effect with its use and contrast minimum. **New from current theme** on the settings page fills the template with every value of the current theme, saves it as a new custom theme and switches to it; open it afterwards from "Open themes folder" or the file link under "Current theme". While the settings page is shown, saving a theme file reloads it and the panel updates.
+The full template is [`theme-template.json`](../../src/AxDeck.Core/Templates/theme-template.json). It lists every color, app color and effect with its use and contrast minimum. **New from current theme** on the settings page fills the template with every value of the current theme, saves it as a new custom theme and switches to it; open it afterwards from "Open themes folder" or the file link under "Current theme". While the settings page is shown, saving a theme file reloads it and the panel updates.
 
 ### Colors
 
@@ -167,7 +167,7 @@ An unofficial fan palette. It uses colors only, no artwork, logos or fonts from 
 
 **Check.** Primary text is above 15:1 on both gradient stops and tertiary text above 5:1; the yellow clock and warning are about 15:1 on the violet-black; the magenta progress is about 3:1 on the yellow Indicator. Every rule passes the first time, with no adjustment.
 
-The full file is [`cyberpunk-edgerunners.json`](../../src/BrimDeck.Core/Themes/cyberpunk-edgerunners.json). To start your own theme from it, choose it in settings and press "New from current theme".
+The full file is [`cyberpunk-edgerunners.json`](../../src/AxDeck.Core/Themes/cyberpunk-edgerunners.json). To start your own theme from it, choose it in settings and press "New from current theme".
 
 ## Interface font
 

@@ -41,12 +41,12 @@ The readings shown in the notch and capsule are chosen under "When collapsed".
 
 When the CPU temperature cannot be read, there are two ways to get it:
 
-- Turn on [enhanced sensors](enhanced-sensors.md), so BrimDeck's sensor service reads it from the processor.
-- Run HWiNFO (with shared memory on) or LibreHardwareMonitor (with its remote web server on); BrimDeck reads the figure from them.
+- Turn on [enhanced sensors](enhanced-sensors.md), so AxDeck's sensor service reads it from the processor.
+- Run HWiNFO (with shared memory on) or LibreHardwareMonitor (with its remote web server on); AxDeck reads the figure from them.
 
 The tooltip of a temperature names its source.
 
-If the PC freezes while a temperature or a power figure is being read, BrimDeck stops reading that item the next time it starts. Stopped items are listed under "When expanded" and can be turned back on one by one.
+If the PC freezes while a temperature or a power figure is being read, AxDeck stops reading that item the next time it starts. Stopped items are listed under "When expanded" and can be turned back on one by one.
 
 ## System power
 
