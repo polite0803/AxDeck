@@ -52,7 +52,18 @@ public static class BoxShellItems
     }
 
     // The id of the entry the given path stands for: a system entry's parsing name is a path of its own.
-    public static string? FromPath(string? path) => FromParsingName(path);
+    //
+    // 用户文件夹是例外：它没有固定的解析名，桌面上它是一项，路径就是当前账户的 Profile 目录。所以除了
+    // 按解析名认，还要拿 Profile 路径比一次——不然它在桌面页上认不出来，图标是空的。
+    // 原版也是这么认的（shell_virtual_item/identity.rs：先查目录，再拿用户文件夹的 Profile 路径比）。
+    public static string? FromPath(string? path)
+    {
+        if (FromParsingName(path) is { } known) return known;
+        if (string.IsNullOrWhiteSpace(path)) return null;
+        var profile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        if (profile.Length == 0) return null;
+        return Normalize(path) == Normalize(profile) ? UserFolder : null;
+    }
 
     // The parsing name is compared without its case, its separators and its trailing backslash.
     private static string Normalize(string value) => value.Trim().TrimEnd('\\').ToLowerInvariant().Replace('/', '\\');

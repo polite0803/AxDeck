@@ -108,23 +108,52 @@ internal static class ShellDesktop
         }
     }
 
-    // Turns the desktop icons off or on, and asks Explorer to draw the desktop again.
+    // Turns the desktop icons off or on, and has Explorer draw them that way at once.
     //
     // 只写注册表是不够的：Explorer 的桌面视图在它自己启动时读一次 HideIcons，之后这个开关只跟着
     // 「查看 > 显示桌面图标」那条命令走。想让已经在跑的桌面当场响应，得把那条命令发给桌面的
-    // 窗口（SHELLDLL_DefView 里的 WM_COMMAND 0x7402）。那条命令是「切换」不是「设成」，
-    // 所以先读写注册表之前的状态当 Explorer 的现状：现状和目标不一样才发一下，一样就什么都不用做。
-    // 找不到桌面窗口时退回 SHChangeNotify，至少重画一遍——Explorer 重启后的第一次就落到这条退路上。
+    // 窗口（SHELLDLL_DefView 的 WM_COMMAND 0x7402）。
+    //
+    // 那条命令是「切换」不是「设成」，所以发之前必须看清 Explorer 现在画没画图标。这时候注册表
+    // 值靠不住：Explorer 只在切的时候往回写，写到一半的时候（比如它自己崩过、或上一次切换没走完）
+    // 注册表说的和桌面画的就不是一回事。真正算数的是桌面上那个图标列表窗口现在可见不可见。
     public static void SetIconsVisible(bool visible)
     {
-        var explorerHolds = IconsVisible();
+        var drawn = DrawnIconsVisible();
         try
         {
             using (var key = Registry.CurrentUser.CreateSubKey(AdvancedPath, true))
                 key?.SetValue("HideIcons", visible ? 0 : 1, RegistryValueKind.DWord);
         }
         catch (Exception ex) when (ex is UnauthorizedAccessException or System.Security.SecurityException or IOException) { }
-        if (explorerHolds == visible || !ToggleDesktopIcons()) RefreshExplorer();
+        if (drawn is { } now)
+        {
+            // 桌面画着的已经是要的样子，不必再碰它。
+            if (now == visible) return;
+            // 让 Explorer 当场切过去。切完它自己会把注册表写回新值。
+            if (ToggleDesktopIcons()) return;
+        }
+        // 说不清 Explorer 现在什么样，或者命令没送出去：至少让它重画一遍。Explorer 重启后的第一次就落到这里。
+        RefreshExplorer();
+    }
+
+    // Explorer 的桌面现在画没画图标：桌面的图标列表窗口（SHELLDLL_DefView 里的 SysListView32）可见不可见。
+    // 找不到桌面或那个列表时返回空——那就说不清 Explorer 现在是什么样子。
+    private static bool? DrawnIconsVisible()
+    {
+        var list = FindIconList();
+        if (list == IntPtr.Zero) return null;
+        return IsWindowVisible(list);
+    }
+
+    // 桌面上的图标列表。类名 SysListView32；标题是 FolderView，但某些 Shell 扩展改的桌面没有标题，所以先按标题找，
+    // 再退回只按类名找。
+    private static IntPtr FindIconList()
+    {
+        var desktop = FindDesktopWindow();
+        if (desktop == IntPtr.Zero) return IntPtr.Zero;
+        var list = FindWindowEx(desktop, IntPtr.Zero, "SysListView32", "FolderView");
+        return list != IntPtr.Zero ? list : FindWindowEx(desktop, IntPtr.Zero, "SysListView32", null);
     }
 
     // 把「显示桌面图标」那条切换命令发给正在跑的桌面。找到桌面窗口并送出命令时返回真。
@@ -167,6 +196,10 @@ internal static class ShellDesktop
 
     [DllImport("user32.dll")]
     private static extern IntPtr SendMessage(IntPtr window, uint message, IntPtr wParam, IntPtr lParam);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool IsWindowVisible(IntPtr window);
 
     // The path of a known folder, or null when Windows does not give it.
     private static string? KnownFolderPath(Guid folderId)

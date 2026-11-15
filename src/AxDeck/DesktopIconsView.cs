@@ -204,9 +204,10 @@ internal sealed class DesktopIconsView : Grid
         return host;
     }
 
-    // 系统项的解析名换回它的编号，取图标要用编号。用户文件夹给的是它自己的路径，换不回编号。
-    private static string ShellIdOf(string parsingName)
-        => BoxShellItems.FromParsingName(parsingName) ?? "";
+    // 系统项的路径或解析名换回它的编号，取图标要用编号。用户文件夹给的是它自己的 Profile 路径，
+// 认它得比一次路径，所以走 FromPath 而不是只按解析名查。
+    private static string ShellIdOf(string pathOrParsingName)
+        => BoxShellItems.FromPath(pathOrParsingName) ?? "";
 
     // ---- 选区 ----
 

@@ -11,6 +11,69 @@ internal static class DesktopChecks
     {
         CheckSwapOfTheSameElement(check);
         CheckDesktopWindowFound(check);
+        CheckIconsStateRead(check);
+        CheckSystemEntriesHaveTheirOwnIcons(check);
+    }
+
+    // 每个系统项画的是它自己的图标。上一版把 `::{GUID}` 直接当路径交给 SHGetFileInfoW，还带着
+    // SHGFI_USEFILEATTRIBUTES，shell 就按「没有扩展名的普通文件」给图——回收站、此电脑、网络、
+    // 控制面板四个画出来是同一个通用文件图标（像素完全相同）。这条就是拿来盯住它的：
+    // 系统项各有各的图，谁也不能跟别人一样。
+    private static void CheckSystemEntriesHaveTheirOwnIcons(Action<string, bool> check)
+    {
+        var seen = new Dictionary<string, string>();
+        foreach (var id in new[] { "recycle-bin", "this-pc", "network", "control-panel", "user-folder" })
+        {
+            var icon = AxDeck.Native.BoxIcons.ForShellItem(id);
+            if (icon is null) { check($"系统项「{id}」拿得到图标", false); continue; }
+            // 图标的像素当指纹：同一个通用文件的图标，指纹必然一样。
+            var bitmap = icon as System.Windows.Media.Imaging.BitmapSource;
+            var pixels = new byte[(bitmap?.PixelWidth ?? 0) * (bitmap?.PixelHeight ?? 0) * 4];
+            if (bitmap is not null) bitmap.CopyPixels(pixels, bitmap.PixelWidth * 4, 0);
+            var print = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(pixels))[..16];
+            if (seen.TryGetValue(print, out var twin))
+                check($"系统项「{id}」画的是自己的图标（和「{twin}」重复）", false);
+            else { seen[print] = id; check($"系统项「{id}」画的是自己的图标", true); }
+        }
+    }
+
+    // 读桌面图标的真实状态：桌面的图标列表窗口找得到，才说得清 Explorer 现在画没画。
+    // 这条只读，不动用户眼前的桌面，所以全量里也跑。
+    private static void CheckIconsStateRead(Action<string, bool> check)
+    {
+        var method = typeof(AxDeck.Native.ShellDesktop).GetMethod("DrawnIconsVisible",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+        if (method is null) { check("读得到桌面图标的真实状态", false); return; }
+        var drawn = method.Invoke(null, null);
+        check("读得到桌面图标的真实状态", drawn is bool);
+    }
+
+    // 真的动手把桌面图标藏起来再放回来。会改变用户眼前的桌面，所以只按名字跑（--only desktop-toggle），
+    // 不在全量里跑。验完一定恢复原状，包括中途抛异常那次。
+    public static void RunToggle(Action<string, bool> check)
+    {
+        var desktop = typeof(AxDeck.Native.ShellDesktop);
+        var read = desktop.GetMethod("DrawnIconsVisible", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+        var set = desktop.GetMethod("SetIconsVisible", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
+        if (read is null || set is null) { check("读得到桌面图标的真实状态", false); return; }
+        bool? Drawn() => (bool?)read.Invoke(null, null);
+        var before = Drawn();
+        if (before is null) { check("读得到桌面图标的真实状态", false); return; }
+        check("读得到桌面图标的真实状态", true);
+        try
+        {
+            // 先藏，再露，每一步都问 Explorer 自己现在画没画——上一版靠注册表判断，注册表滞后，
+            // 于是它以为「已经是要的样子」而什么都不发，桌面一点也不动。
+            set.Invoke(null, [!(bool)before]);
+            check($"藏起来后 Explorer 真的不画图标了（从 {(bool)before} 到 {Drawn()}）", Drawn() == !(bool)before);
+            set.Invoke(null, [(bool)before]);
+            check($"放回来（目标 {(bool)before}）后 Explorer 真的又画了图标（现在 {Drawn()}）", Drawn() == (bool)before);
+        }
+        finally
+        {
+            if (Drawn() != before) set.Invoke(null, [(bool)before]);
+        }
+        check("验完桌面回到原来的样子", Drawn() == before);
     }
 
     // 换页换到同一个元素上：上一版在这里抛

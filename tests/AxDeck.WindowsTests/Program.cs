@@ -30,6 +30,8 @@ internal static class Program
             if (args is ["--only", "box"]) { AxDeck.BoxWindowTests.Run(Check); return Finish(); }
             if (args is ["--only", "boxprobe"]) { AxDeck.BoxInteractionTests.Run(Check); return Finish(); }
             if (args is ["--only", "desktop"]) { AxDeck.DesktopChecks.Run(Check); return Finish(); }
+            // 这条真的会把桌面图标藏起来再放回来，所以在用户眼前动桌面，只能按名字跑。
+            if (args is ["--only", "desktop-toggle"]) { AxDeck.DesktopChecks.RunToggle(Check); return Finish(); }
             // The live check starts real console programs and reads this machine's Android SDK, so it is asked for by name.
             if (args is ["--only", "axtv-live"]) { AxTvLive.Run(Check); return Finish(); }
             // The live check starts the real llama-server with the real model, so it is asked for by name.

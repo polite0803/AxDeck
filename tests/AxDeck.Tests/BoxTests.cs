@@ -118,6 +118,14 @@ internal static class BoxTests
         check("a parsing name is told apart from the entry it stands for",
             BoxShellItems.FromParsingName("::{20D04FE0-3AEA-1069-A2D8-08002B30309D}") == "this-pc"
             && BoxShellItems.FromParsingName(@"C:\Windows\System32") is null);
+        // 用户文件夹在桌面上是一项，但它的路径是当前账户的 Profile 目录，不是 ::{GUID}。
+        // 按解析名认不出来它，桌面页就取不到它的图标——所以 FromPath 还要拿 Profile 路径比一次。
+        var profile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        check("the user folder is told apart by its profile path, which has no parsing name",
+            profile.Length > 0 && BoxShellItems.ParsingName(BoxShellItems.UserFolder) is null
+            && BoxShellItems.FromPath(profile) == BoxShellItems.UserFolder
+            && BoxShellItems.FromPath(profile + @"\") == BoxShellItems.UserFolder
+            && BoxShellItems.FromPath(@"C:\Windows\System32") is null);
 
         // The selection in the file area: the way Explorer behaves.
         var point = new BoxSelection.Point(10, 20);

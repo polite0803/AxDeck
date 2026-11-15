@@ -14,6 +14,8 @@
     <Compile Include="..\..\src\AxDeck\Native\ShellDesktopIcons.cs" Link="ShellDesktopIcons.cs" />
     <Compile Include="..\..\src\AxDeck\Native\ShellFileOperations.cs" Link="ShellFileOperations.cs" />
     <Compile Include="..\..\src\AxDeck\Native\ShellShortcuts.cs" Link="ShellShortcuts.cs" />
+    <!-- 用户文件夹这一项的路径要现问 Windows，图标就按那个路径取，所以 BoxIcons 也用到它。 -->
+    <Compile Include="..\..\src\AxDeck\Native\ShellKnownFolder.cs" Link="ShellKnownFolder.cs" />
     <Compile Include="..\..\src\AxDeck\Native\BoxIcons.cs" Link="BoxIcons.cs" />
     <Compile Include="..\..\src\AxDeck\Native\BoxShell.cs" Link="BoxShell.cs" />
     <Compile Include="..\..\src\AxDeck\BoxService.cs" Link="BoxService.cs" />
