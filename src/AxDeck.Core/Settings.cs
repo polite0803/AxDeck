@@ -331,7 +331,7 @@ public sealed class DeckSettings
     private PausedMusicHide _musicPausedHide;
     private MusicGestureAction _musicDragLeft = MusicGestureAction.PreviousTrack, _musicDragRight = MusicGestureAction.NextTrack, _musicDragUp, _musicDragDown,
         _musicSwipeLeft = MusicGestureAction.PreviousTrack, _musicSwipeRight = MusicGestureAction.NextTrack;
-    // Version of the AxDeck that last saved settings.json; see SettingsMigrations. Empty in files saved before 0.1.0.
+    // Version of the AxDeck that last saved settings.json; see SettingsMigrations. Empty in files saved before versioning.
     public string AppVersion { get; set; } = "";
     public bool LaunchAtStartup { get; set; }
     // Off, the notification area has no AxDeck icon. Starting AxDeck again then shows the panels and the settings

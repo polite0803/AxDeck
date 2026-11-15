@@ -171,7 +171,7 @@ public sealed partial class LyricsService : IDisposable
                 for (int redirects = 0; ; redirects++)
                 {
                     using var request = new HttpRequestMessage(HttpMethod.Get, address);
-                    request.Headers.UserAgent.ParseAdd("AxDeck/0.1.0");
+                    request.Headers.UserAgent.ParseAdd($"AxDeck/{ApplicationVersion.Current}");
                     if (address.Host == "music.163.com") request.Headers.Referrer = new Uri("https://music.163.com/");
                     if (address.Host is "u.y.qq.com" or "c.y.qq.com") request.Headers.Referrer = new Uri("https://y.qq.com/");
                     using var response = await _http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, timeout.Token);

@@ -42,7 +42,7 @@ public static class SettingsMigrations
     public static Version VersionOf(JsonObject settings) =>
         ApplicationVersion.Parse(settings["AppVersion"] is NodeValue value && value.TryGetValue(out string? text) ? text : null);
 
-    // 0.1.0: the conversions that earlier builds made implicitly while reading.
+    // The conversions that the earliest builds made implicitly while reading.
     private static void To0_1_0(JsonObject root)
     {
         // One pair of switches used to apply to both the notch and the capsule.
