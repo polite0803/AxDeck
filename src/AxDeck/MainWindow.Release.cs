@@ -44,6 +44,10 @@ public partial class MainWindow
                     ShelfToolbar.Children.Clear(); _shelfRows.Clear(); _shelfTabs.Clear(); _fileFrame = null; _searchBox = null; _editBox = null;
                     _shelfBuilt = null; _shelfStale = true;
                     break;
+                case DeckPage.Services:
+                    held |= _servicesView is not null;
+                    _servicesView = null; _servicesKey = "";
+                    break;
             }
             released |= held;
         }

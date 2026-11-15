@@ -45,8 +45,8 @@ public sealed record IgnoredMediaApp(string AppId = "", string Name = "", string
 public enum ProviderId { Claude, Codex, Antigravity, Cursor, GlmChina, NewApi, Sub2Api, Custom, ZCode = 10, GlmGlobal = 11, Dsh = 12, DeepSeek = 13, GrokBot = 14, Kimi = 15, KimiApi = 16, OpenCode = 17, OpenCodeGo = 18, OpenRouter = 19, Pi = 20, LocalApp = 21 }
 public enum SettingsTheme { System, Light, Dark }
 // Pages are saved as numbers, so new members go at the end; their order in the page switch is DeckSettings.PageOrder.
-public enum DeckPage { Usage, Music, Monitor, Clipboard, Devices }
-public enum DefaultDeckPage { Last, Usage, Music, Monitor, Clipboard, Devices }
+public enum DeckPage { Usage, Music, Monitor, Clipboard, Devices, Services }
+public enum DefaultDeckPage { Last, Usage, Music, Monitor, Clipboard, Devices, Services }
 // What the mouse wheel does over the expanded panel. Saved as numbers, so new members go at the end.
 public enum MouseWheelAction { None, Pages, Volume }
 // What a double click on an end of the collapsed notch or capsule does: turn its auto width on or off, or start moving it
@@ -631,6 +631,11 @@ public sealed class DeckSettings
     public bool DevicesPage { get; set; } = true;
     public double DevicesWidth { get; set; } = 460;
     public double DevicesHeight { get; set; } = 200;
+    // The services & tools page: the personal Cloudflare tunnel infrastructure (cloudflared, SSH config, bgnone.cn sites).
+    // It probes the environment only while it is open on screen.
+    public bool ServicesPage { get; set; } = true;
+    public double ServicesWidth { get; set; } = 520;
+    public double ServicesHeight { get; set; } = 420;
     // The devices' order, names and where each shows (DeviceLists), by their key (DeviceBattery.Key). Empty until the user changes
     // the list; a device not in it shows everywhere, after those that are.
     public List<DeviceChoice> DeviceChoices { get; set; } = [];
@@ -811,6 +816,8 @@ public sealed class DeckSettings
         MonitorWidth = double.IsFinite(MonitorWidth) ? Math.Clamp(MonitorWidth, DeckPages.MinWidth, DeckPages.MaxWidth) : MonitorSizes.Default.Width;
         DevicesWidth = double.IsFinite(DevicesWidth) ? Math.Clamp(DevicesWidth, DeckPages.MinWidth, DeckPages.MaxWidth) : 460;
         DevicesHeight = double.IsFinite(DevicesHeight) ? Math.Clamp(DevicesHeight, DeckPages.MinHeight, DeckPages.MaxHeight) : 200;
+        ServicesWidth = double.IsFinite(ServicesWidth) ? Math.Clamp(ServicesWidth, DeckPages.MinWidth, DeckPages.MaxWidth) : 520;
+        ServicesHeight = double.IsFinite(ServicesHeight) ? Math.Clamp(ServicesHeight, DeckPages.MinHeight, DeckPages.MaxHeight) : 420;
         DeviceChoices = [.. (DeviceChoices ?? []).OfType<DeviceChoice>().Where(device => !string.IsNullOrWhiteSpace(device.Key)).DistinctBy(device => device.Key).Take(256)];
         foreach (var device in DeviceChoices)
         {

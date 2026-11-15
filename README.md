@@ -133,6 +133,14 @@ For the supported connections, brands and models, see [Supported devices](docs/e
 
 For how to use it and its settings, see [Clipboard and file transfer](docs/en-US/clipboard.md).
 
+### Services and tools
+
+- **Cloudflare tunnel**: the environment of your own tunnel (cloudflared, the SSH config, the ProxyCommand and the edge) and the 9 bgnone.cn entries, each with the action that fits it. The sites can be probed, a local forwarder started or stopped, and the diagnostics copied to the clipboard.
+- **BGE-M3 embedding service**: starts and stops the local llama.cpp server that serves the bge-m3 model on `http://localhost:8091/v1/embeddings`, and shows whether it is running, how many slots are busy, and how many requests and tokens it has handled.
+- Both were standalone Python tools before. Their logic is now native C# inside AxDeck, which calls the same system programs directly, so the packaged `.exe` files are no longer needed.
+
+For what each part shows and what it needs, see [Services and tools](docs/en-US/services.md).
+
 ### Panel themes
 
 <img src="docs/en-US/images/themes.png" width="100%" alt="The same AI usage page in the Dark, Light, Island Holiday 2, Pixel Blocks and Cyberpunk: Edgerunners themes, and in an example custom theme">
@@ -183,6 +191,7 @@ To remove settings and data as well, also delete `%LOCALAPPDATA%\AxDeck`. If you
 - Sign-in tokens are used only in memory and never written to disk; API keys you enter are stored on this PC, encrypted by Windows.
 - The clipboard history and the file transfer's list are stored only on this PC, encrypted by Windows, and never uploaded.
 - Goes online only to read quotas and usage, update model prices, fetch lyrics and covers, and check for updates. Conversations are never uploaded, and no usage data is collected.
+- The services and tools page works on this PC and with your own domains only; the BGE-M3 service it starts keeps its model and its log on this PC.
 
 For the files AxDeck reads and the addresses it connects to, see [Data and privacy](docs/en-US/privacy.md).
 
