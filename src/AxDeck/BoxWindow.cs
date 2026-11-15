@@ -66,6 +66,10 @@ internal sealed class BoxWindow : Window
     // 窗口此刻的位置和大小，以所在屏幕的 DIP 计。
     private double _x, _y, _width, _height;
 
+    // 分组文件夹此刻的样子（见 Core.BoxFolderWatch），以及隔一会儿看一眼它的计时器。
+    private string _folderSeen = "";
+    private readonly DispatcherTimer _folderTimer = new() { Interval = TimeSpan.FromSeconds(2) };
+
     // ---- 折叠 ----
     // 折叠起来的分组只留标题，鼠标落到标题上它又展开。
     // 移植自 Dasktop（useBoxCollapsePreview.ts）：折叠态的窗口只有标题那么高（40），宽不变。
@@ -182,7 +186,22 @@ internal sealed class BoxWindow : Window
         _icons = new BoxIconGrid { HorizontalAlignment = HorizontalAlignment.Left, VerticalAlignment = VerticalAlignment.Top };
         _icons.PreviewMouseLeftButtonDown += Icons_MouseLeftButtonDown;
         _icons.PreviewMouseMove += Icons_MouseMove;
-        area.Children.Add(_icons);
+
+        // 图标装进一个能滚的容器：分组的窗口大小是用户定的，图标一多就装不下，装不下的那些原来直接掉在窗口外面，
+        // 既看不见也点不到。原版的分组里也是可滚的（index.vue 的 boxContent 是一个 overflow: auto 的容器）。
+        // 只上下滚：横向的列数是按窗口宽度算出来的，不该再横着超出窗口。
+        //
+        // 竖条按需出现（Auto），它一出现就占掉一条宽度，图标因此可能少排一列——那是正常的，跟窗口变窄一样。
+        var stage = new Grid { Background = Brushes.Transparent, HorizontalAlignment = HorizontalAlignment.Stretch };
+        stage.Children.Add(_icons);
+        area.Children.Add(new ScrollViewer
+        {
+            VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+            HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
+            Content = stage,
+            Background = Brushes.Transparent,
+            Focusable = false
+        });
 
         // 拖进来的文件会落在哪一格，由这条竖线指示。它贴在那一个图标的边上，
         // 所以它靠左靠上排：不定对齐的话，Grid 会把它放在中间，线就落在离图标很远的地方。
@@ -256,12 +275,30 @@ internal sealed class BoxWindow : Window
         _idleTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(60) };
         _idleTimer.Tick += IdleTimer_Tick;
 
+        _folderTimer.Tick += (_, _) => WatchFolder();
+
         Loaded += (_, _) =>
         {
+            // 存下的位置可能已经不在屏幕上了：先照现在的屏幕摆正，再摆到那里去。
+            KeepOnScreen();
             ApplyPosition();
             Rebuild();
+            _folderTimer.Start();
         };
-        Closed += (_, _) => _idleTimer.Stop();
+        // 屏幕变了（换了分辨率、拔掉一台显示器、任务栏改了大小），存下的位置可能就出了屏幕：照新的屏幕再摆一次。
+        // 这两条消息都在系统把窗口挪进新布局之后才到，所以问出来的屏幕就是新的。
+        SourceInitialized += (_, _) =>
+        {
+            var handle = new System.Windows.Interop.WindowInteropHelper(this).Handle;
+            System.Windows.Interop.HwndSource.FromHwnd(handle)?.AddHook((IntPtr _, int message, IntPtr wParam, IntPtr _, ref bool handled) =>
+            {
+                const int DisplayChange = 0x007E, SettingChange = 0x001A, SetWorkArea = 0x002F;
+                if (message == DisplayChange || (message == SettingChange && wParam == new IntPtr(SetWorkArea)))
+                    Dispatcher.BeginInvoke(DisplaysChanged);
+                return IntPtr.Zero;
+            });
+        };
+        Closed += (_, _) => { _idleTimer.Stop(); _folderTimer.Stop(); };
         // 拖放的时候这个窗口会失去激活（拖到别的程序上的时候，系统不一定给 DragLeave）。
         // 那时「有东西正拖着经过」这个标志要是留在 true，分组就永远不会再折起来了，所以在这里放下它。
         Deactivated += (_, _) => EndDragOver();
@@ -300,6 +337,52 @@ internal sealed class BoxWindow : Window
         Width = _width;
         // 折起来的分组只有标题那么高：这里按折叠的状态给高度，不然一移动窗口它就长回来了。
         Height = Core.BoxCollapse.HeightFor(ShouldFold(), _height);
+    }
+
+    // 屏幕变了：照新的屏幕摆正，摆回去。
+    //
+    // 窗口已经被系统搬到了新布局里，所以先把它此刻的位置读回来（用户拖到哪就是哪），再判断它还在不在屏幕里。
+    // 只挪位置、不动大小：大小是用户拖出来的，换块屏幕看不出问题就不该替他改。
+    private void DisplaysChanged()
+    {
+        if (!IsLoaded) return;
+        // 拖动和缩放的当口不该动窗口：鼠标正抓着它，挪一下就跟手脱开了。
+        if (_moving || _resizing) return;
+        _x = Left; _y = Top;
+        KeepOnScreen();
+        ApplyPosition();
+    }
+
+    // 把分组拉回屏幕上。位置是上次存下的，可屏幕会变：换了分辨率、拔掉一台显示器、改了缩放比例，
+    // 存下的坐标可能就落在屏幕外面了——那样分组再也看不见、也点不到。
+    // 打开时照现在的屏幕摆正一次，屏幕再变的时候也摆正一次；摆正后的位置存回去，下次打开又是对的。
+    private void KeepOnScreen()
+    {
+        // 屏幕给的是设备像素、存的是 DIP：拿同一份屏幕信息里的缩放比例换算，两者才成对。
+        // 窗口还没有原生句柄时问不到它落在哪块屏幕上，就按主屏算——第一次打开就是这种情况。
+        System.Windows.Rect work;
+        double scale;
+        if (new System.Windows.Interop.WindowInteropHelper(this).Handle != IntPtr.Zero)
+        {
+            var (_, _, windowWork, windowScale) = WindowsHost.WindowScreen(this);
+            work = windowWork; scale = windowScale;
+        }
+        else
+        {
+            var (_, primaryWork, primaryScale) = WindowsHost.PrimaryScreen();
+            work = primaryWork; scale = primaryScale;
+        }
+        if (!(scale > 0)) return;
+        var area = new BoxWorkArea(work.X / scale, work.Y / scale, work.Width / scale, work.Height / scale);
+        // 折起来时窗口只有标题那么高，按那个高度算，才不会被推进去一截。
+        var height = BoxCollapse.HeightFor(ShouldFold(), _height);
+        var inside = BoxLayout.KeepInside(new BoxBounds(_x, _y, _width, height), area);
+        // KeepInside 也会把大小收进屏幕里。大小是用户亲自拖出来的，屏幕换了不该替他改；要挪的只有位置。
+        if (inside.X == _x && inside.Y == _y) return;
+        _x = inside.X; _y = inside.Y;
+        // 位置变了就落盘：不存的话，每次都要重新算一遍，而分组看着像「自己动了」。
+        _box.X = _x; _box.Y = _y;
+        _boxes.Save(_box);
     }
 
     // 窗口此刻的位置和大小，存起来。
@@ -368,10 +451,16 @@ internal sealed class BoxWindow : Window
     {
         // 菜单开着的时候不能把它折起来：菜单是挡在屏幕上的，折了它就跟着没了
         // （原版也把菜单开着算作保持展开的条件，useBoxCollapsePreview.ts 的 shouldKeepCollapsedPreviewOpen）。
+        //
+        // 这个标志要等到菜单真的关掉才放下。菜单是异步关的——Show 只是把 IsOpen 设成 true 就返回了，
+        // 所以不能用 try/finally：那样标志在菜单还开着的时候就复位了，随后任何一次鼠标离开都会把分组折起来。
         _boxMenuOpen = true;
         CancelScheduledFold();
-        try { BoxMenu.Show(this, _boxes, _box, Rebuild); }
-        finally { _boxMenuOpen = false; }
+        BoxMenu.Show(this, _boxes, _box, Rebuild, onClosed: () =>
+        {
+            _boxMenuOpen = false;
+            ScheduleFold();
+        });
         e.Handled = true;
     }
 
@@ -554,11 +643,14 @@ internal sealed class BoxWindow : Window
     {
         var settings = _boxes.Settings;
         _icons.Children.Clear();
-        _icons.Width = Math.Max(0, _width - BoxWindowSize.GridPadding * 2);
+        // 宽度交给容器：滚动条出现时它会自己变窄，图标就少排一列，挤不到滚动条底下去。
+        _icons.Width = double.NaN;
         _icons.Margin = new Thickness(BoxWindowSize.GridPadding);
 
         // 真的文件和系统项在一张顺序表里，所以它们在分组里可以交错着排列。
         foreach (var key in _boxes.ItemKeys(_box.Id)) _icons.Children.Add(ItemView(key));
+        // 文件夹此刻的样子记下来：过一会儿再看一眼，不一样就重画（见 WatchFolder）。
+        _folderSeen = Core.BoxFolderWatch.Of(_box.FolderPath);
 
         _icons.CellWidth = BoxLayout.ColumnWidth(settings);
         _icons.CellHeight = BoxLayout.RowHeight(settings);
@@ -572,6 +664,20 @@ internal sealed class BoxWindow : Window
         ApplyTitlePosition();
         // 自动收起可能刚被菜单改过：折起来还是展开着，这里定下来。
         ApplyFold();
+    }
+
+    // 隔一会儿看一眼文件夹，变了就重画。
+    //
+    // 用户可能在资源管理器里往这个文件夹里放了东西，也可能别的程序写了一个文件进去——分组里该跟着变。
+    // 不用 FileSystemWatcher：它在一个目录上占一个句柄，分组多、系统目录多的时候要申请一堆，而且它报事件
+    // 之后还得防抖；每两秒读一次目录名，几十项的开销可以忽略，也不会漏掉什么。
+    private void WatchFolder()
+    {
+        // 正在改名字、正在拖动的时候不重画：重画会把输入框、被拖的那一项一起扔掉。
+        if (_editingKey is not null || _dragKey is not null || _moving || _resizing) return;
+        var now = Core.BoxFolderWatch.Of(_box.FolderPath);
+        if (now == _folderSeen) return;
+        Rebuild();
     }
 
     // 标题在上还是在下。菜单里能改这一项，所以这里每次重排都按它摆一次。
@@ -1332,9 +1438,11 @@ internal sealed class BoxWindow : Window
             var left = origin.X;
             // 落在后面时，竖线画在这一项的右边。
             if (insertion.After) left += element.ActualWidth;
-            // 竖线是图标区旁边的那个元素，图标区自己有一圈边距，所以这里要把边距加上，
-            // 竖线才真的贴在那一个图标的边上，而不是偏出去一截。
-            _dropMark.Margin = new Thickness(left + _icons.Margin.Left - 1, origin.Y + _icons.Margin.Top, 0, 0);
+            // 竖线画在图标区外面那一层上，两者差着图标区自己的边距，还有滚动时滚掉的那一段，
+            // 所以坐标从图标转一次过去，不自己算边距——自己算的话一滚动线就偏了。
+            var host = _dropMark.Parent as UIElement;
+            var at = host is null ? new Point(left, origin.Y) : _icons.TranslatePoint(new Point(left, origin.Y), host);
+            _dropMark.Margin = new Thickness(at.X - 1, at.Y, 0, 0);
             // 竖线只跟这一项一样高，跟整块图标区一样高就看不出它指的是哪一项。
             _dropMark.Height = element.ActualHeight;
             _dropMark.Visibility = Visibility.Visible;

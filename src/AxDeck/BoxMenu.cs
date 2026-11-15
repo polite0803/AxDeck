@@ -12,10 +12,11 @@ namespace AxDeck;
 // 菜单的样子跟面板里的菜单一样（ShelfResources.xaml），因为它们同在屏幕上。
 internal static class BoxMenu
 {
-    // 分组自己的菜单。
-    public static void Show(Window owner, BoxService boxes, DesktopBox box, Action rebuild)
+    // 分组自己的菜单。onClosed 在菜单真正关掉时调用一次（不是这个函数返回的时候，菜单是异步关的）。
+    public static void Show(Window owner, BoxService boxes, DesktopBox box, Action rebuild, Action? onClosed = null)
     {
         var menu = Build();
+        if (onClosed is not null) menu.Closed += (_, _) => onClosed();
         menu.Items.Add(Item(Loc.T("打开真实文件夹", "Open the real folder"), () =>
         {
             try { Native.BoxShell.Open(box.FolderPath); }

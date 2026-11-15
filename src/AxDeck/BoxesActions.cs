@@ -50,7 +50,7 @@ public partial class MainWindow
         BoxesChanged();
     }
 
-    // 改一项外观：图标大小、名字字号、间距、圆角、底色。
+    // 改一项外观：图标大小、名字字号、横竖两种间距、圆角、底色。
     internal void BoxesSetLook(string which, int value)
     {
         var settings = Boxes.Settings;
@@ -59,6 +59,7 @@ public partial class MainWindow
             case "iconSize": settings.IconSize = Math.Clamp(value, 24, 96); break;
             case "labelTextSize": settings.LabelTextSize = Math.Clamp(value, 9, 20); break;
             case "iconGapX": settings.IconGapX = Math.Clamp(value, 0, 24); break;
+            case "iconGapY": settings.IconGapY = Math.Clamp(value, 0, 24); break;
             case "cornerRadius": settings.CornerRadius = Math.Clamp(value, 0, 24); break;
             case "backgroundOpacity": settings.BackgroundOpacity = Math.Clamp(value, 0, 100); break;
         }

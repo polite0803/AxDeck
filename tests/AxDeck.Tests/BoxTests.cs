@@ -242,5 +242,68 @@ internal static class BoxTests
             BoxLayout.ColumnStride(new DasktopSettings { IconGapX = 6 }) == BoxLayout.ColumnWidth(new DasktopSettings { IconGapX = 6 }) + 6);
         check("the step of one row is the height of a row plus the gap",
             BoxLayout.RowStride(new DasktopSettings { IconGapY = 4 }) == BoxLayout.RowHeight(new DasktopSettings { IconGapY = 4 }) + 4);
+
+        FolderSignature(root, check);
+        SettingsFromNewerVersion(root, check);
+    }
+
+    // 分组里显示的是它自己那个文件夹。文件夹会在别处被改（资源管理器里放进一个文件、浏览器下载到那里），
+    // 分组得跟着变。判断「变了没有」靠的是一句话：里面有什么、各自多大、各自什么时候改的。
+    private static void FolderSignature(string root, Action<string, bool> check)
+    {
+        var folder = Path.Combine(root, "box-watch");
+        Directory.CreateDirectory(folder);
+        File.WriteAllText(Path.Combine(folder, "a.txt"), "one");
+        File.WriteAllText(Path.Combine(folder, "b.txt"), "two");
+        var first = BoxFolderWatch.Of(folder);
+
+        check("a folder that did not change has the same signature", BoxFolderWatch.Of(folder) == first);
+
+        File.WriteAllText(Path.Combine(folder, "b.txt"), "two and a bit more");
+        var grown = BoxFolderWatch.Of(folder);
+        check("a file that was written to changes the signature", grown != first);
+
+        File.Delete(Path.Combine(folder, "a.txt"));
+        var removed = BoxFolderWatch.Of(folder);
+        check("a file that was removed changes the signature", removed != grown);
+
+        Directory.CreateDirectory(Path.Combine(folder, "sub"));
+        var withFolder = BoxFolderWatch.Of(folder);
+        check("a folder put in changes the signature", withFolder != removed);
+
+        // 顺序不该算数：文件系统报目录下各项的顺序不保证，同一份内容换个顺序还是同一份。
+        check("the order the entries are listed in does not count",
+            BoxFolderWatch.Signature([("a", 1, 10), ("b", 2, 20)]) == BoxFolderWatch.Signature([("b", 2, 20), ("a", 1, 10)]));
+        check("an entry that grew is a different signature",
+            BoxFolderWatch.Signature([("a", 1, 10)]) != BoxFolderWatch.Signature([("a", 2, 10)]));
+        check("a folder that is not there has the signature of an empty one",
+            BoxFolderWatch.Of(Path.Combine(root, "box-watch-missing")) == "");
+    }
+
+    // 设置文件来自更新的版本时，一步迁移都不跑，读的是默认值。那不是丢设置的理由——文件里带着这一版
+    // 上次自己保存的快照（Snapshots[这一版]），读的时候要拿它，而不是从头来过。
+    private static void SettingsFromNewerVersion(string root, Action<string, bool> check)
+    {
+        var store = new SettingsStore(System.IO.Path.Combine(root, "settings-from-the-future"), "1.3.1");
+        var settings = store.Load();
+        settings.DesktopTakeOver = true;
+        settings.DesktopWidth = 1033;
+        settings.Language = Loc.Chinese;
+        store.Save(settings);
+        var file = System.IO.Path.Combine(store.DirectoryPath, "settings.json");
+        var own = System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllText(file))!.AsObject();
+        own["AppVersion"] = "1.3.1";
+        // 高版本多出来的键：这一版不认识，不该因为读了一次就丢掉。
+        var newer = new System.Text.Json.Nodes.JsonObject
+        {
+            ["AppVersion"] = "1.4.0",
+            ["NotchWidth"] = 300,
+            ["Snapshots"] = new System.Text.Json.Nodes.JsonObject { ["1.3.1"] = own }
+        };
+        File.WriteAllText(file, newer.ToJsonString());
+
+        var read = new SettingsStore(store.DirectoryPath, "1.3.1").Load();
+        check("a settings file from a newer version reads the settings this version saved in it last",
+            read.DesktopTakeOver && read.DesktopWidth == 1033 && read.Language == Loc.Chinese);
     }
 }

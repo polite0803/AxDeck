@@ -79,7 +79,8 @@ public sealed partial class SettingsWindow
         Group(
             SliderRow(Loc.T("图标大小", "Icon size"), settings.IconSize, 24, 96, 1, "px", value => DeckBoxesSetLook("iconSize", (int)value)),
             SliderRow(Loc.T("名字字号", "Label size"), settings.LabelTextSize, 9, 20, 1, "px", value => DeckBoxesSetLook("labelTextSize", (int)value)),
-            SliderRow(Loc.T("图标间距", "Icon gap"), settings.IconGapX, 0, 24, 1, "px", value => DeckBoxesSetLook("iconGapX", (int)value)),
+            SliderRow(Loc.T("图标横向间距", "Icon gap across"), settings.IconGapX, 0, 24, 1, "px", value => DeckBoxesSetLook("iconGapX", (int)value)),
+            SliderRow(Loc.T("图标纵向间距", "Icon gap down"), settings.IconGapY, 0, 24, 1, "px", value => DeckBoxesSetLook("iconGapY", (int)value)),
             SliderRow(Loc.T("圆角", "Corner radius"), settings.CornerRadius, 0, 24, 1, "px", value => DeckBoxesSetLook("cornerRadius", (int)value)),
             SliderRow(Loc.T("底色不透明度", "Background opacity"), settings.BackgroundOpacity, 0, 100, 1, "%", value => DeckBoxesSetLook("backgroundOpacity", (int)value))
         );
