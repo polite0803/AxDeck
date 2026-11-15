@@ -109,15 +109,50 @@ internal static class ShellDesktop
     }
 
     // Turns the desktop icons off or on, and asks Explorer to draw the desktop again.
+    //
+    // 只写注册表是不够的：Explorer 的桌面视图在它自己启动时读一次 HideIcons，之后这个开关只跟着
+    // 「查看 > 显示桌面图标」那条命令走。想让已经在跑的桌面当场响应，得把那条命令发给桌面的
+    // 窗口（SHELLDLL_DefView 里的 WM_COMMAND 0x7402）。那条命令是「切换」不是「设成」，
+    // 所以先读写注册表之前的状态当 Explorer 的现状：现状和目标不一样才发一下，一样就什么都不用做。
+    // 找不到桌面窗口时退回 SHChangeNotify，至少重画一遍——Explorer 重启后的第一次就落到这条退路上。
     public static void SetIconsVisible(bool visible)
     {
+        var explorerHolds = IconsVisible();
         try
         {
             using (var key = Registry.CurrentUser.CreateSubKey(AdvancedPath, true))
                 key?.SetValue("HideIcons", visible ? 0 : 1, RegistryValueKind.DWord);
         }
         catch (Exception ex) when (ex is UnauthorizedAccessException or System.Security.SecurityException or IOException) { }
-        RefreshExplorer();
+        if (explorerHolds == visible || !ToggleDesktopIcons()) RefreshExplorer();
+    }
+
+    // 把「显示桌面图标」那条切换命令发给正在跑的桌面。找到桌面窗口并送出命令时返回真。
+    private static bool ToggleDesktopIcons()
+    {
+        var desktop = FindDesktopWindow();
+        if (desktop == IntPtr.Zero) return false;
+        SendMessage(desktop, 0x0111 /* WM_COMMAND */, new IntPtr(0x7402), IntPtr.Zero);
+        return true;
+    }
+
+    // 桌面的窗口：类名叫 SHELLDLL_DefView 的那个，一般就在 Progman 或 WorkerW 下面。
+    private static IntPtr FindDesktopWindow()
+    {
+        var progman = FindWindowEx(IntPtr.Zero, IntPtr.Zero, "Progman", null);
+        if (progman != IntPtr.Zero)
+        {
+            var defView = FindWindowEx(progman, IntPtr.Zero, "SHELLDLL_DefView", null);
+            if (defView != IntPtr.Zero) return defView;
+        }
+        // 多显示器或某些 Shell 扩展会让 DefView 挂在 WorkerW 下面，一层一层找过去。
+        IntPtr worker = IntPtr.Zero;
+        while ((worker = FindWindowEx(IntPtr.Zero, worker, "WorkerW", null)) != IntPtr.Zero)
+        {
+            var defView = FindWindowEx(worker, IntPtr.Zero, "SHELLDLL_DefView", null);
+            if (defView != IntPtr.Zero) return defView;
+        }
+        return IntPtr.Zero;
     }
 
     // Tells Explorer that the desktop changed, so the icons are drawn again.
@@ -126,6 +161,12 @@ internal static class ShellDesktop
         // SHCNE_ASSOCCHANGED with SHCNF_IDLIST asks the shell to refresh the icons it shows.
         SHChangeNotify(0x08000000 /* SHCNE_ASSOCCHANGED */, 0x0000 /* SHCNF_IDLIST */, IntPtr.Zero, IntPtr.Zero);
     }
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    private static extern IntPtr FindWindowEx(IntPtr parent, IntPtr after, string? className, string? windowName);
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr SendMessage(IntPtr window, uint message, IntPtr wParam, IntPtr lParam);
 
     // The path of a known folder, or null when Windows does not give it.
     private static string? KnownFolderPath(Guid folderId)
