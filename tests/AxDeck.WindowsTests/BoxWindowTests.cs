@@ -24,9 +24,15 @@ internal static class BoxWindowTests
         _failedNames.Clear();
 
         var app = Application.Current ?? new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
-        // The box's own menu takes the panel's menu style; the test app has none, so a plain one stands in.
-        foreach (var key in new[] { "ShelfMenu", "ShelfMenuItem", "ShelfMenuSeparator" })
-            if (app.Resources[key] is null) app.Resources[key] = new Style(typeof(MenuItem));
+        // The box's own menu takes the panel's menu style; the test app has none, so a plain one stands in. Each style
+        // has to be written for its own kind of control, or the framework refuses it.
+        foreach (var (key, type) in new (string, Type)[]
+        {
+            ("ShelfMenu", typeof(ContextMenu)),
+            ("ShelfMenuItem", typeof(MenuItem)),
+            ("ShelfMenuSeparator", typeof(Separator))
+        })
+            if (app.Resources[key] is null) app.Resources[key] = new Style(type);
 
         var sandbox = Path.Combine(Path.GetTempPath(), "axdeck-boxwindow-" + Guid.NewGuid().ToString("N")[..8]);
         var root = Path.Combine(sandbox, "boxes");

@@ -289,11 +289,12 @@ internal static class Program
         // 原来的经典开始菜单那处整个键都没有，还原时要把键删掉。
         var classicKeyExisted = Registry.CurrentUser.OpenSubKey(classic) is not null;
 
-        // 记下原来看得见看不见：注册表里 0 是显示、1 是藏起来，值不在时是 Windows 自己的默认。
-        bool WasVisible(int? value) => value is null
-            ? BoxShellItems.Find(shellId)!.DefaultVisible
-            : value.Value == 0;
-        var wasVisible = WasVisible(before);
+        // 从一个已知的起点验：注册表里 0 是显示、1 是藏起来。
+        // 这台机器上回收站可能是用户自己在「桌面图标」设置里藏起来的，那样测的就是机器的样子，不是代码的行为——
+        // 所以先把起点摆成显示，验完再原样放回去。
+        WriteVisible(newStart, clsid, true);
+        WriteVisible(classic, clsid, true);
+        const bool wasVisible = true;
 
         try
         {
@@ -314,7 +315,7 @@ internal static class Program
             // 移出分组：图标放回来，看得见看不见回到原来的样子。
             service.RemoveVirtualItem(box.Id, shellId);
             Check("移出分组后，回收站的桌面图标回到原来的样子",
-                WasVisible(ReadValue(newStart, clsid)) == wasVisible,
+                ReadValue(newStart, clsid) == 0,
                 $"值是 {ReadValue(newStart, clsid)?.ToString() ?? "没有"}");
             Check("移出分组后，回收站的桌面图标真的看得见了", wasVisible && ReadValue(newStart, clsid) == 0);
             Check("移出分组后，记录也销掉了", !service.Data.IconRecords.ContainsKey(shellId));
@@ -324,7 +325,7 @@ internal static class Program
             Check("再收一次，图标又被藏起来", ReadValue(newStart, clsid) == 1);
             service.RestoreShellIcons();
             Check("退出时归还，回收站的桌面图标回到原来的样子",
-                WasVisible(ReadValue(newStart, clsid)) == wasVisible && ReadValue(newStart, clsid) == 0,
+                ReadValue(newStart, clsid) == 0,
                 $"值是 {ReadValue(newStart, clsid)?.ToString() ?? "没有"}");
             Check("退出时归还，记录也销掉了", !service.Data.IconRecords.ContainsKey(shellId));
 
@@ -334,7 +335,7 @@ internal static class Program
             service.Settings.AutoHideShellIcons = false;
             service.SyncShellIcons();
             Check("开关关掉后，图标放回来了",
-                WasVisible(ReadValue(newStart, clsid)) == wasVisible && ReadValue(newStart, clsid) == 0,
+                ReadValue(newStart, clsid) == 0,
                 $"值是 {ReadValue(newStart, clsid)?.ToString() ?? "没有"}");
             Check("开关关掉后，记录也销掉了", !service.Data.IconRecords.ContainsKey(shellId));
 
@@ -355,7 +356,7 @@ internal static class Program
 
             reopened.RestoreShellIcons();
             Check("重开后再退出，图标回到原来的样子",
-                WasVisible(ReadValue(newStart, clsid)) == wasVisible && ReadValue(newStart, clsid) == 0,
+                ReadValue(newStart, clsid) == 0,
                 $"值是 {ReadValue(newStart, clsid)?.ToString() ?? "没有"}");
 
             // 两个分组都收着同一个图标：一个放出去，另一个还收着，图标就还藏着。
@@ -369,8 +370,25 @@ internal static class Program
                 ReadValue(newStart, clsid) == 1, $"值是 {ReadValue(newStart, clsid)}");
             shared.RemoveVirtualItem(second.Id, shellId);
             Check("两个分组都放出去，图标才回到原来的样子",
-                WasVisible(ReadValue(newStart, clsid)) == wasVisible && ReadValue(newStart, clsid) == 0,
+                ReadValue(newStart, clsid) == 0,
                 $"值是 {ReadValue(newStart, clsid)?.ToString() ?? "没有"}");
+
+            // 用户自己本来就把图标藏起来了：程序退出时不能把它放出来——放出来就是改了用户自己的设置。
+            WriteVisible(newStart, clsid, false);
+            WriteVisible(classic, clsid, false);
+            var hiddenService = NewService(root, s => s.AutoHideShellIcons = true);
+            var hiddenBox = hiddenService.Create("藏着的组");
+            hiddenService.AddVirtualItem(hiddenBox.Id, shellId);
+            Check("接管一个本来就被藏起来的图标时，记住的是它藏着的状态",
+                hiddenService.Data.IconRecords[shellId].PreviousVisible == false,
+                $"记的是 {hiddenService.Data.IconRecords[shellId].PreviousVisible}");
+            hiddenService.RestoreShellIcons();
+            Check("退出时归还，用户自己藏起来的图标仍然是藏着的",
+                ReadValue(newStart, clsid) == 1,
+                $"值是 {ReadValue(newStart, clsid)?.ToString() ?? "没有"}");
+            Check("退出时归还，用户自己藏起来的图标在经典开始菜单那处也仍然是藏着的",
+                ReadValue(classic, clsid) == 1,
+                $"值是 {ReadValue(classic, clsid)?.ToString() ?? "没有"}");
         }
         finally
         {
@@ -395,6 +413,13 @@ internal static class Program
         if (key is null) return;
         if (value is null) key.DeleteValue(name, false);
         else key.SetValue(name, value.Value, RegistryValueKind.DWord);
+    }
+
+    // 把桌面图标摆成看得见（0）或看不见（1）。键不在时先建出来，不然这个值就没地方写。
+    private static void WriteVisible(string path, string name, bool visible)
+    {
+        using var key = Registry.CurrentUser.CreateSubKey(path, true);
+        key?.SetValue(name, visible ? 0 : 1, RegistryValueKind.DWord);
     }
 
     // 把这个程序动过的注册表值原样放回去。

@@ -118,5 +118,57 @@ internal static class BoxTests
         check("a parsing name is told apart from the entry it stands for",
             BoxShellItems.FromParsingName("::{20D04FE0-3AEA-1069-A2D8-08002B30309D}") == "this-pc"
             && BoxShellItems.FromParsingName(@"C:\Windows\System32") is null);
+
+        // The selection in the file area: the way Explorer behaves.
+        var point = new BoxSelection.Point(10, 20);
+        var other = new BoxSelection.Point(110, 60);
+        check("a rectangle drawn in either direction is the same rectangle",
+            BoxSelection.Normalize(point, other) == BoxSelection.Normalize(other, point)
+            && BoxSelection.Normalize(point, other) == new BoxSelection.Rect(10, 20, 100, 40));
+        check("a rectangle that only touches another one does not count as crossing it",
+            !BoxSelection.Intersects(new BoxSelection.Rect(0, 0, 10, 10), new BoxSelection.Rect(10, 0, 10, 10))
+            && BoxSelection.Intersects(new BoxSelection.Rect(0, 0, 10, 10), new BoxSelection.Rect(9, 9, 10, 10)));
+        var items = new List<(string Key, BoxSelection.Rect Rect)>
+        {
+            ("a", new BoxSelection.Rect(0, 0, 80, 80)),
+            ("b", new BoxSelection.Rect(80, 0, 80, 80)),
+            ("c", new BoxSelection.Rect(0, 80, 80, 80))
+        };
+        check("a dragged-out rectangle picks the items it crosses",
+            BoxSelection.ItemsIn(new BoxSelection.Rect(0, 0, 100, 100), items).SequenceEqual(["a", "b", "c"]));
+        check("a dragged-out rectangle picks only what it really touches",
+            BoxSelection.ItemsIn(new BoxSelection.Rect(85, 5, 10, 10), items).SequenceEqual(["b"]));
+        check("a plain click leaves only the item that was clicked",
+            BoxSelection.AfterClick(["a", "b"], "c", false).SequenceEqual(["c"]));
+        check("a click with Ctrl takes the item out of the selection",
+            BoxSelection.AfterClick(["a", "b"], "a", true).SequenceEqual(["b"]));
+        check("a click with Ctrl puts an item that was not chosen into the selection",
+            BoxSelection.AfterClick(["a"], "b", true).SequenceEqual(["a", "b"]));
+        check("clicking an item that is already the only one chosen starts the renaming",
+            BoxSelection.ShouldRenameOnClick(["a"], "a", true));
+        check("clicking one of several items does not start the renaming",
+            !BoxSelection.ShouldRenameOnClick(["a", "b"], "a", true));
+        check("clicking an item does not start the renaming when a single click opens it",
+            !BoxSelection.ShouldRenameOnClick(["a"], "a", false));
+
+        // The keys of the file area: the same ones Explorer answers to, and the same ones the original answers to
+        // (Dasktop's useBoxFileSelection.ts, handleFileViewKeydown).
+        check("Ctrl+A selects everything in the box",
+            BoxKeyboard.For("A", true) == BoxKeyboard.Command.SelectAll);
+        check("Ctrl+C copies, Ctrl+X cuts and Ctrl+V pastes",
+            BoxKeyboard.For("C", true) == BoxKeyboard.Command.Copy
+            && BoxKeyboard.For("X", true) == BoxKeyboard.Command.Cut
+            && BoxKeyboard.For("V", true) == BoxKeyboard.Command.Paste);
+        check("F2 renames, Delete removes, Enter opens and Escape clears",
+            BoxKeyboard.For("F2", false) == BoxKeyboard.Command.Rename
+            && BoxKeyboard.For("Delete", false) == BoxKeyboard.Command.Delete
+            && BoxKeyboard.For("Enter", false) == BoxKeyboard.Command.Open
+            && BoxKeyboard.For("Escape", false) == BoxKeyboard.Command.Clear);
+        check("the letters without Ctrl do nothing",
+            BoxKeyboard.For("A", false) == BoxKeyboard.Command.None
+            && BoxKeyboard.For("C", false) == BoxKeyboard.Command.None);
+        check("a key the box does not use does nothing",
+            BoxKeyboard.For("Q", true) == BoxKeyboard.Command.None
+            && BoxKeyboard.For("F5", false) == BoxKeyboard.Command.None);
     }
 }

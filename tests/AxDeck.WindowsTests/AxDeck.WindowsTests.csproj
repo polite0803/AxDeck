@@ -65,6 +65,9 @@
     <Compile Include="..\..\src\AxDeck\Native\ShellShortcuts.cs" Link="ShellShortcuts.cs" />
     <Compile Include="..\..\src\AxDeck\Native\BoxIcons.cs" Link="BoxIcons.cs" />
     <Compile Include="..\..\src\AxDeck\Native\BoxShell.cs" Link="BoxShell.cs" />
+    <Compile Include="..\..\src\AxDeck\Native\ShellContextMenu.cs" Link="ShellContextMenu.cs" />
+    <Compile Include="..\..\src\AxDeck\Native\ShellClipboard.cs" Link="ShellClipboard.cs" />
+    <Compile Include="..\..\src\AxDeck\Native\ShellKnownFolder.cs" Link="ShellKnownFolder.cs" />
     <Compile Include="..\..\src\AxDeck\BoxService.cs" Link="BoxService.cs" />
     <Compile Include="..\..\src\AxDeck\BoxTransferExecutor.cs" Link="BoxTransferExecutor.cs" />
     <Compile Include="..\..\src\AxDeck\BoxDrag.cs" Link="BoxDrag.cs" />

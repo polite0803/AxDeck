@@ -198,10 +198,11 @@ internal sealed class BoxesView : Grid
             if (item.DesktopIconClsid is { } && BoxShellItems.FindDesktopIcon(item.Id) is not null)
             {
                 bool visible = _boxes.ShellIconVisible(item.Id);
+                // 开关用自己的默认样式：SegmentButton 是给 Button 的，套在 CheckBox 上会当场抛异常。
                 var toggle = new CheckBox
                 {
-                    Style = (Style)Application.Current.FindResource("SegmentButton"),
                     IsChecked = visible,
+                    Padding = new Thickness(0),
                     VerticalAlignment = VerticalAlignment.Center,
                     Margin = new Thickness(0, 0, 8, 0)
                 };
@@ -257,7 +258,7 @@ internal sealed class BoxesView : Grid
         var text = UI.Fixed(label, 12.5, 18, UI.Secondary);
         text.VerticalAlignment = VerticalAlignment.Center;
         grid.Children.Add(text);
-        var toggle = new CheckBox { IsChecked = on, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(8, 0, 0, 0) };
+        var toggle = new CheckBox { IsChecked = on, Padding = new Thickness(0), VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(8, 0, 0, 0) };
         AutomationProperties.SetName(toggle, label);
         toggle.Checked += (_, _) => act(true);
         toggle.Unchecked += (_, _) => act(false);
