@@ -25,7 +25,7 @@ internal sealed class BoxWindow : Window
     private readonly Border _frame;
     private readonly Border _title;
     private readonly TextBlock _titleText;
-    private readonly WrapPanel _icons;
+    private readonly BoxIconGrid _icons;
     private readonly Border _dropMark;
     private readonly DispatcherTimer _idleTimer;
 
@@ -66,9 +66,55 @@ internal sealed class BoxWindow : Window
     // 窗口此刻的位置和大小，以所在屏幕的 DIP 计。
     private double _x, _y, _width, _height;
 
+    // ---- 折叠 ----
+    // 折叠起来的分组只留标题，鼠标落到标题上它又展开。
+    // 移植自 Dasktop（useBoxCollapsePreview.ts）：折叠态的窗口只有标题那么高（40），宽不变。
+    // 展开的高度是用户自己给的那一份，折起来的时候不能把它丢掉。
+    // 此刻是不是正展开着（鼠标在标题上，或者正在跟什么东西打交道）。
+    private bool _unfolded;
+    // 正在等一会儿再折回去：鼠标从标题移向边缘的缩放手柄、或者移向菜单的路上，不该把它折掉。
+    private DispatcherTimer? _collapseTimer;
+    // 正在跑的高度动画：窗口一帧一帧地变高变矮。
+    private DispatcherTimer? _heightAnimation;
+    // 折起来的时候，图标区不接鼠标：那里只剩标题，鼠标落下去应该落到桌面上，而不是落进一个看不见的地方。
+    private bool _contentsVisible = true;
+    // 折叠时用的几个开关：鼠标在不在窗口里、在不在标题上、是不是有东西正拖着经过、菜单开没开。
+    private bool _mouseInside;
+    private bool _titleHovered;
+    private bool _dragOverBox;
+    private bool _nativeMenuOpen;
+    private bool _boxMenuOpen;
+    private bool _gripHovered;
+    // 正在改标题的那个输入框。
+    private TextBox? _titleInput;
+
     // The icons and the line that marks the landing place, so the window's own drawing can be looked at.
-    internal WrapPanel Icons => _icons;
+    internal BoxIconGrid Icons => _icons;
     internal Border DropMark => _dropMark;
+    // The title bar and whether the box is folded right now: the title is the way in when the box is folded, and
+    // the way it is folded is the one thing a user would want to see.
+    internal Border TitleBar => _title;
+    internal bool IsFolded => !_contentsVisible;
+
+    // The ways into the folding and the title editing, exposed so they can be driven without a person in front of
+    // the screen: the mouse coming and going, and the double click on the title.
+    internal void Enter()
+    {
+        _mouseInside = true;
+        Unfold();
+    }
+
+    internal void Leave()
+    {
+        _mouseInside = false;
+        ScheduleFold();
+    }
+
+    internal void DoubleClickTitle()
+    {
+        StopMoving();
+        StartTitleEditing();
+    }
 
     public BoxWindow(BoxService boxes, DesktopBox box)
     {
@@ -121,6 +167,10 @@ internal sealed class BoxWindow : Window
         _title.MouseMove += Title_MouseMove;
         _title.MouseLeftButtonUp += Title_MouseLeftButtonUp;
         _title.MouseRightButtonUp += Title_MouseRightButtonUp;
+        // 折起来的分组只有标题露在外面，鼠标落到标题上它就展开（原版也是拿标题当入口，
+        // useBoxCollapsePreview.ts 的 handleBoxTitleMouseEnter）。
+        _title.MouseEnter += (_, _) => { _titleHovered = true; Unfold(); };
+        _title.MouseLeave += (_, _) => { _titleHovered = false; ScheduleFold(); };
         content.Children.Add(_title);
 
         // 图标区：接收拖放的那一块。
@@ -129,7 +179,7 @@ internal sealed class BoxWindow : Window
         // Focusable：键盘要落在这一块上，Delete、F2、Ctrl+C 这些键才收得到（原版也是把焦点放在文件网格上）。
         var area = new Grid { AllowDrop = true, Background = Brushes.Transparent, Focusable = true };
         _fileArea = area;
-        _icons = new WrapPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Left, VerticalAlignment = VerticalAlignment.Top };
+        _icons = new BoxIconGrid { HorizontalAlignment = HorizontalAlignment.Left, VerticalAlignment = VerticalAlignment.Top };
         _icons.PreviewMouseLeftButtonDown += Icons_MouseLeftButtonDown;
         _icons.PreviewMouseMove += Icons_MouseMove;
         area.Children.Add(_icons);
@@ -193,6 +243,10 @@ internal sealed class BoxWindow : Window
             grip.MouseLeftButtonDown += Grip_MouseLeftButtonDown;
             grip.MouseMove += Grip_MouseMove;
             grip.MouseLeftButtonUp += Grip_MouseLeftButtonUp;
+            // 鼠标在手柄上的时候不能把它折起来：手柄贴的是四边，折起来四边就不在那儿了
+            // （原版也把手柄上的鼠标算作保持展开的条件，useBoxCollapsePreview.ts）。
+            grip.MouseEnter += (_, _) => { _gripHovered = true; CancelScheduledFold(); };
+            grip.MouseLeave += (_, _) => { _gripHovered = false; ScheduleFold(); };
             _root.Children.Add(grip);
         }
 
@@ -208,8 +262,19 @@ internal sealed class BoxWindow : Window
             Rebuild();
         };
         Closed += (_, _) => _idleTimer.Stop();
+        // 拖放的时候这个窗口会失去激活（拖到别的程序上的时候，系统不一定给 DragLeave）。
+        // 那时「有东西正拖着经过」这个标志要是留在 true，分组就永远不会再折起来了，所以在这里放下它。
+        Deactivated += (_, _) => EndDragOver();
         // The drag asks the window whether it may go on; the Escape key ends it, and that is remembered.
         DragDrop.AddQueryContinueDragHandler(this, new QueryContinueDragEventHandler(Icons_QueryContinueDrag));
+    }
+
+    // 一次拖放过去了：那个「有东西正拖着经过」的标志放下，分组可以照常折起来。
+    private void EndDragOver()
+    {
+        if (!_dragOverBox) return;
+        _dragOverBox = false;
+        ScheduleFold();
     }
 
     // 每条边的手柄：方向，以及它贴在哪一边、哪一端。
@@ -233,7 +298,8 @@ internal sealed class BoxWindow : Window
         Left = _x;
         Top = _y;
         Width = _width;
-        Height = _height;
+        // 折起来的分组只有标题那么高：这里按折叠的状态给高度，不然一移动窗口它就长回来了。
+        Height = Core.BoxCollapse.HeightFor(ShouldFold(), _height);
     }
 
     // 窗口此刻的位置和大小，存起来。
@@ -248,6 +314,17 @@ internal sealed class BoxWindow : Window
     // 标题栏是拖动窗口的手柄。
     private void Title_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
+        // 双击标题是改名字（原版也是这样：useBoxTitleEditing.ts 的 startTitleEditing）。
+        if (Core.BoxTitleEditing.IsDoubleClick(e.ClickCount))
+        {
+            // 双击的前一下已经把窗口拖起来了：这里先把它停下，不然鼠标一直被抓着，
+            // 输入框也拿不到焦点，原版也是先把拖动停掉再开始改名字。
+            StopMoving();
+            StartTitleEditing();
+            e.Handled = true;
+            return;
+        }
+
         if (_box.Locked) return;
         _moving = true;
         _moveOrigin = e.GetPosition(this);
@@ -255,6 +332,14 @@ internal sealed class BoxWindow : Window
         _moveBoxY = _y;
         CaptureMouse();
         e.Handled = true;
+    }
+
+    // 停掉正在进行的拖动：鼠标的捕获放开，窗口停在它现在的地方。
+    private void StopMoving()
+    {
+        if (!_moving) return;
+        _moving = false;
+        if (IsMouseCaptured) ReleaseMouseCapture();
     }
 
     private void Title_MouseMove(object sender, MouseEventArgs e)
@@ -281,8 +366,101 @@ internal sealed class BoxWindow : Window
     // 标题上按右键，打开分组自己的菜单。
     private void Title_MouseRightButtonUp(object sender, MouseButtonEventArgs e)
     {
-        BoxMenu.Show(this, _boxes, _box, Rebuild);
+        // 菜单开着的时候不能把它折起来：菜单是挡在屏幕上的，折了它就跟着没了
+        // （原版也把菜单开着算作保持展开的条件，useBoxCollapsePreview.ts 的 shouldKeepCollapsedPreviewOpen）。
+        _boxMenuOpen = true;
+        CancelScheduledFold();
+        try { BoxMenu.Show(this, _boxes, _box, Rebuild); }
+        finally { _boxMenuOpen = false; }
         e.Handled = true;
+    }
+
+    // ---- 改标题 ----
+
+    // 双击标题，标题变成一个输入框：光标落在里面，原来的名字被选中，改好了按回车。
+    // 改的是分组自己的名字，不是桌面上的文件（原版也是这么分的，useBoxTitleEditing.ts）。
+    private void StartTitleEditing()
+    {
+        if (_titleInput is not null) return;
+        // 改名字的时候不能把它折起来：折了输入框就没了（原版也把改名字算作保持展开的条件）。
+        CancelScheduledFold();
+
+        var input = new TextBox
+        {
+            Text = _box.Title,
+            FontSize = _titleText.FontSize,
+            Foreground = Brushes.White,
+            Background = new SolidColorBrush(Color.FromArgb(70, 60, 60, 70)),
+            BorderThickness = new Thickness(1),
+            Padding = new Thickness(2, 0, 2, 0),
+            VerticalContentAlignment = VerticalAlignment.Center
+        };
+        _titleInput = input;
+
+        input.KeyDown += TitleInput_KeyDown;
+        // 点到别处去就算改完了（原版的输入框失焦就提交，useBoxTitleEditing.ts 的 finishTitleEditingInteraction）。
+        input.LostFocus += TitleInput_LostFocus;
+
+        // 输入框把标题那行占住：宽度跟标题栏一样，不然标题会缩一下。
+        input.Width = Math.Max(40, _title.ActualWidth - 20);
+        _title.Child = input;
+        input.Focus();
+        input.SelectAll();
+    }
+
+    // 输入框失去焦点：算改完了。
+    private void TitleInput_LostFocus(object sender, RoutedEventArgs e) => CommitTitleEditing();
+
+    // 输入框里的键：回车提交， Esc 取消。
+    private void TitleInput_KeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Enter)
+        {
+            CommitTitleEditing();
+            e.Handled = true;
+            return;
+        }
+        if (e.Key == Key.Escape)
+        {
+            CancelTitleEditing();
+            e.Handled = true;
+        }
+    }
+
+    // 改完了：把名字存起来。
+    private void CommitTitleEditing()
+    {
+        var input = _titleInput;
+        if (input is null) return;
+        var next = Core.BoxTitleEditing.Commit(input.Text, _box.Title);
+        EndTitleEditing();
+        if (next is null) return;
+        _box.Title = next;
+        _titleText.Text = next;
+        Title = next;
+        _boxes.Save(_box);
+        Rebuild();
+    }
+
+    // 改到一半不改了：名字还是原来那个。
+    private void CancelTitleEditing()
+    {
+        if (_titleInput is null) return;
+        EndTitleEditing();
+    }
+
+    // 编辑结束，输入框撤掉，标题那行恢复成原来的样子。
+    private void EndTitleEditing()
+    {
+        var input = _titleInput;
+        if (input is null) return;
+        _titleInput = null;
+        input.KeyDown -= TitleInput_KeyDown;
+        input.LostFocus -= TitleInput_LostFocus;
+        _title.Child = _titleText;
+        _titleText.Text = _box.Title;
+        // 焦点回到图标区：不然它留在那个已经被撤掉的输入框上，窗口就再也收不到键盘了。
+        FocusFileArea();
     }
 
     // ---- 大小 ----
@@ -382,15 +560,25 @@ internal sealed class BoxWindow : Window
         // 真的文件和系统项在一张顺序表里，所以它们在分组里可以交错着排列。
         foreach (var key in _boxes.ItemKeys(_box.Id)) _icons.Children.Add(ItemView(key));
 
-        _icons.ItemWidth = BoxLayout.ColumnWidth(settings);
-        _icons.ItemHeight = BoxLayout.RowHeight(settings);
+        _icons.CellWidth = BoxLayout.ColumnWidth(settings);
+        _icons.CellHeight = BoxLayout.RowHeight(settings);
+        // 两个图标之间的空隙。两个滑块各自管一件事：一个管同一行里挨着的两个，另一个管上下两行。
+        // 原版把它们直接绑在网格的 columnGap 和 rowGap 上（index.vue 的 boxGridStyle）。
+        _icons.ColumnGap = BoxLayout.ColumnGap(settings);
+        _icons.RowGap = BoxLayout.RowGap(settings);
         _titleText.Text = _box.Title;
         _frame.CornerRadius = new CornerRadius(settings.CornerRadius);
         // 标题的位置可能刚被菜单改过，重排的时候一起摆好。
         ApplyTitlePosition();
+        // 自动收起可能刚被菜单改过：折起来还是展开着，这里定下来。
+        ApplyFold();
     }
 
     // 标题在上还是在下。菜单里能改这一项，所以这里每次重排都按它摆一次。
+    //
+    // 折起来的时候，标题的入口永远在窗口的顶部：原版也是这么做的——窗口缩到只剩标题那么高，
+    // 标题在下面的话它就被切在外面了，原版是让标题从下往上滑到顶部那个入口
+    // （useBoxCollapsePreview.ts 的 isBottomTitleMovingDuringCollapse、resolveCollapseWindowFrame）。
     private void ApplyTitlePosition()
     {
         var area = _fileArea;
@@ -400,6 +588,13 @@ internal sealed class BoxWindow : Window
         var titleRow = _box.TitlePosition == BoxTitlePosition.Bottom ? 1 : 0;
         Grid.SetRow(_title, titleRow);
         Grid.SetRow(area, titleRow == 0 ? 1 : 0);
+
+        // 折起来的时候标题回顶部：不然只剩标题那么高的窗口里，什么都看不见。
+        if (ShouldFold() && titleRow != 0)
+        {
+            Grid.SetRow(_title, 0);
+            Grid.SetRow(area, 1);
+        }
     }
 
     // 一项的图标和名字。key 是它的路径，或者是 "shell::" 加它的编号。
@@ -798,13 +993,16 @@ internal sealed class BoxWindow : Window
         var extension = IOPath.GetExtension(key);
         if (name.Length > 0 && extension.Length > 0 && !name.EndsWith(extension, StringComparison.OrdinalIgnoreCase)) name += extension;
         ClearRename();
-        if (name.Length == 0) { Rebuild(); return; }
+        if (name.Length == 0) { Rebuild(); FocusFileArea(); return; }
         if (!_boxes.Rename(_box.Id, key, name))
         {
             BoxReport.Error(Loc.T("这个名字用不了：Windows 不收这个名字，或者已经有同名的东西了。",
                 "This name cannot be used: Windows does not take it, or something of that name is already there."));
         }
         Rebuild();
+        // 改名框没了，焦点得回到图标区上：不然它留在一个已经被删掉的元素上，
+        // 窗口就再也收不到键盘了——F2、Delete、Ctrl+C 这些全都按不动（原版也是把焦点还给文件网格）。
+        FocusFileArea();
     }
 
     // 取消改名：名字不动，只把输入框收起来。
@@ -812,6 +1010,8 @@ internal sealed class BoxWindow : Window
     {
         ClearRename();
         Rebuild();
+        // 焦点同样要还给图标区：不然它还留在那个已经被删掉的输入框上，键盘就失灵了。
+        FocusFileArea();
     }
 
     // 把改名框收起来，换回普通的名字。
@@ -866,6 +1066,11 @@ internal sealed class BoxWindow : Window
     {
         // The drag is cancelled with the Escape key; anything else lets it go on.
         if (e.Action == DragAction.Cancel) _cancelled = true;
+        // 拖放到了这一步就没有下一次了：系统的 DragLeave 不一定跟着来（拖到别的程序上的时候就没有），
+        // 那时「有东西正拖着经过」这个标志会永远留在 true，分组也就永远不会再折起来。
+        // 拖放结束一定会有一次 QueryContinueDrag，所以在这里把它放下（原版也是这么收的，
+        // useBoxCollapsePreview.ts 的 setDragHoveringBox）。
+        if (e.Action is not DragAction.Continue) EndDragOver();
     }
 
     // 鼠标在图标上松开：单击打开（设置说双击打开时不开），或者双击打开。
@@ -902,7 +1107,12 @@ internal sealed class BoxWindow : Window
         // 右键先修正选区：不在选区里的那一项成为唯一选中的一项，跟 Explorer 一样。
         if (!_selected.Contains(tag)) { _selected.Clear(); _selected.Add(tag); PaintSelection(); }
 
-        BoxItemMenu.Show(this, _boxes, _box, tag, Rebuild, e.GetPosition(this));
+        // 系统的菜单在自己的消息循环里开着，这期间 WebView 可能失焦、也可能收到鼠标离开。
+        // 开着的时候不能把它折起来（原版也是这么处理的，useBoxCollapsePreview.ts 的 setNativeItemContextMenuOpen）。
+        _nativeMenuOpen = true;
+        CancelScheduledFold();
+        try { BoxItemMenu.Show(this, _boxes, _box, tag, Rebuild, e.GetPosition(this)); }
+        finally { _nativeMenuOpen = false; }
         e.Handled = true;
     }
 
@@ -965,6 +1175,10 @@ internal sealed class BoxWindow : Window
 
     private void Area_DragEnter(object sender, DragEventArgs e)
     {
+        // 拖着东西经过时不能把它折起来：那份东西要落在这一格里，得看得见落在哪儿
+        // （原版也是拖拽命中按普通鼠标进入处理，useBoxCollapsePreview.ts 的 setDragHoveringBox）。
+        _dragOverBox = true;
+        CancelScheduledFold();
         e.Effects = Accepts(e) ? DragDropEffects.Move : DragDropEffects.None;
         e.Handled = true;
     }
@@ -979,7 +1193,12 @@ internal sealed class BoxWindow : Window
         e.Handled = true;
     }
 
-    private void Area_DragLeave(object sender, DragEventArgs e) => _dropMark.Visibility = Visibility.Collapsed;
+    private void Area_DragLeave(object sender, DragEventArgs e)
+    {
+        _dropMark.Visibility = Visibility.Collapsed;
+        _dragOverBox = false;
+        ScheduleFold();
+    }
 
     // 拖进来的东西被收进分组。
     private void Area_Drop(object sender, DragEventArgs e)
@@ -1124,6 +1343,155 @@ internal sealed class BoxWindow : Window
         _dropMark.Visibility = Visibility.Collapsed;
     }
 
+    // ---- 折叠 ----
+
+    // 这个分组此刻的状态：什么东西正在发生在它身上。
+    // 这一串条件是照着原版来的（useBoxCollapsePreview.ts 的 shouldKeepCollapsedPreviewOpen）：
+    // 菜单开着、标题在改、正在拖、正在缩，这些时候都不该把它折起来。
+    private Core.BoxCollapse.State CollapseState() => new()
+    {
+        BoxHovered = _mouseInside,
+        TitleHovered = _titleHovered,
+        DragHovering = _dragOverBox,
+        NativeMenuOpen = _nativeMenuOpen,
+        BoxMenuOpen = _boxMenuOpen,
+        EditingTitle = _titleInput is not null,
+        Dragging = _moving,
+        ResizeHandleHovered = _gripHovered,
+        Resizing = _resizing
+    };
+
+    // 该不该折起来。
+    private bool ShouldFold() => Core.BoxCollapse.ShouldFold(_box.Collapsed, _unfolded, CollapseState());
+
+    // 折叠的样子：折起来时窗口只有标题那么高，展开时回到用户给的那一份高度。
+    internal bool Folded => ShouldFold();
+
+    // 折叠时的那些开关：鼠标在不在标题上、是不是有东西正拖着经过、菜单开没开。
+    internal string FoldState => string.Join(",", new[]
+    {
+        ("collapsed=" + _box.Collapsed),
+        ("unfolded=" + _unfolded),
+        ("mouse=" + _mouseInside),
+        ("title=" + _titleHovered),
+        ("drag=" + _dragOverBox),
+        ("nativeMenu=" + _nativeMenuOpen),
+        ("boxMenu=" + _boxMenuOpen),
+        ("editing=" + (_titleInput is not null)),
+        ("moving=" + _moving),
+        ("grip=" + _gripHovered),
+        ("resizing=" + _resizing)
+    });
+
+    // 有没有东西正拖着经过这个分组。
+    internal bool DragOverBox => _dragOverBox;
+
+    // 把窗口折起来或者展开：折起来时窗口只有标题那么高，展开时回到用户给的那一份高度。
+    private void ApplyFold()
+    {
+        var folded = ShouldFold();
+        // 已经是这个状态就不用再动：每次重建图标都会走到这里。
+        if (folded == !_contentsVisible) return;
+
+        _contentsVisible = !folded;
+        // 折起来的时候图标区不接鼠标：那一片只剩标题，鼠标落下去应该落到桌面上。
+        if (_fileArea is { } area) area.IsHitTestVisible = !folded;
+        // 缩放手柄在折起来的时候也不该露出来：它们贴的是四边，而四边已经不在那儿了。
+        foreach (var child in _root.Children.OfType<Border>())
+            if (child.Tag is BoxResizeDirection) child.Visibility = folded ? Visibility.Collapsed : Visibility.Visible;
+        // 折起来的时候标题要回到顶部去（标题在下方时），展开的时候回到它本来的位置。
+        ApplyTitlePosition();
+
+        var height = Core.BoxCollapse.HeightFor(folded, _height);
+        // 动画是在这个高度之上跑的：基准值先摆到目标高度，动画停下来的时候窗口就留在那儿了。
+        // 不先摆基准值的话，动画一停（FillBehavior.Stop）窗口会弹回原来的高度。
+        var from = Height;
+        Height = height;
+        if (!Soft.Enabled || Math.Abs(from - height) < 0.5) return;
+
+        // 折起来的时候用动画：原版是这么收的（useBoxCollapsePreview.ts 的 applyCollapseWindowSize）。
+        //
+        // 这里不是给 Height 加动画，而是自己一帧一帧地改它：WPF 的 Window.Height 加了动画之后，
+        // 动画一停（FillBehavior.Stop）窗口就会弹回原来的高度——因为 Windows 自己也在回写窗口大小，
+        // 把动画甩开了。原版是对原生窗口逐步 setSize，效果就是这样。
+        AnimateHeight(from, height);
+    }
+
+    // 窗口高度从这儿变到那儿，一帧一帧地变过去。
+    //
+    // 原版给这个动作的缓动是 [0.22, 1, 0.36, 1]（useBoxCollapsePreview.ts 的 applyCollapseWindowSize）：
+    // 一开始动得快，快到头的时候慢下来。
+    private void AnimateHeight(double from, double height)
+    {
+        _heightAnimation?.Stop();
+        var duration = Math.Max(1, _boxes.Settings.CollapseAnimationMs);
+        var started = DateTime.UtcNow;
+        var timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(16) };
+        timer.Tick += (_, _) =>
+        {
+            var elapsed = (DateTime.UtcNow - started).TotalMilliseconds;
+            var progress = Math.Clamp(elapsed / duration, 0, 1);
+            // 缓动：曲线的 x 是时间，y 是走到哪儿了。
+            var eased = Curves.Bezier(.22, 1, .36, 1, progress);
+            Height = from + (height - from) * eased;
+            if (progress < 1) return;
+            timer.Stop();
+            _heightAnimation = null;
+            Height = height;
+        };
+        _heightAnimation = timer;
+        timer.Start();
+    }
+
+    // 展开：折叠着的分组，鼠标落到标题上就展开。
+    private void Unfold()
+    {
+        if (!_box.Collapsed) return;
+        _unfolded = true;
+        ApplyFold();
+    }
+
+    // 折回去。等一小会儿再折：鼠标从标题移向边缘的缩放手柄、或者移向菜单的路上，不该把它折掉
+    // （原版 useBoxCollapsePreview.ts 的 scheduleCollapsedPreviewClose）。
+    private void ScheduleFold()
+    {
+        // 不开自动收起的分组，这个标志没有意义：留着它的话，别的分组一会儿开了自动收起就会一直展开着。
+        if (!_box.Collapsed)
+        {
+            _unfolded = false;
+            return;
+        }
+        // 定时器只建一次：每次重建图标都调到这里，反复新建会留下一堆空转的定时器。
+        if (_collapseTimer is null)
+        {
+            _collapseTimer = new DispatcherTimer();
+            _collapseTimer.Tick += CollapseTimer_Tick;
+        }
+        _collapseTimer.Stop();
+        _collapseTimer.Interval = TimeSpan.FromMilliseconds(Core.BoxCollapse.CloseDelayMs(_boxes.Settings));
+        _collapseTimer.Start();
+    }
+
+    // 折叠的延迟到了：此刻没有别的事情发生在它身上，它就折回去。
+    private void CollapseTimer_Tick(object? sender, EventArgs e)
+    {
+        _collapseTimer?.Stop();
+        if (Core.BoxCollapse.KeepsOpen(CollapseState())) return;
+        _unfolded = false;
+        ApplyFold();
+    }
+
+    // 有东西正在跟这个分组打交道，不该折起来。
+    private void CancelScheduledFold()
+    {
+        _collapseTimer?.Stop();
+        // 不开自动收起的分组，这个标志没有意义：它记的是「这一刻先别折起来」，
+        // 而分组根本不会折，留着它只会让以后开了自动收起的分组一直展开着。
+        if (!_box.Collapsed) { _unfolded = false; return; }
+        _unfolded = true;
+        ApplyFold();
+    }
+
     // ---- 空闲淡出 ----
 
     // 淡出到设定的不透明度。
@@ -1145,6 +1513,9 @@ internal sealed class BoxWindow : Window
     {
         _idleTimer.Stop();
         _frame.Visibility = Visibility.Visible;
+        _mouseInside = true;
+        // 折起来的分组，鼠标一进来就展开。
+        Unfold();
         if (Soft.Enabled)
         {
             var fade = Soft.Fade(_frame.Opacity, 1, Math.Max(1, _boxes.Settings.IdleOpacityShowMs), Soft.Out);
@@ -1159,8 +1530,14 @@ internal sealed class BoxWindow : Window
     protected override void OnMouseLeave(MouseEventArgs e)
     {
         _idleTimer.Stop();
-        _idleTimer.Interval = TimeSpan.FromMilliseconds(Math.Max(1, _boxes.Settings.IdleOpacityHideMs));
+        // 淡出前先等一小会儿：原版是这么做的，让用户先看见收起来的那一下，
+        // 而不是一边收一边淡（useBoxCollapsePreview.ts 的 resolveBoxIdleOpacityAnimationDelay）。
+        _idleTimer.Interval = TimeSpan.FromMilliseconds(
+            Math.Max(1, _boxes.Settings.IdleOpacityHideMs) + Core.BoxCollapse.FadeOutDelayMs(_boxes.Settings));
         _idleTimer.Start();
+        _mouseInside = false;
+        // 折起来的分组，等一会儿再折回去：鼠标从标题移向缩放手柄、或者移向菜单的路上，不该把它折掉。
+        ScheduleFold();
         base.OnMouseLeave(e);
     }
 }

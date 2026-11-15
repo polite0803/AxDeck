@@ -45,8 +45,8 @@ public sealed record IgnoredMediaApp(string AppId = "", string Name = "", string
 public enum ProviderId { Claude, Codex, Antigravity, Cursor, GlmChina, NewApi, Sub2Api, Custom, ZCode = 10, GlmGlobal = 11, Dsh = 12, DeepSeek = 13, GrokBot = 14, Kimi = 15, KimiApi = 16, OpenCode = 17, OpenCodeGo = 18, OpenRouter = 19, Pi = 20, LocalApp = 21 }
 public enum SettingsTheme { System, Light, Dark }
 // Pages are saved as numbers, so new members go at the end; their order in the page switch is DeckSettings.PageOrder.
-public enum DeckPage { Usage, Music, Monitor, Clipboard, Devices, Services, Boxes }
-public enum DefaultDeckPage { Last, Usage, Music, Monitor, Clipboard, Devices, Services, Boxes }
+public enum DeckPage { Usage, Music, Monitor, Clipboard, Devices, Services, Boxes, Desktop }
+public enum DefaultDeckPage { Last, Usage, Music, Monitor, Clipboard, Devices, Services, Boxes, Desktop }
 // What the mouse wheel does over the expanded panel. Saved as numbers, so new members go at the end.
 public enum MouseWheelAction { None, Pages, Volume }
 // What a double click on an end of the collapsed notch or capsule does: turn its auto width on or off, or start moving it
@@ -636,14 +636,19 @@ public sealed class DeckSettings
     public bool ServicesPage { get; set; } = true;
     public double ServicesWidth { get; set; } = 520;
     public double ServicesHeight { get; set; } = 420;
-    // The desktop organizer page: the boxes that group what lies on the desktop, and the rules that decide what
-    // happens to the real files behind them (DasktopData). The organizer's own data is saved here, so it is read and
-    // written with the settings, and it survives a restart like everything else in this file.
-    public bool BoxesPage { get; set; } = true;
+    // The desktop organizer is no longer a page of the switch (it lives behind the desktop page and the settings window),
+    // but its sizes stay: an old file still carries them, and DeckPages.SetSize keeps writing them from DeckPage.Boxes.
     public double BoxesWidth { get; set; } = 520;
     public double BoxesHeight { get; set; } = 400;
     // The organizer itself: the boxes, what they hold and its rules. Null in a file written before the organizer existed.
     public DasktopData? Boxes { get; set; }
+    // 「桌面」页：把桌面文件夹里的东西以图标画在展开的面板里。AxDeck 运行期间真实桌面的图标是藏起来的，
+    // 程序退出时再放回去，所以桌面上的东西只有展开 AxDeck 才看得见。
+    public bool DesktopPage { get; set; } = true;
+    public double DesktopWidth { get; set; } = 760;
+    public double DesktopHeight { get; set; } = 400;
+    // AxDeck 运行期间把真实桌面的图标藏起来。关掉它，桌面照旧由 Windows 画，这一页只是多一份镜像。
+    public bool DesktopTakeOver { get; set; } = true;
     // The Android emulator the same page drives (the old "AxTV 模拟器管理器"): the AVD to start, and whether an
     // installation whose signature differs from the one on the device may remove the installed app and retry.
     public string AxTvAvd { get; set; } = "axtv_tv";
@@ -832,6 +837,8 @@ public sealed class DeckSettings
         ServicesHeight = double.IsFinite(ServicesHeight) ? Math.Clamp(ServicesHeight, DeckPages.MinHeight, DeckPages.MaxHeight) : 420;
         BoxesWidth = double.IsFinite(BoxesWidth) ? Math.Clamp(BoxesWidth, DeckPages.MinWidth, DeckPages.MaxWidth) : 520;
         BoxesHeight = double.IsFinite(BoxesHeight) ? Math.Clamp(BoxesHeight, DeckPages.MinHeight, DeckPages.MaxHeight) : 400;
+        DesktopWidth = double.IsFinite(DesktopWidth) ? Math.Clamp(DesktopWidth, DeckPages.MinWidth, DeckPages.MaxWidth) : 760;
+        DesktopHeight = double.IsFinite(DesktopHeight) ? Math.Clamp(DesktopHeight, DeckPages.MinHeight, DeckPages.MaxHeight) : 400;
         // The organizer's own data: an empty one when the file has none, so the rest of the program can read it without
         // asking whether it is there.
         Boxes ??= new DasktopData();

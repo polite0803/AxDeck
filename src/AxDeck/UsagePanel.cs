@@ -168,10 +168,10 @@ public partial class MainWindow
         if (IsShelfPage) { RenderShelf(lazy: true); return; }
         if (CurrentPage == DeckPage.Devices) { RenderDevices(); return; }
         if (CurrentPage == DeckPage.Services) { RenderServices(); return; }
-        if (CurrentPage == DeckPage.Boxes) { RenderBoxes(); return; }
+        if (CurrentPage == DeckPage.Desktop) { RenderDesktop(); return; }
         // Only a page that was on screen hands over; one that arrives by the page switch or with the panel opening comes in whole.
         bool shown = UsageContent.IsVisible && _expanded && !_preview;
-        MusicContent.Visibility = Visibility.Collapsed; MonitorContent.Visibility = Visibility.Collapsed; ShelfContent.Visibility = Visibility.Collapsed; DevicesContent.Visibility = Visibility.Collapsed; ServicesContent.Visibility = Visibility.Collapsed; BoxesContent.Visibility = Visibility.Collapsed; UsageContent.Visibility = Visibility.Visible;
+        MusicContent.Visibility = Visibility.Collapsed; MonitorContent.Visibility = Visibility.Collapsed; ShelfContent.Visibility = Visibility.Collapsed; DevicesContent.Visibility = Visibility.Collapsed; ServicesContent.Visibility = Visibility.Collapsed; DesktopContent.Visibility = Visibility.Collapsed; UsageContent.Visibility = Visibility.Visible;
         if (!Settings.UsagePage) _details = false;
         RefreshStatus();
         if (_detailPopup is not null) { _flippedColumn = null; return; }

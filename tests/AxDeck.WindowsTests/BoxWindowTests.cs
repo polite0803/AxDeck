@@ -137,7 +137,24 @@ internal static class BoxWindowTests
         // The grid the items stand on: one cell for each of them.
         Note("每一项都占着一格", children.All(child => child.Width == BoxLayout.ColumnWidth(service.Settings)
             && child.Height == BoxLayout.RowHeight(service.Settings)));
-        Note("图标区按格宽排开", icons.ItemWidth == BoxLayout.ColumnWidth(service.Settings) && icons.ItemHeight == BoxLayout.RowHeight(service.Settings));
+        // The grid keeps the room between two places apart from the place itself: that is what the two gap sliders set.
+        Note("图标区把格子和格子之间的空隙分开管",
+            icons.CellWidth == BoxLayout.ColumnWidth(service.Settings)
+            && icons.CellHeight == BoxLayout.RowHeight(service.Settings)
+            && icons.ColumnGap == BoxLayout.ColumnGap(service.Settings)
+            && icons.RowGap == BoxLayout.RowGap(service.Settings),
+            $"格子 {icons.CellWidth}x{icons.CellHeight}，空隙 {icons.ColumnGap}/{icons.RowGap}");
+
+        // Two icons of the same row are one cell plus one gap apart, not two cells: that is the difference the gap makes.
+        if (children.Count >= 2)
+        {
+            var first = children[0];
+            var second = children[1];
+            var distance = second.TranslatePoint(new Point(0, 0), icons).X - first.TranslatePoint(new Point(0, 0), icons).X;
+            Note("同一行里两个图��之间的距离是格子加空隙",
+                Math.Abs(distance - BoxLayout.ColumnStride(service.Settings)) < 1.5,
+                $"实际 {distance:0.0}，应该是 {BoxLayout.ColumnStride(service.Settings):0.0}");
+        }
     }
 
     // ---- 落点：那条指示落点的竖线 ----
@@ -235,7 +252,7 @@ internal static class BoxWindowTests
     }
 
     // 一个在这块图标区里的点：落点就是按这个坐标系算的。
-    private static Point InIcons(WrapPanel icons, FrameworkElement area, double x, double y)
+    private static Point InIcons(FrameworkElement icons, FrameworkElement area, double x, double y)
         => area.TranslatePoint(new Point(x, y), icons);
 
     // 竖线在它所在的那块区域里的左边缘。

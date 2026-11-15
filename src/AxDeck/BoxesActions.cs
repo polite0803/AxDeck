@@ -13,7 +13,7 @@ public partial class MainWindow
         var box = Boxes.Create(Loc.T("新建分组", "New box"));
         BoxesChanged();
         BoxWindows.Show(Boxes, box);
-        _boxesView?.Refresh();
+        _app.OrganizerChanged();
     }
 
     // 显示一个分组的窗口。
@@ -87,12 +87,9 @@ public partial class MainWindow
         BoxesChanged();
     }
 
-    // 打开「桌面整理」这一页：托盘里点它的时候用。
-    internal void BoxesOpenPage()
-    {
-        if (!Settings.BoxesPage) return;
-        SelectPage(DeckPage.Boxes);
-    }
+    // 打开「桌面整理」的设置页：托盘菜单、桌面页的右键菜单点它的时候用。
+    // 它不再是展开面板的一页，所以打开的是设置窗口，停在整理器所在的那一页。
+    internal void BoxesOpenPage() => _app.OpenSettingsPage(SettingsWindow.OrganizerSettingsPage);
 
     // 把所有分组都显示出来。
     internal void BoxesShowAll()
@@ -109,6 +106,6 @@ public partial class MainWindow
         // them again behind a record that says they were hidden.
         Settings.Boxes = Boxes.Snapshot();
         if (save) _app.QueueSave();
-        _boxesView?.Refresh();
+        _app.OrganizerChanged();
     }
 }

@@ -48,9 +48,9 @@ public partial class MainWindow
                     held |= _servicesView is not null;
                     _servicesView = null; _servicesKey = "";
                     break;
-                case DeckPage.Boxes:
-                    held |= _boxesView is not null;
-                    _boxesView = null; _boxesKey = "";
+                case DeckPage.Desktop:
+                    held |= _desktopView is not null;
+                    _desktopView = null;
                     break;
             }
             released |= held;

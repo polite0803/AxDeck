@@ -170,5 +170,69 @@ internal static class BoxTests
         check("a key the box does not use does nothing",
             BoxKeyboard.For("Q", true) == BoxKeyboard.Command.None
             && BoxKeyboard.For("F5", false) == BoxKeyboard.Command.None);
+
+        // The folding of a box: a folded box keeps only its title, and unfolds while the mouse is on it.
+        // The original's list of what holds a box open, one for one (useBoxCollapsePreview.ts,
+        // shouldKeepCollapsedPreviewOpen).
+        check("a folded box is only as tall as its title",
+            BoxCollapse.FoldedHeight == BoxWindowSize.TitleHeight);
+        check("a box that is not folded keeps the height the user gave it",
+            BoxCollapse.HeightFor(false, 320) == 320);
+        check("a folded box is only as tall as its title",
+            BoxCollapse.HeightFor(true, 320) == BoxWindowSize.TitleHeight);
+        check("a folded box shows no contents",
+            !BoxCollapse.ContentsVisible(true) && BoxCollapse.ContentsVisible(false));
+
+        var nothing = new BoxCollapse.State();
+        check("a folded box folds again when nothing is happening to it",
+            BoxCollapse.ShouldFold(true, false, nothing));
+        check("a box that is not set to fold never folds",
+            !BoxCollapse.ShouldFold(false, false, nothing));
+        check("a box that is momentarily unfolded stays unfolded",
+            !BoxCollapse.ShouldFold(true, true, nothing));
+
+        // Everything that happens to a box holds it open.
+        foreach (var (name, state) in new (string, BoxCollapse.State)[]
+        {
+            ("the mouse is over it", nothing with { BoxHovered = true }),
+            ("the mouse is over its title", nothing with { TitleHovered = true }),
+            ("a file is dragged over it", nothing with { DragHovering = true }),
+            ("the system's menu is open", nothing with { NativeMenuOpen = true }),
+            ("its own menu is open", nothing with { BoxMenuOpen = true }),
+            ("its title is being edited", nothing with { EditingTitle = true }),
+            ("it is being dragged", nothing with { Dragging = true }),
+            ("the mouse is on a resize handle", nothing with { ResizeHandleHovered = true }),
+            ("it is being resized", nothing with { Resizing = true })
+        })
+        {
+            check($"a box that is {name} stays open", BoxCollapse.KeepsOpen(state));
+            check($"a box that is {name} is not folded away", !BoxCollapse.ShouldFold(true, false, state));
+        }
+
+        // The title of a box, while it is being written.
+        check("a new title is saved",
+            BoxTitleEditing.Commit("  新名字  ", "旧名字") == "新名字");
+        check("a title that was not changed is not saved again",
+            BoxTitleEditing.Commit("  一样的  ", "一样的") is null);
+        check("a title may be emptied",
+            BoxTitleEditing.Commit("   ", "旧名字") == "");
+        check("cancelling the title keeps the old one",
+            BoxTitleEditing.Cancel("旧名字") == "旧名字");
+        check("the second click of a double click starts the editing",
+            BoxTitleEditing.IsDoubleClick(2) && !BoxTitleEditing.IsDoubleClick(1));
+
+        // The space between two icons: the two sliders set it, and it is room between the places, not part of them.
+        check("the gap between two icons of a row is the one the user set",
+            BoxLayout.ColumnGap(new DasktopSettings { IconGapX = 12 }) == 12
+            && BoxLayout.ColumnGap(new DasktopSettings { IconGapX = 6 }) == 6);
+        check("the gap between two rows is the one the user set",
+            BoxLayout.RowGap(new DasktopSettings { IconGapY = 10 }) == 10);
+        check("a place an icon takes does not grow with the gap",
+            BoxLayout.ColumnWidth(new DasktopSettings { IconGapX = 30, IconSize = 48, FilenameWidth = 82 })
+            == BoxLayout.ColumnWidth(new DasktopSettings { IconGapX = 0, IconSize = 48, FilenameWidth = 82 }));
+        check("the step of one column is the place plus the gap",
+            BoxLayout.ColumnStride(new DasktopSettings { IconGapX = 6 }) == BoxLayout.ColumnWidth(new DasktopSettings { IconGapX = 6 }) + 6);
+        check("the step of one row is the height of a row plus the gap",
+            BoxLayout.RowStride(new DasktopSettings { IconGapY = 4 }) == BoxLayout.RowHeight(new DasktopSettings { IconGapY = 4 }) + 4);
     }
 }

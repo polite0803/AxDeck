@@ -80,6 +80,7 @@ try
     await PortableUpdateTests.Run(root, Check);
     SettingsMigrationTests.Run(root, Check);
     BoxTests.Run(root, Check);
+    DesktopTests.Run(Check);
     MemoryModeTests.Run(Check);
     OffPeakTests.Run(root, Check);
     FullscreenRuleTests.Run(Check);

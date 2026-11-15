@@ -69,6 +69,8 @@ internal static class BoxInteractionTests
                 CheckKeyboard(window, service, box);
                 CheckClipboard();
                 CheckShellParsing();
+                CheckCollapse(window, service);
+                CheckTitleEditing(window, service, box);
             }
             catch (Exception ex) { Note("the box window answered without complaint", false, ex.ToString()); }
             finally { window.Close(); }
@@ -140,6 +142,142 @@ internal static class BoxInteractionTests
         return false;
     }
 
+    // ---- 折叠：折起来只有标题，鼠标落到上面又展开 ----
+
+    // The folding of a box. The original folds a box to its title when the mouse leaves it, and unfolds it again when
+    // the mouse comes back (useBoxCollapsePreview.ts). The checks here use the real window: the height it ends up
+    // with, and the title that stays reachable in either state.
+    private static void CheckCollapse(BoxWindow window, BoxService service)
+    {
+        var box = service.Boxes.FirstOrDefault(b => b.Id == BoxIdOf(window));
+        if (box is null) { Note("折叠：找得到这个分组", false); return; }
+
+        // The delay before the box folds away is a setting; in a test it is shortened, so the check does not have to
+        // wait for the real half a second. The animation of the height is shortened for the same reason.
+        var savedDelay = service.Settings.CollapseDelayMs;
+        var savedAnimation = service.Settings.CollapseAnimationMs;
+        service.Settings.CollapseDelayMs = 1;
+        service.Settings.CollapseAnimationMs = 1;
+
+        var title = window.TitleBar;
+        Note("折叠：标题栏在窗口里", title is not null && title.IsVisible);
+
+        // The box folds only when it is set to fold. The setting is the one the menu turns on and off.
+        box.Collapsed = true;
+        service.Save(box);
+        window.Rebuild();
+        Pump();
+
+        // Nothing is happening to the box, so it folds: the window is as tall as its title.
+        WaitFor(() => Math.Abs(window.Height - BoxWindowSize.TitleHeight) < 1.5);
+        Note("折叠：折起来时窗口只有标题那么高",
+            Math.Abs(window.Height - BoxWindowSize.TitleHeight) < 1.5,
+            $"窗口高 {window.Height:0.0}，应该是 {BoxWindowSize.TitleHeight:0.0}，该折起来吗：{window.Folded}（{window.FoldState}）");
+
+        // The title is the way in: it has to be where the mouse can reach it.
+        Note("折叠：折起来时标题还在窗口的顶部",
+            Grid.GetRow(title) == 0, $"标题在第 {Grid.GetRow(title)} 行");
+
+        // The contents take no mouse while the box is folded: a click there belongs to the desktop.
+        var area = FileAreaOf(window);
+        Note("折叠：折起来时图标区不接鼠标",
+            area is not null && !area.IsHitTestVisible);
+
+        // The mouse comes back: the box unfolds to the height the user gave it.
+        window.Enter();
+        Pump();
+        WaitFor(() => Math.Abs(window.Height - box.Height) < 1.5);
+        Note("折叠：鼠标回来时它展开到用户给的高度",
+            Math.Abs(window.Height - box.Height) < 1.5,
+            $"窗口高 {window.Height:0.0}，应该是 {box.Height:0.0}");
+        Note("折叠：展开时图标区又接鼠标了", area is not null && area.IsHitTestVisible);
+
+        // The mouse leaves again: it folds once more.
+        window.Leave();
+        Pump();
+        WaitFor(() => Math.Abs(window.Height - BoxWindowSize.TitleHeight) < 1.5);
+        Note("折叠：鼠标离开后它又折起来",
+            Math.Abs(window.Height - BoxWindowSize.TitleHeight) < 1.5,
+            $"窗口高 {window.Height:0.0}");
+
+        // A box that is not set to fold never folds.
+        box.Collapsed = false;
+        service.Save(box);
+        window.Rebuild();
+        Pump();
+        Note("折叠：没开自动收起的分组一直开着",
+            Math.Abs(window.Height - box.Height) < 1.5,
+            $"窗口高 {window.Height:0.0}");
+
+        service.Settings.CollapseDelayMs = savedDelay;
+        service.Settings.CollapseAnimationMs = savedAnimation;
+    }
+
+    // 等一个条件成立，最多等这么久。定时器走的是消息循环，所以这里推消息循环，不空等。
+    private static bool WaitFor(Func<bool> condition, int milliseconds = 2000)
+    {
+        var deadline = DateTime.UtcNow.AddMilliseconds(milliseconds);
+        while (DateTime.UtcNow < deadline)
+        {
+            if (condition()) return true;
+            Pump();
+            Thread.Sleep(15);
+        }
+        return condition();
+    }
+
+    // 这个窗口是哪个分组的。
+    private static string BoxIdOf(BoxWindow window)
+    {
+        var field = typeof(BoxWindow).GetField("_box",
+            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+        return (field?.GetValue(window) as DesktopBox)?.Id ?? "";
+    }
+
+    // ---- 改标题 ----
+
+    // The title of a box, edited where it is written: a double click on the title turns it into an input, and the
+    // name is kept when the editing is done (useBoxTitleEditing.ts).
+    private static void CheckTitleEditing(BoxWindow window, BoxService service, DesktopBox box)
+    {
+        var title = window.TitleBar;
+        var input = title.Child as TextBox;
+        Note("改标题：平时标题那一行是名字，不是输入框", input is null);
+
+        // The double click: the second click of a pair starts the editing.
+        window.DoubleClickTitle();
+        Pump();
+        var editor = title.Child as TextBox;
+        Note("改标题：双击标题后出现了输入框", editor is not null);
+        if (editor is null) return;
+
+        // The old name is in it, selected, so typing replaces it.
+        Note("改标题：输入框里是原来的名字", editor.Text == box.Title, $"里面是「{editor.Text}」");
+        Note("改标题：原来的名字被选中了", editor.SelectionLength == editor.Text.Length);
+
+        // Enter keeps the new name.
+        editor.Text = "改过的名字";
+        editor.Focus();
+        PostKey(window, Key.Enter);
+        Pump();
+        Note("改标题：回车之后名字换了", box.Title == "改过的名字", $"现在是「{box.Title}」");
+        Note("改标题：输入框收起来了", title.Child is not TextBox);
+        Note("改标题：新的名字存下去了", service.Boxes.First(b => b.Id == box.Id).Title == "改过的名字");
+
+        // Escape keeps the old one.
+        window.DoubleClickTitle();
+        Pump();
+        var second = title.Child as TextBox;
+        Note("改标题：又可以改了", second is not null);
+        if (second is null) return;
+        second.Text = "不该留下的名字";
+        second.Focus();
+        PostKey(window, Key.Escape);
+        Pump();
+        Note("改标题：Esc 之后名字没变", box.Title == "改过的名字", $"现在是「{box.Title}」");
+        Note("改标题：Esc 之后输入框收起来了", title.Child is not TextBox);
+    }
+
     // ---- 拖进来 ----
 
     private static void CheckDrop(BoxWindow window, BoxService service, DesktopBox box, string sandbox)
@@ -174,6 +312,13 @@ internal static class BoxInteractionTests
             string.Join(",", Directory.GetFiles(box.FolderPath).Select(Path.GetFileName)));
         Note("放下的动作在顺序表里留下了痕迹", service.ItemKeys(box.Id).Any(key => key.EndsWith("拖进来.txt", StringComparison.OrdinalIgnoreCase)),
             string.Join(" | ", service.ItemKeys(box.Id)));
+
+        // The drag goes on: the pointer leaves the box, and the box hears about it. Without this the box would
+        // still think something is being dragged over it, and it would never fold again.
+        var leave = DragArgs(area, UIElement.DragLeaveEvent, data);
+        area.RaiseEvent(leave);
+        Note("拖走之后窗口不再以为有东西正拖着经过", !window.DragOverBox,
+            $"拖动标志：{window.FoldState}");
     }
 
     // ---- 右键 ----
@@ -356,15 +501,44 @@ internal static class BoxInteractionTests
     }
 
     // 拿前台：这个进程是在后台起的，Windows 不让它抢前台。
-    // 按一下 ALT 再松开，是 Windows 留给程序的口令：这一下之后就可以抢了。
+    //
+    // 抢前台不是一次就成的：系统有它自己的脾气，ALT 那一下有时候管用有时候不管用。
+    // 所以这里抢完要验一下，抢不到就换个法子再抢，实在抢不到就把话说清楚——
+    // 静悄悄地失败看起来像是「窗口收不到键盘」，其实是自己没抢到前台。
+    //
+    // 这里只抢前台，不动键盘焦点：焦点一动，正在改的名字就被提交了
+    //（改名框失去焦点就会提交），那样「按 Esc 取消」就变成了「按回车确认」。
+    // 窗口在前台就够了：键会顺着 WPF 自己的输入管线走到焦点元素上，再冒泡到窗口。
     private static void TakeForeground(IntPtr hwnd)
     {
-        var alt = KeyInput(0x12, false);
-        SendOne(alt);
-        SendOne(KeyInput(0x12, true));
-        Pump();
-        SetForegroundWindow(hwnd);
-        Pump();
+        for (var attempt = 0; attempt < 10; attempt++)
+        {
+            if (GetForegroundWindow() == hwnd) return;
+
+            // 按一下 ALT 再松开，是 Windows 留给程序的口令：这一下之后就可以抢了。
+            SendOne(KeyInput(0x12, false));
+            SendOne(KeyInput(0x12, true));
+            Pump();
+            SetForegroundWindow(hwnd);
+            Pump();
+            if (GetForegroundWindow() == hwnd) return;
+
+            // 还是抢不到：把两个线程的输入队列接起来，再抢一次。
+            // 接上之后，这个线程设的前台窗口另一个线程也认。
+            var current = GetForegroundWindow();
+            if (current == IntPtr.Zero) continue;
+            var other = GetWindowThreadProcessId(current, out _);
+            var mine = GetCurrentThreadId();
+            if (other == mine || other == 0) continue;
+            if (!AttachThreadInput(mine, other, true)) continue;
+            try
+            {
+                SetForegroundWindow(hwnd);
+            }
+            finally { AttachThreadInput(mine, other, false); }
+            Pump();
+            if (GetForegroundWindow() == hwnd) return;
+        }
     }
 
     // 选中一项：走的是点击那条路，所以选区是真的被改了。
@@ -460,6 +634,10 @@ internal static class BoxInteractionTests
         if (hwnd == IntPtr.Zero) return;
         // 窗口得是前台的，键盘的消息才往它身上走。
         TakeForeground(hwnd);
+        // 抢不到前台的话，键一个也进不来——那时候后面那条断言会挂，
+        // 而挂的原因跟被测的代码没有关系。这里先把话说清楚，省得查错方向。
+        if (GetForegroundWindow() != hwnd)
+            throw new InvalidOperationException("抢不到前台，键进不去窗口");
 
         var keyCode = KeyToVirtualKey(key);
         // Ctrl 要先按住：这一段必须先落下去，等系统把状态记下来，
@@ -568,6 +746,10 @@ internal static class BoxInteractionTests
 
     [System.Runtime.InteropServices.DllImport("user32.dll")]
     private static extern bool SetForegroundWindow(IntPtr hwnd);
+
+    // 现在在前台的是哪个窗口：抢前台有没有成，要靠它来看。
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    private static extern IntPtr GetForegroundWindow();
 
     // 把两个线程的输入队列接起来：接上之后，其中一个线程设的前台窗口对另一个也认。
     [System.Runtime.InteropServices.DllImport("user32.dll", SetLastError = true)]

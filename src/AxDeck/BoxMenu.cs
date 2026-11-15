@@ -50,6 +50,14 @@ internal static class BoxMenu
 
         menu.Items.Add(Item(Loc.T("闲置时可见度", "Opacity when idle"), () => BoxDialogs.Opacity(owner, boxes, box, rebuild),
             MenuIcons.Eye, hint: box.TitleOpacity + "%"));
+        // 自动收起：开着的时候鼠标一离开，这个分组就折成只剩标题，鼠标回到标题上它又展开。
+        // 原版的菜单里就是这一个开关（useBoxContextMenuActions.ts 的 updateBoxAutoCollapseFromMenu）。
+        menu.Items.Add(Item(box.Collapsed ? Loc.T("自动收起：开启", "Auto collapse: on") : Loc.T("自动收起：关闭", "Auto collapse: off"), () =>
+        {
+            box.Collapsed = !box.Collapsed;
+            boxes.Save(box);
+            rebuild();
+        }, MenuIcons.Rollup, check: box.Collapsed));
         menu.Items.Add(Separator());
         menu.Items.Add(Item(Loc.T("删除分组", "Delete the box"), () => BoxDialogs.Delete(owner, boxes, box), MenuIcons.Delete, danger: true));
         Open(owner, menu);
@@ -187,5 +195,7 @@ internal static class BoxMenu
         public const string Open = "M 9,2.5 H 13.5 V 7 M 13.5,2.5 L 7.5,8.5 M 11.5,9.5 V 12.5 A 1,1 0 0 1 10.5,13.5 H 3.5 A 1,1 0 0 1 2.5,12.5 V 5.5 A 1,1 0 0 1 3.5,4.5 H 6.5";
         public const string Remove = "M 2.5,8 A 5.5,5.5 0 1 1 13.5,8 A 5.5,5.5 0 1 1 2.5,8 Z M 5.5,8 H 10.5";
         public const string Desktop = "M 1.5,3 H 14.5 V 11 H 1.5 Z M 5,13.5 H 11 M 8,11 V 13.5";
+        // 折起来的样子：只剩上面一条标题，下面是空的。
+        public const string Rollup = "M 1.5,3 H 14.5 V 6.5 H 1.5 Z M 3.5,10 H 12.5 M 3.5,13 H 12.5";
     }
 }

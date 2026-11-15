@@ -1,67 +1,42 @@
 using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Media;
 using AxDeck.Core;
-using AxDeck.Native;
 
 namespace AxDeck;
 
-// 「桌面整理」页面的控制器：分组、规则、原生桌面图标，都在这里改。
-// 数据存在 settings.json 里（DeckSettings.Boxes），所以这一页不需要另存一份。
+// 「桌面整理」的控制器：分组、规则、原生桌面图标这些数据在整理器里（BoxService），
+// 它不再是一个展开面板的页面，而是设置窗口里的一个页面（OrganizerSettingsPage），
+// 从桌面页的右键菜单、托盘菜单和设置窗口进去。
 public partial class MainWindow
 {
     private BoxService? _boxesService;
-    private BoxesView? _boxesView;
-    private string _boxesKey = "";
 
     // 整理器本身：所有面板共用一份，改动大家都看得见。
     internal BoxService Boxes => _boxesService ??= new BoxService();
 
     // 程序启动时把保存的数据读进来：分组里收着的系统图标，在收进分组的那一刻就被藏起来了，
-    // 所以数据必须比退出早一步到位，退出时才放得回来。
-    internal void BoxesLoad()
+    // 所以数据必须比退出早一步到位，退出时才放得回来。force 在设置里把整理器恢复默认之后用：
+    // 数据整个换掉了，已经读进来的那一份要扔掉重读。
+    internal void BoxesLoad(bool force = false)
     {
-        if (_boxesService is not null) return;
+        if (_boxesService is not null && !force) return;
+        if (force)
+        {
+            // 换掉的那一份整理器里可能还收着系统图标：它们先放回桌面，再换数据。
+            _boxesService?.RestoreShellIcons();
+            BoxWindows.CloseAll();
+        }
         _boxesService = new BoxService();
         _boxesService.Load(Settings.Boxes ?? new DasktopData());
-        // 整理器里的东西变了：保存一次，页面自己重画。
+        // 整理器里的东西变了：保存一次。
         Settings.Boxes = _boxesService.Snapshot();
     }
-    // 页面第一次打开时把保存的数据读进来。
-    private void RenderBoxes()
-    {
-        bool shown = BoxesContent.Visibility == Visibility.Visible && _boxesView is not null && BoxesContent.Children.Contains(_boxesView);
-        RefreshStatus();
-        UsageContent.Visibility = Visibility.Collapsed; MusicContent.Visibility = Visibility.Collapsed; ShelfContent.Visibility = Visibility.Collapsed;
-        DevicesContent.Visibility = Visibility.Collapsed; MonitorContent.Visibility = Visibility.Collapsed; ServicesContent.Visibility = Visibility.Collapsed;
-        BoxesContent.Visibility = Visibility.Visible;
-        ModelToolbar.Visibility = Visibility.Collapsed; ApplicationPages.Visibility = Visibility.Collapsed; ClockLabel.Visibility = Visibility.Visible;
-        double width = ContentCanvas.Width, height = ContentCanvas.Height;
-        if (!double.IsFinite(width) || !double.IsFinite(height)) return;
-        var header = PanelHeader.For(ToolbarFor(height), height < 170 ? 14 : 20);
-        ApplyHeader(Settings.UsagePage ? header.WithControlsOf(CachedUsageHeader()) : header);
-        BoxesContent.Margin = new Thickness(_header.Side, 0, _header.Side, 10);
 
-        // 数据在程序启动时就读进来了：它跟着保存走，不必每次开页面都重读。
-        var key = "boxes";
-        if (_boxesView is not null && key == _boxesKey && BoxesContent.Children.Contains(_boxesView)) return;
-        _boxesKey = key;
-        var old = shown ? _boxesView : null;
-        _boxesView = new BoxesView(this, Boxes);
-        if (old is not null) MonitorCrossfade.Swap(BoxesContent, _boxesView, old, Soft.Enabled);
-        else
-        {
-            BoxesContent.Children.Clear(); BoxesContent.Children.Add(_boxesView);
-        }
-        _boxesView.Refresh();
-    }
-
-    // 整理器里的东西变了：保存一次，再让页面重画。
+    // 整理器里的东西变了：保存一次，并让设置窗口里的整理页（若开着）重画一遍。
     internal void BoxesChanged()
     {
         if (_boxesService is null) return;
         Settings.Boxes = _boxesService.Snapshot();
         _app.QueueSave();
-        _boxesView?.Refresh();
+        _app.OrganizerChanged();
     }
 }
