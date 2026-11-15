@@ -27,6 +27,7 @@ internal static class Program
             if (args is ["--only", "bge"]) { BgeM3Checks.Run(Check); return Finish(); }
             if (args is ["--only", "axtv"]) { AxTvChecks.Run(Check); return Finish(); }
             if (args is ["--only", "services"]) { AxDeck.ServicesViewTests.Run(Check); return Finish(); }
+            if (args is ["--only", "box"]) { AxDeck.BoxWindowTests.Run(Check); return Finish(); }
             // The live check starts real console programs and reads this machine's Android SDK, so it is asked for by name.
             if (args is ["--only", "axtv-live"]) { AxTvLive.Run(Check); return Finish(); }
             // The live check starts the real llama-server with the real model, so it is asked for by name.
@@ -42,6 +43,7 @@ internal static class Program
             CheckSettledClip();
             CheckPageToolTips();
             LayoutRetryTests.Run(Check);
+            AxDeck.BoxWindowTests.Run(Check);
             DrawnAutomationTests.Run(Check);
             RingLetterChecks.Run(Check);
             SettingsFocusTests.Run(Check);

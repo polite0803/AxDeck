@@ -59,5 +59,20 @@
     <Compile Include="..\..\src\AxDeck\SettingsPalette.cs" Link="SettingsPalette.cs" />
     <Compile Include="..\..\src\AxDeck\UI.cs" Link="UI.cs" />
     <Compile Include="..\..\src\AxDeck\ServicesView.cs" Link="ServicesView.cs" />
+    <!-- The desktop organizer: its window is built for real and filled with real files and system entries, so the box is checked on its own. -->
+    <Compile Include="..\..\src\AxDeck\Native\ShellDesktopIcons.cs" Link="ShellDesktopIcons.cs" />
+    <Compile Include="..\..\src\AxDeck\Native\ShellFileOperations.cs" Link="ShellFileOperations.cs" />
+    <Compile Include="..\..\src\AxDeck\Native\ShellShortcuts.cs" Link="ShellShortcuts.cs" />
+    <Compile Include="..\..\src\AxDeck\Native\BoxIcons.cs" Link="BoxIcons.cs" />
+    <Compile Include="..\..\src\AxDeck\Native\BoxShell.cs" Link="BoxShell.cs" />
+    <Compile Include="..\..\src\AxDeck\BoxService.cs" Link="BoxService.cs" />
+    <Compile Include="..\..\src\AxDeck\BoxTransferExecutor.cs" Link="BoxTransferExecutor.cs" />
+    <Compile Include="..\..\src\AxDeck\BoxDrag.cs" Link="BoxDrag.cs" />
+    <Compile Include="..\..\src\AxDeck\BoxWindow.cs" Link="BoxWindow.cs" />
+    <Compile Include="..\..\src\AxDeck\BoxWindows.cs" Link="BoxWindows.cs" />
+    <Compile Include="..\..\src\AxDeck\BoxMenu.cs" Link="BoxMenu.cs" />
+    <Compile Include="..\..\src\AxDeck\BoxReport.cs" Link="BoxReport.cs" />
+    <Compile Include="..\..\src\AxDeck\BoxDialogs.cs" Link="BoxDialogs.cs" />
+    <Compile Include="..\..\src\AxDeck\BoxItemMenu.cs" Link="BoxItemMenu.cs" />
   </ItemGroup>
 </Project>

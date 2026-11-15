@@ -380,16 +380,11 @@ internal sealed class BoxService
     {
         var clsid = Native.ShellDesktopIcons.ClsidOf(shellId);
         if (clsid.Length == 0) return;
-        if (Data.IconRecords.TryGetValue(shellId, out var record))
-        {
-            Native.ShellDesktopIcons.SetVisible(clsid, record.PreviousVisible);
-            Data.IconRecords.Remove(shellId);
-        }
-        else
-        {
-            var item = Core.BoxShellItems.FindDesktopIcon(shellId);
-            Native.ShellDesktopIcons.SetVisible(clsid, item?.DefaultVisible ?? true);
-        }
+        // Without a record there is nothing to put back: the organizer never touched this icon, so the registry is left as it
+        // was. Writing the default here would put a value there that was not there before, and hide icons the user shows.
+        if (!Data.IconRecords.TryGetValue(shellId, out var record)) return;
+        Native.ShellDesktopIcons.SetVisible(clsid, record.PreviousVisible);
+        Data.IconRecords.Remove(shellId);
     }
 
     // Puts every native icon the organizer touched back the way it was. This is what the program does when it goes: the icons

@@ -43,6 +43,10 @@ internal sealed class BoxWindow : Window
     // 窗口此刻的位置和大小，以所在屏幕的 DIP 计。
     private double _x, _y, _width, _height;
 
+    // The icons and the line that marks the landing place, so the window's own drawing can be looked at.
+    internal WrapPanel Icons => _icons;
+    internal Border DropMark => _dropMark;
+
     public BoxWindow(BoxService boxes, DesktopBox box)
     {
         _boxes = boxes;
@@ -100,11 +104,14 @@ internal sealed class BoxWindow : Window
         _icons.PreviewMouseMove += Icons_MouseMove;
         area.Children.Add(_icons);
 
-        // 拖进来的文件会落在哪一格，由这条竖线指示。
+        // 拖进来的文件会落在哪一格，由这条竖线指示。它贴在那一个图标的边上，
+        // 所以它靠左靠上排：不定对齐的话，Grid 会把它放在中间，线就落在离图标很远的地方。
         _dropMark = new Border
         {
             Background = new SolidColorBrush(Color.FromArgb(210, 120, 170, 255)),
             Width = 2,
+            HorizontalAlignment = HorizontalAlignment.Left,
+            VerticalAlignment = VerticalAlignment.Top,
             Visibility = Visibility.Collapsed,
             IsHitTestVisible = false
         };
@@ -608,7 +615,7 @@ internal sealed class BoxWindow : Window
     }
 
     // 落点：分组里的每一项在网格中的位置，指针落在谁的前面或后面。
-    private BoxInsertion ResolveInsertion(Point point)
+    internal BoxInsertion ResolveInsertion(Point point)
     {
         var rects = new List<BoxItemRect>();
         foreach (var child in _icons.Children)
@@ -625,17 +632,21 @@ internal sealed class BoxWindow : Window
     }
 
     // 那条指示落点的竖线。
-    private void ShowDropMark(BoxInsertion insertion)
+    internal void ShowDropMark(BoxInsertion insertion)
     {
         if (insertion.TargetKey is not { } target) { _dropMark.Visibility = Visibility.Collapsed; return; }
         foreach (var child in _icons.Children)
         {
             if (child is not FrameworkElement element || (element.Tag as string) != target) continue;
-            var left = element.TranslatePoint(new Point(0, 0), _icons).X;
+            var origin = element.TranslatePoint(new Point(0, 0), _icons);
+            var left = origin.X;
             // 落在后面时，竖线画在这一项的右边。
             if (insertion.After) left += element.ActualWidth;
-            _dropMark.Margin = new Thickness(left - 1, 0, 0, 0);
-            _dropMark.Height = Math.Max(0, _icons.ActualHeight);
+            // 竖线是图标区旁边的那个元素，图标区自己有一圈边距，所以这里要把边距加上，
+            // 竖线才真的贴在那一个图标的边上，而不是偏出去一截。
+            _dropMark.Margin = new Thickness(left + _icons.Margin.Left - 1, origin.Y + _icons.Margin.Top, 0, 0);
+            // 竖线只跟这一项一样高，跟整块图标区一样高就看不出它指的是哪一项。
+            _dropMark.Height = element.ActualHeight;
             _dropMark.Visibility = Visibility.Visible;
             return;
         }
