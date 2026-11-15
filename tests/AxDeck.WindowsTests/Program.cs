@@ -25,6 +25,10 @@ internal static class Program
             if (args is ["--only", "fonts"]) { FontFollowTests.Run(Check); return Finish(); }
             if (args is ["--only", "cloudflare"]) { CloudflareTunnelChecks.Run(Check); return Finish(); }
             if (args is ["--only", "bge"]) { BgeM3Checks.Run(Check); return Finish(); }
+            if (args is ["--only", "axtv"]) { AxTvChecks.Run(Check); return Finish(); }
+            if (args is ["--only", "services"]) { AxDeck.ServicesViewTests.Run(Check); return Finish(); }
+            // The live check starts real console programs and reads this machine's Android SDK, so it is asked for by name.
+            if (args is ["--only", "axtv-live"]) { AxTvLive.Run(Check); return Finish(); }
             // The live check starts the real llama-server with the real model, so it is asked for by name.
             if (args is ["--only", "bge-live"]) { BgeM3Live.Run(Check); return Finish(); }
             // "--hosted": only the checks that hold on a CI runner (a virtual machine with a session but no display output, GPU,
@@ -61,6 +65,8 @@ internal static class Program
             FontFollowTests.Run(Check);
             CloudflareTunnelChecks.Run(Check);
             BgeM3Checks.Run(Check);
+            AxTvChecks.Run(Check);
+            AxDeck.ServicesViewTests.Run(Check);
 
             return Finish();
         }

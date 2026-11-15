@@ -1,8 +1,8 @@
 # Services and tools
 
-The Services & tools page brings two things that live on this PC together: your personal Cloudflare tunnel setup and the local BGE-M3 embedding service. Every action on the page happens on this machine: AxDeck uploads nothing and needs no administrator rights.
+The Services & tools page brings three things that live on this PC together: your personal Cloudflare tunnel setup, the local BGE-M3 embedding service, and the Android emulator (AxTV). Every action on the page happens on this machine: AxDeck uploads nothing and needs no administrator rights.
 
-The page replaces two separate Python tools (Cloudflare Tunnel Manager and the BGE-M3 control panel): both are now implemented in native C#. AxDeck calls the same system programs they used (`cloudflared.exe`, `ssh.exe`, `tasklist`, `llama-server.exe`) directly — no Python, and the packaged `.exe` files are no longer started.
+The page replaces three separate Python tools (Cloudflare Tunnel Manager, the BGE-M3 control panel and the AxTV emulator manager): all three are now implemented in native C#. AxDeck calls the same system programs they used (`cloudflared.exe`, `ssh.exe`, `tasklist`, `llama-server.exe`, `emulator.exe`, `adb.exe`) directly — no Python, and the packaged `.exe` files are no longer started.
 
 ## Cloudflare tunnel
 
@@ -70,9 +70,62 @@ The output of `llama-server` is written to `%LOCALAPPDATA%\AxDeck\logs\bge-m3.lo
 
 When this PC has an outbound proxy configured (the `http_proxy` environment variables), AxDeck **bypasses** it for a server on this machine and connects straight to it. A proxy forwards `http://localhost:8091/health` as an absolute address, llama.cpp then sees a path it does not know and answers 404; the old Python tool did not read those environment variables, which is why it never ran into this.
 
+## AxTV emulator
+
+This part manages the Android Studio AVDs: starting and stopping them, placing their windows, installing and running the AxTV app, and taking screenshots. The AxTV emulator manager used to be a separate Tkinter window (the `AxTV 模拟器管理器.vbs` on the desktop was only its windowless launcher); its functions live here now.
+
+### What it needs
+
+- **The Android SDK**: by default at `%LOCALAPPDATA%\Android\Sdk`, using `emulator\emulator.exe` and `platform-tools\adb.exe` from it.
+- **AVDs**: the AVD definitions live in `~/.android\avd`. AxDeck reads the AVDs this machine really has. It does not create any and does not download a system image.
+
+When the SDK is missing or there is no AVD to run, the page says what is missing instead of trying to install anything.
+
+### Starting and stopping
+
+- **Start**: a cold start (no snapshot is loaded), with `emulator.exe -avd <AVD> -no-snapshot-load -gpu auto -no-boot-anim`. The emulator is a console program and the virtual machine it starts has to sit on a console, so AxDeck gives it a console of its own that is **hidden from the moment it is created**: no command line window flashes by, and the virtual machine does not open a visible terminal of its own either (closing that terminal would stop the emulator).
+- **Stop**: goes through `adb emu kill`, so the emulator saves its state and leaves on its own, waiting up to 30 seconds for it.
+- **Force end**: ends `emulator.exe` and `qemu-system-x86_64.exe` outright. The quick-start snapshot may be damaged by this, so prefer "Stop".
+- **Restart**: closes the emulator and starts it again.
+- **Switch AVD**: the two AVDs share port 5554 and the same SDK and cannot run side by side, so switching closes the running one and cold starts the other. The AVD in use is remembered in the settings.
+
+### The shape of the window
+
+The emulator is a separate Qt window, and AxDeck moves and resizes it through Win32:
+
+| Action | What it does |
+| --- | --- |
+| Full screen | Drops the title bar and the border and fills the display |
+| Small window | 70 percent of the display's width, the height follows the aspect ratio of the AVD's physical panel, centred |
+| Reset window | Puts it back into the centred small window |
+
+The window's proportions are fixed when the emulator starts, by the AVD's **physical panel** (`hw.lcd.width` and `hw.lcd.height` in `config.ini`), and cannot be changed while it runs. That is why landscape and portrait are two different AVDs: a real portrait window needs a cold start of the portrait AVD, which is what "Switch AVD" does.
+
+With more than one display, the window is placed against the display the emulator is on; a portrait AVD looks for a tall 9:16 display of its own.
+
+### The screen orientation
+
+"Switch orientation" changes the guest resolution only (`wm size 1080x1920` and `wm size reset`); it never touches the AVD's configuration or the physical panel. A frame is captured afterwards to check the result: if the picture is blank (the capture is under 20 KB), the screen is put back to landscape and the window is restored, so the emulator is never left with a black picture.
+
+### The app and installing it
+
+| Action | What it does |
+| --- | --- |
+| Install | Installs a chosen `.apk` on the emulator. A package signed differently from the one already installed is reported; with "uninstall the old one and install again" turned on (the default) the old app is removed first, which **clears the app's own data** |
+| Launch app / Stop app | Starts or force-stops `com.github.axtv.dv` |
+| Uninstall | Removes the app from the emulator |
+
+With the emulator not running, these say so instead of waiting for something that will not come.
+
+### Screenshots and the log
+
+- Screenshots are saved in `%USERPROFILE%\Pictures\AxDeck\AxTV`, with a timestamp in the name.
+- The emulator's output is written to `%LOCALAPPDATA%\AxDeck\logs\axtv-emulator.log`, which "Open log" opens in Notepad.
+
 ## Privacy
 
 - AxDeck only reads local state and runs the action you click; nothing is sent anywhere.
 - The tunnel part talks to your own `bgnone.cn` domains and your own NAS, and to no third-party service.
 - The BGE-M3 part runs entirely on this PC and the model never leaves it.
+- The emulator part only talks to the Android SDK on this PC; it does not go online.
 - No credentials or tokens are stored.

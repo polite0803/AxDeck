@@ -18,7 +18,16 @@ internal sealed class ServicesView : Grid
     private readonly StackPanel _envPanel = new() { Margin = new Thickness(0, 0, 0, 14) };
     private readonly StackPanel _sitesPanel = new();
     private readonly StackPanel _bgePanel = new();
+    private readonly StackPanel _axtvPanel = new();
     private readonly TextBlock _status = UI.Text("", 12, UI.Tertiary);
+    // The path of the package to install, and the name of the AVD to start. Both belong to the controller: the view
+    // only shows them and reports the changes.
+    private readonly TextBox _apkPath = new();
+    private string _avd = "";
+
+    // The emulator's rows. They are built once and filled in as the state is read, so the path in the text box
+    // stays where the user put it.
+    private Row _axtvState = null!, _axtvAvd = null!, _axtvWindow = null!, _axtvOrientation = null!, _axtvVersion = null!, _axtvShotDir = null!;
 
     public ServicesView(MainWindow owner)
     {
@@ -37,6 +46,9 @@ internal sealed class ServicesView : Grid
         content.Children.Add(_sitesPanel);
         content.Children.Add(Section(Loc.T("BGE-M3 向量服务", "BGE-M3 embedding service")));
         content.Children.Add(_bgePanel);
+        content.Children.Add(Section(Loc.T("AxTV 模拟器", "AxTV emulator")));
+        content.Children.Add(_axtvPanel);
+        BuildAxTv();
         scroll.Content = content;
         Children.Add(scroll);
 
@@ -112,6 +124,144 @@ internal sealed class ServicesView : Grid
         actions.Children.Add(ActionButton(Loc.T("打开日志", "Open log"), () => _owner.ServicesOpenBgeLog(), small: true));
         _bgePanel.Children.Add(actions);
     }
+
+    // The Android emulator (the old "AxTV 模拟器管理器"): the AVD to run, the window's shape and the app on the
+    // device. The snapshot arrives from the controller, which reads the device off the UI thread. The block is
+    // built once and only its text is filled in: the state is read every few seconds, and building it again
+    // each time would take the text box with the path in it apart from its place.
+    public void UpdateAxTv(AxTvEmulator.StatusSnapshot status, string avd)
+    {
+        _avd = avd;
+        bool missing = !status.SdkFound;
+        string state = missing ? Loc.T("未找到 Android SDK", "Android SDK not found")
+            : status.DeviceOnline ? Loc.T("在线", "online")
+            : status.ProcessAlive ? Loc.T("启动中", "starting")
+            : Loc.T("已停止", "stopped");
+        _axtvState.Set(state, missing ? BadColor : status.DeviceOnline ? OkColor : status.ProcessAlive ? WarnColor : IdleColor);
+        _axtvAvd.Set($"{status.AvdName}  ·  {status.AvdLabel}  ·  {status.Panel}", IdleColor);
+        _axtvWindow.Set(WindowText(status), status.WindowMode == "fullscreen" ? OkColor : IdleColor);
+        _axtvOrientation.Set(OrientationText(status), IdleColor);
+        _axtvVersion.Set(
+            status.AppVersion.Length > 0 ? $"{AxTvEmulator.Package}  {status.AppVersion}" : Loc.T("未安装", "not installed"),
+            status.AppVersion.Length > 0 ? OkColor : IdleColor);
+        _axtvShotDir.Set(AxTvEmulator.ShotDir, IdleColor);
+    }
+
+    // Builds the emulator's block: the rows that show its state, the row with the package to install and the
+    // buttons that act on it.
+    private void BuildAxTv()
+    {
+        _axtvState = new Row(Loc.T("模拟器", "Emulator"));
+        _axtvAvd = new Row(Loc.T("AVD", "AVD"));
+        _axtvWindow = new Row(Loc.T("窗口", "Window"));
+        _axtvOrientation = new Row(Loc.T("方向", "Orientation"));
+        _axtvVersion = new Row(Loc.T("应用版本", "App version"));
+        _axtvShotDir = new Row(Loc.T("截图目录", "Screenshot folder"));
+        _axtvPanel.Children.Add(_axtvState.Grid);
+        _axtvPanel.Children.Add(_axtvAvd.Grid);
+        _axtvPanel.Children.Add(_axtvWindow.Grid);
+        _axtvPanel.Children.Add(_axtvOrientation.Grid);
+        _axtvPanel.Children.Add(_axtvVersion.Grid);
+        _axtvPanel.Children.Add(_axtvShotDir.Grid);
+
+        // The package to install: a path, a button to pick one and the install itself.
+        var apkRow = new Grid { Margin = new Thickness(0, 6, 0, 2) };
+        apkRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        apkRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        apkRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        _apkPath.Height = 24;
+        _apkPath.Margin = new Thickness(0, 0, 4, 0);
+        _apkPath.Padding = new Thickness(6, 2, 6, 2);
+        _apkPath.FontSize = 11.5;
+        _apkPath.VerticalContentAlignment = VerticalAlignment.Center;
+        _apkPath.ToolTip = Loc.T("要安装到模拟器里的 .apk 文件", "The .apk file to install on the emulator");
+        apkRow.Children.Add(_apkPath);
+        var browse = ActionButton(Loc.T("浏览…", "Browse…"), () => _owner.ServicesBrowseApk(), small: true);
+        Grid.SetColumn(browse, 1);
+        apkRow.Children.Add(browse);
+        var install = ActionButton(Loc.T("安装", "Install"), () => _owner.ServicesInstallApk(), small: true);
+        Grid.SetColumn(install, 2);
+        apkRow.Children.Add(install);
+        _axtvPanel.Children.Add(apkRow);
+
+        var run = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 4, 0, 0) };
+        run.Children.Add(ActionButton(Loc.T("启动", "Start"), () => _owner.ServicesAxTvStart(), small: true));
+        run.Children.Add(ActionButton(Loc.T("关闭", "Stop"), () => _owner.ServicesAxTvStop(), small: true));
+        run.Children.Add(ActionButton(Loc.T("强制结束", "Force end"), () => _owner.ServicesAxTvForceKill(), small: true));
+        run.Children.Add(ActionButton(Loc.T("重启", "Restart"), () => _owner.ServicesAxTvRestart(), small: true));
+        run.Children.Add(ActionButton(Loc.T("切换 AVD", "Switch AVD"), () => _owner.ServicesAxTvSwitchAvd(), small: true));
+        _axtvPanel.Children.Add(run);
+
+        var window = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 2, 0, 0) };
+        window.Children.Add(ActionButton(Loc.T("全屏", "Full screen"), () => _owner.ServicesAxTvFullscreen(), small: true));
+        window.Children.Add(ActionButton(Loc.T("小窗", "Small window"), () => _owner.ServicesAxTvSmall(), small: true));
+        window.Children.Add(ActionButton(Loc.T("窗口归位", "Reset window"), () => _owner.ServicesAxTvResetWindow(), small: true));
+        window.Children.Add(ActionButton(Loc.T("切换方向", "Switch orientation"), () => _owner.ServicesAxTvToggleOrientation(), small: true));
+        _axtvPanel.Children.Add(window);
+
+        var app = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 2, 0, 0) };
+        app.Children.Add(ActionButton(Loc.T("启动应用", "Launch app"), () => _owner.ServicesAxTvLaunchApp(), small: true));
+        app.Children.Add(ActionButton(Loc.T("停止应用", "Stop app"), () => _owner.ServicesAxTvStopApp(), small: true));
+        app.Children.Add(ActionButton(Loc.T("卸载", "Uninstall"), () => _owner.ServicesAxTvUninstallApp(), small: true));
+        app.Children.Add(ActionButton(Loc.T("截图", "Screenshot"), () => _owner.ServicesAxTvScreenshot(), small: true));
+        app.Children.Add(ActionButton(Loc.T("打开日志", "Open log"), () => _owner.ServicesAxTvOpenLog(), small: true));
+        _axtvPanel.Children.Add(app);
+    }
+
+    /// <summary>The path of the package to install, as the user typed or picked it.</summary>
+    public string ApkPath => _apkPath.Text;
+
+    /// <summary>Shows the package that is going to be installed.</summary>
+    public void SetApkPath(string path) => _apkPath.Text = path;
+
+    // A labelled row whose value can be filled in later, so the panel is built once and only its text changes.
+    private sealed class Row
+    {
+        private readonly TextBlock _value = UI.Text("", 12.5, UI.Primary);
+        private readonly Ellipse _dot = new() { Width = 8, Height = 8, VerticalAlignment = VerticalAlignment.Center };
+
+        public Grid Grid { get; }
+
+        public Row(string label)
+        {
+            var grid = new Grid { Margin = new Thickness(0, 1, 0, 1) };
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(96) });
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            var labelBlock = UI.Fixed(label, 12.5, 18, UI.Secondary);
+            labelBlock.VerticalAlignment = VerticalAlignment.Center;
+            grid.Children.Add(labelBlock);
+            var right = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(8, 0, 0, 0) };
+            right.Children.Add(_dot);
+            _value.Margin = new Thickness(6, 0, 0, 0);
+            _value.TextTrimming = TextTrimming.CharacterEllipsis;
+            right.Children.Add(_value);
+            Grid.SetColumn(right, 1);
+            grid.Children.Add(right);
+            Grid = grid;
+        }
+
+        public void Set(string text, string color)
+        {
+            _value.Text = text;
+            _dot.Fill = UI.Brush(color);
+        }
+    }
+
+    private static string WindowText(AxTvEmulator.StatusSnapshot status) => status.WindowMode switch
+    {
+        "fullscreen" => Loc.T("全屏", "full screen") + "  " + status.WindowRect,
+        "small" => Loc.T("小窗", "small window") + "  " + status.WindowRect,
+        _ => Loc.T("未启动", "not running"),
+    };
+
+    private static string OrientationText(AxTvEmulator.StatusSnapshot status) => status.Orientation switch
+    {
+        "portrait_avd" => Loc.T("竖屏 AVD（物理 1080×1920）", "portrait AVD (physical 1080×1920)"),
+        "portrait" => Loc.T("竖屏 1080×1920", "portrait 1080×1920"),
+        "custom" => Loc.T("自定义", "custom"),
+        "landscape" => Loc.T("横屏 1920×1080", "landscape 1920×1080"),
+        _ => "--",
+    };
 
     private static TextBlock Section(string text) => UI.Fixed(text, 13, 20, UI.Tertiary, FontWeights.SemiBold);
     private static Grid CoreRow(bool ok) => EnvRow(Loc.T("基础环境", "Core infra"), ok ? Loc.T("就绪", "ready") : Loc.T("缺失", "incomplete"), ok ? OkColor : WarnColor);

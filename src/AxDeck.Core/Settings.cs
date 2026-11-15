@@ -636,6 +636,10 @@ public sealed class DeckSettings
     public bool ServicesPage { get; set; } = true;
     public double ServicesWidth { get; set; } = 520;
     public double ServicesHeight { get; set; } = 420;
+    // The Android emulator the same page drives (the old "AxTV 模拟器管理器"): the AVD to start, and whether an
+    // installation whose signature differs from the one on the device may remove the installed app and retry.
+    public string AxTvAvd { get; set; } = "axtv_tv";
+    public bool AxTvAutoReinstall { get; set; } = true;
     // The devices' order, names and where each shows (DeviceLists), by their key (DeviceBattery.Key). Empty until the user changes
     // the list; a device not in it shows everywhere, after those that are.
     public List<DeviceChoice> DeviceChoices { get; set; } = [];
@@ -818,6 +822,8 @@ public sealed class DeckSettings
         DevicesHeight = double.IsFinite(DevicesHeight) ? Math.Clamp(DevicesHeight, DeckPages.MinHeight, DeckPages.MaxHeight) : 200;
         ServicesWidth = double.IsFinite(ServicesWidth) ? Math.Clamp(ServicesWidth, DeckPages.MinWidth, DeckPages.MaxWidth) : 520;
         ServicesHeight = double.IsFinite(ServicesHeight) ? Math.Clamp(ServicesHeight, DeckPages.MinHeight, DeckPages.MaxHeight) : 420;
+        AxTvAvd = (AxTvAvd ?? "").Trim();
+        if (AxTvAvd.Length == 0) AxTvAvd = "axtv_tv";
         DeviceChoices = [.. (DeviceChoices ?? []).OfType<DeviceChoice>().Where(device => !string.IsNullOrWhiteSpace(device.Key)).DistinctBy(device => device.Key).Take(256)];
         foreach (var device in DeviceChoices)
         {

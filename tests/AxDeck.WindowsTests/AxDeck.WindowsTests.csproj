@@ -25,6 +25,8 @@
     <Compile Include="..\..\src\AxDeck\Native\Why.cs" Link="Why.cs" />
     <Compile Include="..\..\src\AxDeck\Native\CloudflareTunnel.cs" Link="CloudflareTunnel.cs" />
     <Compile Include="..\..\src\AxDeck\Native\BgeM3Service.cs" Link="BgeM3Service.cs" />
+    <Compile Include="..\..\src\AxDeck\Native\AxTvEmulator.cs" Link="AxTvEmulator.cs" />
+    <Compile Include="..\..\src\AxDeck\Native\EmulatorWindow.cs" Link="EmulatorWindow.cs" />
     <Compile Include="..\..\src\AxDeck\Native\Hid.cs" Link="Hid.cs" />
     <Compile Include="..\..\src\AxDeck\Native\HidBatteries.cs" Link="HidBatteries.cs" />
     <Compile Include="..\..\src\AxDeck\Native\HidppEvents.cs" Link="HidppEvents.cs" />
@@ -52,5 +54,10 @@
     <Compile Include="..\..\src\AxDeck\IslandBorder.cs" Link="IslandBorder.cs" />
     <Compile Include="..\..\src\AxDeck\IslandDecor.cs" Link="IslandDecor.cs" />
     <Compile Include="..\..\src\AxDeck\PageToolTips.cs" Link="PageToolTips.cs" />
+    <!-- The services & tools page: it is built for real and filled in twice, so the page is checked on its own. -->
+    <Compile Include="..\..\src\AxDeck\PanelTheme.cs" Link="PanelTheme.cs" />
+    <Compile Include="..\..\src\AxDeck\SettingsPalette.cs" Link="SettingsPalette.cs" />
+    <Compile Include="..\..\src\AxDeck\UI.cs" Link="UI.cs" />
+    <Compile Include="..\..\src\AxDeck\ServicesView.cs" Link="ServicesView.cs" />
   </ItemGroup>
 </Project>

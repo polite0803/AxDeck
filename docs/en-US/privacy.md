@@ -22,7 +22,7 @@ AxDeck reads only the sign-in state and usage records that apps already keep. It
 
 ## Files stored on this PC
 
-All files are stored in `%LOCALAPPDATA%\AxDeck`:
+All files are stored in `%LOCALAPPDATA%\AxDeck` (the screenshots excepted: those go into your pictures folder):
 
 | File | Contents |
 | --- | --- |
@@ -40,6 +40,7 @@ All files are stored in `%LOCALAPPDATA%\AxDeck`:
 | `sensor-stops.json`, `sensor-pending.json` | The system monitor readings stopped because the PC froze (the drive or graphics adapter model, the board model and BIOS version), and the readings under way, so a reading that froze the PC is found at the next start; a record is removed when the reading is turned on again in the settings |
 | `crash.log` | Error records; cleared when it exceeds 1 MB |
 | `logs\bge-m3.log` | The output of the local `llama-server` that the services page starts, so a failed start leaves a trace |
+| `logs\axtv-emulator.log` | The output of the local `emulator.exe` that the services page starts, for the same reason |
 
 ## Network and security
 
@@ -53,7 +54,7 @@ All files are stored in `%LOCALAPPDATA%\AxDeck`:
 - Device batteries are read only while the device batteries page, the collapsed "Device batteries" reading or Settings › Display and devices shows them; nothing is saved, sent or fetched online. Bluetooth devices' levels come from the values Windows reads itself (as Windows Settings › Bluetooth & devices shows them), or from the device's Bluetooth battery service; devices on a 2.4 GHz receiver or a cable are asked read-only questions over their HID interfaces; Xbox controllers are read through Windows' game controller interface; AirPods and Beats only while connected, from their Bluetooth advertisement when close by. The supported brands are listed in [Supported devices](devices.md). Nothing is paired, disconnected or changed on any device or in Windows, and no administrator rights or drivers are needed. Devices whose order, name, colors or placement you change in the settings are kept in `settings.json` (their identifier, name, kind, the name you gave them, their colors and where they show).
 - The clipboard history reads the text and pictures on the system clipboard only while "Record the clipboard" is on, and keeps them on this PC with the process name of the app they were copied from; nothing is uploaded. Copies from the apps under "Apps not recorded", and copies that an app marks as not to be kept in clipboard history, as password managers do, are not recorded. The file transfer keeps only each file's path and reads its icon, size and modified time to show them; it never reads a file's contents or copies a file. See [Clipboard and file transfer](clipboard.md).
 - The sound behind the equalizer is analyzed only in memory and never saved.
-- The services and tools page works on this PC and with your own domains only: the tunnel part reads the local cloudflared and SSH setup and connects to your own bgnone.cn sites and your own NAS, and the BGE-M3 part reads and starts the local `llama-server` on 127.0.0.1:8091. The model stays on this PC and no credential or token is stored. See [Services and tools](services.md).
+- The services and tools page works on this PC and with your own domains only: the tunnel part reads the local cloudflared and SSH setup and connects to your own bgnone.cn sites and your own NAS, the BGE-M3 part reads and starts the local `llama-server` on 127.0.0.1:8091, and the emulator part only talks to the Android SDK on this PC (`emulator.exe`, `adb.exe`) and does not go online. The model stays on this PC and no credential or token is stored. See [Services and tools](services.md).
 
 ## NetEase Cloud Music full control
 

@@ -22,6 +22,11 @@ public partial class MainWindow
     private DispatcherTimer? _bgeTimer;
     private bool _bgePolling;
 
+    // The Android emulator's state. It is read every few seconds while this page is open, so the panel shows the
+    // emulator booting and coming online without the user having to ask for it.
+    private DispatcherTimer? _axtvTimer;
+    private bool _axtvPolling;
+
     private void RenderServices()
     {
         bool shown = ServicesContent.Visibility == Visibility.Visible && _servicesView is not null && ServicesContent.Children.Contains(_servicesView);
@@ -36,6 +41,8 @@ public partial class MainWindow
         ServicesContent.Margin = new Thickness(_header.Side, 0, _header.Side, 10);
         // The embedding server is watched while this page is open, the way the old panel watched it every two seconds.
         EnsureBgeTimer();
+        // The emulator's state is read as the page opens, so it is never shown as unknown.
+        ServicesRefreshAxTv();
         // Built once: rebuilding on every resize would re-read the network. The data is refreshed by the buttons and on first open.
         var key = "services";
         bool fade = _servicesFade; _servicesFade = false;
@@ -190,11 +197,17 @@ public partial class MainWindow
             _bgeTimer.Tick += (_, _) => ServicesPollBge();
         }
         if (!_bgeTimer.IsEnabled) _bgeTimer.Start();
+        if (_axtvTimer is null)
+        {
+            _axtvTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(5) };
+            _axtvTimer.Tick += (_, _) => ServicesPollAxTv();
+        }
+        if (!_axtvTimer.IsEnabled) _axtvTimer.Start();
     }
 
     internal void ServicesPollBge()
     {
-        if (CurrentPage != DeckPage.Services || ServicesContent.Visibility != Visibility.Visible) { _bgeTimer?.Stop(); return; }
+        if (CurrentPage != DeckPage.Services || ServicesContent.Visibility != Visibility.Visible) { _bgeTimer?.Stop(); _axtvTimer?.Stop(); return; }
         if (_bgePolling) return;
         _bgePolling = true;
         Task.Run(() =>
@@ -202,6 +215,22 @@ public partial class MainWindow
             var snapshot = _bge.Poll();
             _bgePolling = false;
             OnUi(() => _servicesView?.UpdateBge(snapshot));
+        });
+    }
+
+    // The emulator is polled on its own, a little less often than the embedding server: its state is read
+    // through adb, which is slower than a local HTTP call.
+    internal void ServicesPollAxTv()
+    {
+        if (CurrentPage != DeckPage.Services || ServicesContent.Visibility != Visibility.Visible) { _axtvTimer?.Stop(); return; }
+        if (_axtvPolling) return;
+        _axtvPolling = true;
+        Task.Run(() =>
+        {
+            string avd = AxTvAvd;
+            var status = AxTvEmulator.CollectStatus(avd, quick: true);
+            _axtvPolling = false;
+            OnUi(() => _servicesView?.UpdateAxTv(status, avd));
         });
     }
 
@@ -249,6 +278,297 @@ public partial class MainWindow
                 Process.Start(new ProcessStartInfo("notepad.exe", BgeM3Service.LogPath) { UseShellExecute = true });
             else
                 Process.Start(new ProcessStartInfo("explorer.exe", System.IO.Path.GetDirectoryName(BgeM3Service.LogPath) ?? "") { UseShellExecute = true });
+            _servicesView?.SetStatus(Loc.T("已打开日志", "Log opened"));
+        }
+        catch (System.Exception ex) { _servicesView?.SetStatus(Loc.T("打开失败：", "Open failed: ") + ex.Message); }
+    }
+
+    // ----------------------------------------------------------------------
+    // The Android emulator (the old "AxTV 模拟器管理器", ported to native C#)
+    // ----------------------------------------------------------------------
+
+    // The AVD the panel is set to, and the one the machine has that comes after it.
+    private string AxTvAvd => AxTvEmulator.ResolveAvd(Settings.AxTvAvd);
+
+    private string NextAxTvAvd()
+    {
+        var avds = AxTvEmulator.ListAvds();
+        if (avds.Count == 0) return AxTvAvd;
+        int index = avds.ToList().FindIndex(name => string.Equals(name, AxTvAvd, StringComparison.OrdinalIgnoreCase));
+        return avds[(index + 1) % avds.Count];
+    }
+
+    // Reads the emulator's state and shows it. The reading runs off the UI thread: adb and the window calls take
+    // their time, and the panel stays responsive while they do.
+    internal void ServicesRefreshAxTv(bool quick = false)
+    {
+        Task.Run(() =>
+        {
+            string avd = AxTvAvd;
+            var status = AxTvEmulator.CollectStatus(avd, quick);
+            OnUi(() => _servicesView?.UpdateAxTv(status, avd));
+        });
+    }
+
+    internal void ServicesBrowseApk()
+    {
+        var dialog = new Microsoft.Win32.OpenFileDialog
+        {
+            Title = Loc.T("选择 APK", "Choose an APK"),
+            Filter = Loc.T("Android 安装包 (*.apk)|*.apk|所有文件 (*.*)|*.*", "Android package (*.apk)|*.apk|All files (*.*)|*.*"),
+            InitialDirectory = System.IO.Directory.Exists(AxTvEmulator.ShotDir) ? null : null,
+        };
+        if (dialog.ShowDialog() == true) _servicesView?.SetApkPath(dialog.FileName);
+    }
+
+    internal void ServicesInstallApk()
+    {
+        string path = _servicesView?.ApkPath.Trim() ?? "";
+        if (path.Length == 0) { _servicesView?.SetStatus(Loc.T("请先选择一个 .apk 文件", "Choose an .apk file first")); return; }
+        _servicesView?.SetStatus(Loc.T("安装中…", "Installing…"));
+        Task.Run(() =>
+        {
+            var result = AxTvEmulator.InstallApk(path, Settings.AxTvAutoReinstall);
+            string text = result.Outcome switch
+            {
+                AxTvEmulator.InstallOutcome.Success => Loc.T("安装成功", "Installed"),
+                AxTvEmulator.InstallOutcome.SignatureMismatch => Loc.T("签名冲突：已装版本与这个 APK 的签名不同，无法覆盖安装",
+                    "The signatures differ: this APK cannot be put over the installed one"),
+                AxTvEmulator.InstallOutcome.AbiMismatch => Loc.T("ABI 不匹配：这个 AVD 装不了这个包", "ABI mismatch: this AVD cannot run this package"),
+                _ => Loc.T("安装失败", "Installation failed"),
+            };
+            OnUi(() =>
+            {
+                _servicesView?.SetStatus(text + "\n" + result.Detail);
+                ServicesRefreshAxTv();
+            });
+        });
+    }
+
+    internal void ServicesAxTvStart()
+    {
+        string avd = AxTvAvd;
+        _servicesView?.SetStatus(Loc.T("正在启动模拟器…", "Starting the emulator…"));
+        Task.Run(() =>
+        {
+            var (ok, detail) = AxTvEmulator.Start(avd);
+            OnUi(() =>
+            {
+                _servicesView?.SetStatus(ok ? Loc.T("模拟器已启动，正在等待设备上线…", "The emulator started; waiting for the device…") : Loc.T("启动失败：", "Start failed: ") + detail);
+                ServicesRefreshAxTv();
+            });
+        });
+    }
+
+    internal void ServicesAxTvStop()
+    {
+        _servicesView?.SetStatus(Loc.T("正在关闭模拟器…", "Stopping the emulator…"));
+        Task.Run(() =>
+        {
+            var (ok, detail) = AxTvEmulator.Stop();
+            OnUi(() =>
+            {
+                _servicesView?.SetStatus(ok ? Loc.T("模拟器已关闭", "The emulator is closed") : Loc.T("关闭未完成：", "Closing did not finish: ") + detail);
+                ServicesRefreshAxTv();
+            });
+        });
+    }
+
+    internal void ServicesAxTvForceKill()
+    {
+        _servicesView?.SetStatus(Loc.T("正在结束模拟器进程…", "Ending the emulator processes…"));
+        Task.Run(() =>
+        {
+            var (ok, detail) = AxTvEmulator.ForceKill();
+            OnUi(() =>
+            {
+                _servicesView?.SetStatus(ok ? Loc.T("进程已清空", "The processes are gone") : Loc.T("仍有残留进程", "Processes are still running") + "\n" + detail);
+                ServicesRefreshAxTv();
+            });
+        });
+    }
+
+    internal void ServicesAxTvRestart()
+    {
+        _servicesView?.SetStatus(Loc.T("正在重启模拟器…", "Restarting the emulator…"));
+        Task.Run(() =>
+        {
+            AxTvEmulator.Stop();
+            Thread.Sleep(2000);
+            var (ok, detail) = AxTvEmulator.Start(AxTvAvd);
+            OnUi(() =>
+            {
+                _servicesView?.SetStatus(ok ? Loc.T("模拟器已重启", "The emulator restarted") : Loc.T("重启失败：", "Restart failed: ") + detail);
+                ServicesRefreshAxTv();
+            });
+        });
+    }
+
+    // Switching the AVD means closing the running one and starting the other: the two share the same port and the
+    // same SDK, so they cannot run side by side.
+    internal void ServicesAxTvSwitchAvd()
+    {
+        string next = NextAxTvAvd();
+        if (string.Equals(next, AxTvAvd, StringComparison.OrdinalIgnoreCase))
+        {
+            _servicesView?.SetStatus(Loc.T("这台机器上只有这一个 AVD", "This machine has only this one AVD"));
+            return;
+        }
+        Settings.AxTvAvd = next; _app.QueueSave();
+        _servicesView?.SetStatus(Loc.T("正在切换到 ", "Switching to ") + next + Loc.T("，先关闭当前的…", ", closing the current one first…"));
+        Task.Run(() =>
+        {
+            if (AxTvEmulator.DeviceOnline() || AxTvEmulator.EmulatorProcessAlive())
+            {
+                AxTvEmulator.Stop();
+                if (AxTvEmulator.EmulatorProcessAlive()) AxTvEmulator.ForceKill();
+                Thread.Sleep(2000);
+            }
+            var (ok, detail) = AxTvEmulator.Start(next);
+            OnUi(() =>
+            {
+                _servicesView?.SetStatus(ok ? Loc.T("已切换到 ", "Switched to ") + next : Loc.T("切换失败：", "Switch failed: ") + detail);
+                ServicesRefreshAxTv();
+            });
+        });
+    }
+
+    internal void ServicesAxTvFullscreen()
+    {
+        string avd = AxTvAvd;
+        Task.Run(() =>
+        {
+            IntPtr window = EmulatorWindow.FindEmulatorWindow();
+            if (window == IntPtr.Zero) { OnUi(() => _servicesView?.SetStatus(Loc.T("没找到模拟器窗口", "The emulator window was not found"))); return; }
+            var profile = AxTvEmulator.ProfileFor(avd);
+            var rect = EmulatorWindow.EnterFullscreen(window, profile.Aspect, profile.Portrait);
+            OnUi(() =>
+            {
+                _servicesView?.SetStatus(Loc.T("已切到无边框全屏，窗口 ", "Borderless full screen, window ") + rect);
+                ServicesRefreshAxTv(true);
+            });
+        });
+    }
+
+    internal void ServicesAxTvSmall()
+    {
+        string avd = AxTvAvd;
+        Task.Run(() =>
+        {
+            IntPtr window = EmulatorWindow.FindEmulatorWindow();
+            if (window == IntPtr.Zero) { OnUi(() => _servicesView?.SetStatus(Loc.T("没找到模拟器窗口", "The emulator window was not found"))); return; }
+            var profile = AxTvEmulator.ProfileFor(avd);
+            var rect = EmulatorWindow.MoveSmall(window, profile.Aspect, profile.Portrait);
+            OnUi(() =>
+            {
+                _servicesView?.SetStatus(Loc.T("窗口已归位到小窗：", "The window is back in its small shape: ") + rect);
+                ServicesRefreshAxTv(true);
+            });
+        });
+    }
+
+    internal void ServicesAxTvResetWindow()
+    {
+        ServicesAxTvSmall();
+    }
+
+    // The guest screen is turned to portrait and back. The window keeps its shape: the emulator holds the aspect
+    // ratio of its physical panel, so only the picture inside it changes.
+    internal void ServicesAxTvToggleOrientation()
+    {
+        string avd = AxTvAvd;
+        _servicesView?.SetStatus(Loc.T("正在切换显示方向…", "Switching the orientation…"));
+        Task.Run(() =>
+        {
+            var profile = AxTvEmulator.ProfileFor(avd);
+            if (profile.Portrait)
+            {
+                OnUi(() => _servicesView?.SetStatus(Loc.T("当前是竖屏 AVD：窗口的形状由物理面板定死，要换方向得冷启动另一个 AVD",
+                    "This is a portrait AVD: the window's shape is fixed by its physical panel; switching needs a cold start of the other AVD")));
+                return;
+            }
+            if (!AxTvEmulator.DeviceOnline()) { OnUi(() => _servicesView?.SetStatus(Loc.T("模拟器未运行", "The emulator is not running"))); return; }
+            bool goPortrait = AxTvEmulator.WmOverride() != AxTvEmulator.PortraitSize;
+            IntPtr window = EmulatorWindow.FindEmulatorWindow();
+            bool wasFullscreen = window != IntPtr.Zero && EmulatorWindow.IsFullscreen(window);
+            AxTvEmulator.SetWmOverride(goPortrait ? AxTvEmulator.PortraitSize : null);
+            Thread.Sleep(2000);
+            if (window != IntPtr.Zero)
+            {
+                // A full screen window keeps its shape; anything else goes back to the small centred one.
+                if (wasFullscreen || goPortrait) EmulatorWindow.EnsureVisible(window);
+                else EmulatorWindow.ApplyWindowRect(window, EmulatorWindow.SmallWindowRect(EmulatorWindow.ActiveMonitorRect(window), profile.Aspect));
+            }
+            var (ok, bytes) = AxTvEmulator.DisplayHealth();
+            if (!ok)
+            {
+                // The picture did not come up: the screen goes back to its native size and the window is restored.
+                AxTvEmulator.SetWmOverride(null);
+                if (window != IntPtr.Zero) EmulatorWindow.ApplyWindowRect(window, EmulatorWindow.SmallWindowRect(EmulatorWindow.ActiveMonitorRect(window), profile.Aspect));
+                OnUi(() => _servicesView?.SetStatus(Loc.T("画面自检未通过，已回滚到横屏", "The picture check failed; rolled back to landscape") + $" ({bytes} B)"));
+                ServicesRefreshAxTv();
+                return;
+            }
+            bool relaunched = AxTvEmulator.RelayoutApp();
+            if (wasFullscreen && window != IntPtr.Zero) EmulatorWindow.SetFullscreenGeometry(window, profile.Aspect, profile.Portrait);
+            OnUi(() =>
+            {
+                _servicesView?.SetStatus((goPortrait ? Loc.T("已切换到竖屏", "Switched to portrait") : Loc.T("已切换到横屏", "Switched to landscape"))
+                    + $" ({bytes} B" + (relaunched ? Loc.T(", 已重启 AxTV", ", AxTV restarted") : "") + ")");
+                ServicesRefreshAxTv();
+            });
+        });
+    }
+
+    internal void ServicesAxTvLaunchApp()
+    {
+        Task.Run(() =>
+        {
+            var (ok, detail) = AxTvEmulator.LaunchApp();
+            OnUi(() => _servicesView?.SetStatus((ok ? Loc.T("已启动 AxTV", "AxTV started") : Loc.T("启动失败：", "Start failed: ")) + detail));
+        });
+    }
+
+    internal void ServicesAxTvStopApp()
+    {
+        Task.Run(() =>
+        {
+            var (ok, detail) = AxTvEmulator.StopApp();
+            OnUi(() => _servicesView?.SetStatus((ok ? Loc.T("已停止 AxTV", "AxTV stopped") : Loc.T("停止失败：", "Stop failed: ")) + detail));
+        });
+    }
+
+    internal void ServicesAxTvUninstallApp()
+    {
+        Task.Run(() =>
+        {
+            var (ok, detail) = AxTvEmulator.UninstallApp();
+            OnUi(() =>
+            {
+                _servicesView?.SetStatus((ok ? Loc.T("已卸载 AxTV", "AxTV uninstalled") : Loc.T("卸载失败：", "Uninstall failed: ")) + detail);
+                ServicesRefreshAxTv();
+            });
+        });
+    }
+
+    internal void ServicesAxTvScreenshot()
+    {
+        _servicesView?.SetStatus(Loc.T("截图中…", "Taking a screenshot…"));
+        Task.Run(() =>
+        {
+            var (ok, detail) = AxTvEmulator.Screenshot();
+            OnUi(() => _servicesView?.SetStatus((ok ? Loc.T("截图已保存：", "Screenshot saved: ") : Loc.T("截图失败：", "Screenshot failed: ")) + detail));
+        });
+    }
+
+    internal void ServicesAxTvOpenLog()
+    {
+        try
+        {
+            if (System.IO.File.Exists(AxTvEmulator.LogPath))
+                Process.Start(new ProcessStartInfo("notepad.exe", AxTvEmulator.LogPath) { UseShellExecute = true });
+            else
+                Process.Start(new ProcessStartInfo("explorer.exe", System.IO.Path.GetDirectoryName(AxTvEmulator.LogPath) ?? "") { UseShellExecute = true });
             _servicesView?.SetStatus(Loc.T("已打开日志", "Log opened"));
         }
         catch (System.Exception ex) { _servicesView?.SetStatus(Loc.T("打开失败：", "Open failed: ") + ex.Message); }
