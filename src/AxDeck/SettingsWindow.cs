@@ -552,6 +552,7 @@ public sealed partial class SettingsWindow : Window, IKeepsAppFonts
                     DeckPage.Clipboard => (DefaultDeckPage.Clipboard, Loc.T("剪贴板与文件中转", "Clipboard and file transfer")),
                     DeckPage.Devices => (DefaultDeckPage.Devices, Loc.T("设备电量", "Device batteries")),
                     DeckPage.Services => (DefaultDeckPage.Services, Loc.T("服务与工具", "Services & tools")),
+                    DeckPage.Boxes => (DefaultDeckPage.Boxes, Loc.T("桌面整理", "Desktop organizer")),
                     _ => (DefaultDeckPage.Usage, Loc.T("AI 用量", "AI usage"))
                 });
             filling = true;
@@ -574,6 +575,7 @@ public sealed partial class SettingsWindow : Window, IKeepsAppFonts
                 DeckPage.Clipboard => SizeRow(Loc.T("显示剪贴板与文件中转", "Show clipboard and file transfer"), Loc.T("剪贴板与文件中转", "clipboard and file transfer"), page, S.ClipboardPage, value => { Change(s => s.ClipboardPage = value); FillStarts(); }, Collect(ShelfSizeControls), pages, FillStarts),
                 DeckPage.Devices => SizeRow(Loc.T("显示设备电量", "Show device batteries"), Loc.T("设备电量", "device batteries"), page, S.DevicesPage, value => { Change(s => s.DevicesPage = value); FillStarts(); }, Collect(DeviceSizeControls), pages, FillStarts),
                 DeckPage.Services => SizeRow(Loc.T("显示服务与工具", "Show services & tools"), Loc.T("服务与工具", "services & tools"), page, S.ServicesPage, value => { Change(s => s.ServicesPage = value); FillStarts(); }, Collect(ServicesSizeControls), pages, FillStarts),
+                DeckPage.Boxes => SizeRow(Loc.T("显示桌面整理", "Show the desktop organizer"), Loc.T("桌面整理", "desktop organizer"), page, S.BoxesPage, value => { Change(s => s.BoxesPage = value); FillStarts(); }, Collect(BoxesSizeControls), pages, FillStarts),
                 _ => SizeRow(Loc.T("显示 AI 用量", "Show AI usage"), Loc.T("AI 用量", "AI usage"), page, S.UsagePage, value => { Change(s => s.UsagePage = value); FillStarts(); }, Collect(UsageSizes), pages, FillStarts)
             });
         UpdateDividers(pages);
@@ -697,7 +699,8 @@ public sealed partial class SettingsWindow : Window, IKeepsAppFonts
                     s.MonitorPage=defaults.MonitorPage;s.MonitorWidth=defaults.MonitorWidth;s.MonitorHeight=defaults.MonitorHeight;s.PageOrder=defaults.PageOrder;
                     s.ClipboardPage=defaults.ClipboardPage;s.ClipboardWidth=defaults.ClipboardWidth;s.ClipboardHeight=defaults.ClipboardHeight;
                     s.DevicesPage=defaults.DevicesPage;s.DevicesWidth=defaults.DevicesWidth;s.DevicesHeight=defaults.DevicesHeight;
-                    s.ServicesPage=defaults.ServicesPage;s.ServicesWidth=defaults.ServicesWidth;s.ServicesHeight=defaults.ServicesHeight;break;
+                    s.ServicesPage=defaults.ServicesPage;s.ServicesWidth=defaults.ServicesWidth;s.ServicesHeight=defaults.ServicesHeight;
+                    s.BoxesPage=defaults.BoxesPage;s.BoxesWidth=defaults.BoxesWidth;s.BoxesHeight=defaults.BoxesHeight;break;
                 case MonitorSettingsPage:s.MonitorPalette=defaults.MonitorPalette;s.MonitorCustomColors=defaults.MonitorCustomColors;s.CompactWarningColor=null;s.CompactCriticalColor=null;s.CompactSmoothing=defaults.CompactSmoothing;s.MonitorInterval=defaults.MonitorInterval;s.MonitorProcesses=defaults.MonitorProcesses;s.MonitorSort=defaults.MonitorSort;s.MonitorMain=defaults.MonitorMain;s.MonitorProcessView=defaults.MonitorProcessView;
                     s.CompactMonitor=defaults.CompactMonitor;s.CompactMonitorItems=defaults.CompactMonitorItems;s.CompactReadings=defaults.CompactReadings;s.NotchAutoWidth=defaults.NotchAutoWidth;s.CapsuleAutoWidth=defaults.CapsuleAutoWidth;s.MonitorTemperatures=defaults.MonitorTemperatures;s.MonitorStorage=defaults.MonitorStorage;s.MonitorPower=defaults.MonitorPower;s.MonitorGpuUsage=defaults.MonitorGpuUsage;break;
                 // The devices' order, names and switches stay; the page and its size are Expanded view's (case 2).

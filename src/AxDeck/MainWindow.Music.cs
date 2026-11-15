@@ -141,7 +141,7 @@ public partial class MainWindow
         bool back = Settings.PageOrder.IndexOf(page) < Settings.PageOrder.IndexOf(before);
         _handover.Send(picture, place, PageContent(page), back ? Handover.Back : Handover.Forward);
     }
-    private FrameworkElement PageContent(DeckPage page) => page switch { DeckPage.Music => MusicContent, DeckPage.Monitor => MonitorContent, DeckPage.Clipboard => ShelfContent, DeckPage.Devices => DevicesContent, DeckPage.Services => ServicesContent, _ => UsageContent };
+    private FrameworkElement PageContent(DeckPage page) => page switch { DeckPage.Music => MusicContent, DeckPage.Monitor => MonitorContent, DeckPage.Clipboard => ShelfContent, DeckPage.Devices => DevicesContent, DeckPage.Services => ServicesContent, DeckPage.Boxes => BoxesContent, _ => UsageContent };
     private void ShowPage(DeckPage page, bool animatePage)
     {
         // The music page keeps what it built while another page shows (RenderMusic's key), so switching back does not build it again.
@@ -181,6 +181,7 @@ public partial class MainWindow
     private void ShelfPage_Click(object sender, RoutedEventArgs e) => SelectPage(DeckPage.Clipboard);
     private void DevicesPage_Click(object sender, RoutedEventArgs e) => SelectPage(DeckPage.Devices);
     private void ServicesPage_Click(object sender, RoutedEventArgs e) => SelectPage(DeckPage.Services);
+    private void BoxesPage_Click(object sender, RoutedEventArgs e) => SelectPage(DeckPage.Boxes);
     // Where the usage page's application tabs start: after the page switch, which holds one 28 DIP button per shown page.
     private double ApplicationPagesLeft(double side) { int pages = DeckPages.Visible(Settings).Count; return side + (pages <= 1 ? 36 : 72 + 29 * (pages - 2)); }
     // The header shared by both pages (see PanelHeader). Its row holds the page's top margin, so the clock, the switch and the
@@ -197,7 +198,7 @@ public partial class MainWindow
         Toolbar.Height = header.Height;
         PageSwitch.Margin = new Thickness(header.Side, 0, 0, 0);
         FitPageButtons(header);
-        foreach (var button in new[] { AIUsageButton, MonitorPageButton, MusicPageButton, ShelfPageButton, DevicesPageButton, ServicesPageButton })
+        foreach (var button in new[] { AIUsageButton, MonitorPageButton, MusicPageButton, ShelfPageButton, DevicesPageButton, ServicesPageButton, BoxesPageButton })
         {
             // A local corner for these two buttons only; PanelIconButton keeps its 5 DIP corner elsewhere.
             button.ApplyTemplate();
@@ -211,12 +212,12 @@ public partial class MainWindow
     private void RenderPageSwitch()
     {
         SetValue(SuppressMusicToolTipsProperty, IsMusicPage);
-        foreach (var control in new FrameworkElement[] { AIUsageButton, MonitorPageButton, MusicPageButton, ShelfPageButton, DevicesPageButton, ServicesPageButton, MediaSourceButton, ClockLabel })
+        foreach (var control in new FrameworkElement[] { AIUsageButton, MonitorPageButton, MusicPageButton, ShelfPageButton, DevicesPageButton, ServicesPageButton, BoxesPageButton, MediaSourceButton, ClockLabel })
             ToolTipService.SetIsEnabled(control, !IsMusicPage);
         PageSwitch.Visibility = _details && IsUsagePage || IsShelfPage && ShelfHidesSwitch ? Visibility.Collapsed : Visibility.Visible;
         OrderPageButtons();
         if (!IsShelfPage) { ShelfToolbar.Visibility = Visibility.Collapsed; ShelfSearchButton.Visibility = Visibility.Collapsed; }
-        foreach (var (button, page) in new[] { (AIUsageButton, DeckPage.Usage), (MusicPageButton, DeckPage.Music), (MonitorPageButton, DeckPage.Monitor), (ShelfPageButton, DeckPage.Clipboard), (DevicesPageButton, DeckPage.Devices), (ServicesPageButton, DeckPage.Services) })
+        foreach (var (button, page) in new[] { (AIUsageButton, DeckPage.Usage), (MusicPageButton, DeckPage.Music), (MonitorPageButton, DeckPage.Monitor), (ShelfPageButton, DeckPage.Clipboard), (DevicesPageButton, DeckPage.Devices), (ServicesPageButton, DeckPage.Services), (BoxesPageButton, DeckPage.Boxes) })
         {
             bool current = CurrentPage == page;
             button.Visibility = DeckPages.Shown(Settings, page) ? Visibility.Visible : Visibility.Collapsed;

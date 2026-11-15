@@ -1,6 +1,7 @@
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
@@ -125,6 +126,9 @@ public partial class App : Application
         WindowDrags = new WindowDrags();
         Shelf = new ShelfService(folder, Dispatcher); Shelf.Apply(Settings);
         Deck = new MainWindow(this); MainWindow = Deck;
+        // The desktop organizer reads what it saved before the first window appears: an icon a box holds has to stay hidden from
+        // the moment the program starts, and it has to come back when the program goes.
+        Deck.BoxesLoad();
         Displays = Native.Displays.Current(); AssignDisplays();
         Deck.Show();
         InitializeHotkeys();
@@ -176,6 +180,22 @@ public partial class App : Application
         Resources["UnpinSourceName"] = Loc.T("取消固定", "Unpin");
     }
     public void OpenSettings() => ShowSettings(false);
+    // The desktop organizer's own menu in the tray: open the page, make a new box, show the boxes that are open, and put
+    // the native desktop icons back.
+    private MenuItem BoxesMenu()
+    {
+        var menu = new MenuItem();
+        var open = new MenuItem { Header = Loc.T("打开桌面整理页", "Open the organizer page") }; open.Click += (_, _) => Deck.BoxesOpenPage();
+        menu.Items.Add(open);
+        var create = new MenuItem { Header = Loc.T("新建分组", "New box") }; create.Click += (_, _) => Deck.BoxesCreate();
+        menu.Items.Add(create);
+        var show = new MenuItem { Header = Loc.T("显示所有分组", "Show all boxes") }; show.Click += (_, _) => Deck.BoxesShowAll();
+        menu.Items.Add(show);
+        menu.Items.Add(new Separator());
+        var restore = new MenuItem { Header = Loc.T("恢复桌面图标", "Restore the desktop icons") }; restore.Click += (_, _) => Deck.BoxesRestoreIcons();
+        menu.Items.Add(restore);
+        return menu;
+    }
     // The clipboard page's menus open the settings at its own pages (SettingsWindow.ClipboardSettingsPage, TransferSettingsPage).
     internal void OpenSettingsPage(int page) { ShowSettings(false); _settingsWindow?.ShowPage(page); }
     // Starting AxDeck while it runs shows the hidden panels as well as the settings, so the panels come back even without
@@ -188,7 +208,7 @@ public partial class App : Application
     // Adds or removes the tray icon to match the settings.
     private void ApplyTray()
     {
-        if (Settings.ShowTrayIcon && _tray is null) _tray = new TrayIcon(Deck, OpenSettings, ExitApplication, ToggleHidden, () => UserHidden, ToggleClickThrough, () => Settings.ClickThrough);
+        if (Settings.ShowTrayIcon && _tray is null) _tray = new TrayIcon(Deck, OpenSettings, ExitApplication, ToggleHidden, () => UserHidden, ToggleClickThrough, () => Settings.ClickThrough, BoxesMenu);
         else if (!Settings.ShowTrayIcon && _tray is not null) { _tray.Dispose(); _tray = null; }
     }
     // The panel ends a collapsed preview when the pointer reaches it. The settings window clears its own preview state; the
@@ -536,7 +556,11 @@ public partial class App : Application
     }
     protected override void OnExit(ExitEventArgs e)
     {
-        Exiting = true; Lifetime.Cancel(); _save.Stop(); _trim?.Stop(); _release?.Stop(); FinishWriting(); StopBackgroundUpdates(); DisplayPower.Uninstall(); Microsoft.Win32.SystemEvents.UserPreferenceChanged -= SystemThemeChanged; _tray?.Dispose(); DisposeHotkeys(); WindowDrags?.Dispose(); _listener?.Unregister(null); _settingsEvent?.Dispose();
+        Exiting = true; Lifetime.Cancel(); _save.Stop(); _trim?.Stop(); _release?.Stop(); StopBackgroundUpdates(); DisplayPower.Uninstall(); Microsoft.Win32.SystemEvents.UserPreferenceChanged -= SystemThemeChanged; _tray?.Dispose(); DisposeHotkeys(); WindowDrags?.Dispose(); _listener?.Unregister(null); _settingsEvent?.Dispose();
+        // The desktop organizer gives the native desktop icons back before it goes, so Windows is not left without them. The
+        // record of what it hid is written out with it, so the next start does not hide them again.
+        Deck.BoxesRestoreIcons(save: false); BoxWindows.CloseAll();
+        FlushSettings(); FinishWriting();
         if (Shelf is not null) { Shelf.Exit(); Shelf.Dispose(); }
         Media?.Dispose(); _restingMedia?.Dispose(); Monitor?.Dispose(); SensorGuard.Finish(); Devices?.Dispose(); Lyrics?.Dispose(); Prices?.Dispose(); _mutex?.Dispose(); base.OnExit(e);
     }

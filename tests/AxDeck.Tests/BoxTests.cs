@@ -1,0 +1,122 @@
+using AxDeck.Core;
+
+internal static class BoxTests
+{
+    public static void Run(string root, Action<string, bool> check)
+    {
+        // The keys of the items a box holds: a real file is its path, a system entry is "shell::" and its id.
+        check("a system entry is told apart from a real file",
+            BoxItemKey.IsShell(BoxItemKey.ForShell("recycle-bin")) && !BoxItemKey.IsShell(@"C:\a.txt")
+            && BoxItemKey.ShellId(BoxItemKey.ForShell("recycle-bin")) == "recycle-bin" && BoxItemKey.ShellId(@"C:\a.txt") == "");
+
+        // The place a dropped item lands: the row the pointer is in, then the item before or after it.
+        var row = new List<BoxItemRect>
+        {
+            new("a", 0, 0, 80, 80),
+            new("b", 80, 0, 80, 80),
+            new("c", 160, 0, 80, 80)
+        };
+        check("an item lands before the one whose middle it is left of",
+            BoxInsertionResolver.Resolve(row, 10, 10, new HashSet<string>(), 4) == new BoxInsertion("a", false));
+        check("an item lands after the one whose middle it is right of",
+            BoxInsertionResolver.Resolve(row, 90, 10, new HashSet<string>(), 4) == new BoxInsertion("b", false));
+        check("an item past the last one of a row lands after it",
+            BoxInsertionResolver.Resolve(row, 900, 10, new HashSet<string>(), 4) == new BoxInsertion("c", true));
+        check("an item being dragged does not take part in the calculation",
+            BoxInsertionResolver.Resolve(row, 10, 10, new HashSet<string> { "a" }, 4) == new BoxInsertion("b", false));
+
+        // A second row: the pointer is below the first one, so the second row is the one that counts.
+        var twoRows = new List<BoxItemRect>
+        {
+            new("a", 0, 0, 80, 80),
+            new("b", 80, 0, 80, 80),
+            new("c", 0, 84, 80, 80),
+            new("d", 80, 84, 80, 80)
+        };
+        check("a pointer in the second row lands among the second row",
+            BoxInsertionResolver.Resolve(twoRows, 10, 120, new HashSet<string>(), 4) == new BoxInsertion("c", false));
+        check("a pointer just under a row still counts as that row",
+            BoxInsertionResolver.Resolve(twoRows, 10, 82, new HashSet<string>(), 4) == new BoxInsertion("a", false));
+        check("a pointer past the gap of the rows lands in the next one",
+            BoxInsertionResolver.Resolve(twoRows, 10, 90, new HashSet<string>(), 4) == new BoxInsertion("c", false));
+
+        // A box with nothing but the item being dragged has no place to fall.
+        check("a box with only the dragged item has no place to fall",
+            !BoxInsertionResolver.Resolve(row, 10, 10, new HashSet<string> { "a", "b", "c" }, 4).IsValid);
+
+        // The names Windows will not take.
+        check("Windows keeps its own names for itself",
+            BoxNaming.SanitizeUserFileName("CON") is null && BoxNaming.SanitizeUserFileName("con.txt") is null
+            && BoxNaming.SanitizeUserFileName("LPT1") is null && BoxNaming.SanitizeUserFileName("..") is null
+            && BoxNaming.SanitizeUserFileName("") is null);
+        check("a name with a character Windows does not take is refused",
+            BoxNaming.SanitizeUserFileName("a:b") is null && BoxNaming.SanitizeUserFileName("a/b") is null
+            && BoxNaming.SanitizeUserFileName("a*b") is null && BoxNaming.SanitizeUserFileName("a\"b") is null);
+        check("a name Windows does take is kept, without its trailing dots and spaces",
+            BoxNaming.SanitizeUserFileName("  a.txt  ") == "a.txt" && BoxNaming.SanitizeUserFileName("a.txt...") == "a.txt");
+
+        // The folder of a box is named after its id, never after a title the user typed.
+        check("the real folder of a box is named after its id",
+            BoxNaming.IsValidBoxFolderName(BoxNaming.BoxFolderName("abc123")) && !BoxNaming.IsValidBoxFolderName("..\\evil")
+            && !BoxNaming.IsValidBoxFolderName("box_") && !BoxNaming.IsValidBoxFolderName("other_name"));
+
+        // The plan for a file dragged into a folder.
+        var folder = Path.Combine(root, "box-target");
+        Directory.CreateDirectory(folder);
+        var source = Path.Combine(root, "note.txt");
+        File.WriteAllText(source, "hello");
+        var copy = BoxTransferPlanner.Plan([source], folder, BoxDropAction.Copy, BoxConflictPolicy.Rename);
+        check("a file dragged in is copied to the folder under its own name",
+            copy.Plans.Count == 1 && copy.Plans[0].Kind == BoxTransferKind.Copy
+            && Path.GetFileName(copy.Plans[0].Destination) == "note.txt");
+        var mapped = BoxTransferPlanner.Plan([source], folder, BoxDropAction.Map, BoxConflictPolicy.Rename);
+        check("a mapped file becomes a shortcut to where it is",
+            mapped.Plans.Count == 1 && mapped.Plans[0].Kind == BoxTransferKind.Shortcut
+            && Path.GetFileName(mapped.Plans[0].Destination) == "note.lnk");
+        var moved = BoxTransferPlanner.Plan([source], folder, BoxDropAction.Move, BoxConflictPolicy.Rename);
+        check("a file dragged in is moved to the folder",
+            moved.Plans.Count == 1 && moved.Plans[0].Kind == BoxTransferKind.Move);
+
+        // The same name twice: the rule decides what happens.
+        File.WriteAllText(Path.Combine(folder, "note.txt"), "old");
+        var skip = BoxTransferPlanner.Plan([source], folder, BoxDropAction.Copy, BoxConflictPolicy.Skip);
+        check("a file of the same name is skipped when the rule says so", skip.Plans.Count == 0);
+        var replace = BoxTransferPlanner.Plan([source], folder, BoxDropAction.Copy, BoxConflictPolicy.Replace);
+        check("a file of the same name replaces the old one when the rule says so",
+            replace.Plans.Count == 1 && replace.Plans[0].ReplacesExisting);
+        var renamed = BoxTransferPlanner.Plan([source], folder, BoxDropAction.Copy, BoxConflictPolicy.Rename);
+        check("a file of the same name is renamed when the rule says so",
+            renamed.Plans.Count == 1 && Path.GetFileName(renamed.Plans[0].Destination) == "note (2).txt");
+
+        // The place and the size of a box.
+        var settings = new DasktopSettings();
+        check("a box that is not moved stays where it is",
+            BoxLayout.SnapPosition(300, 300, 320, 320, [], null, new BoxWorkArea(0, 0, 1920, 1040), settings) == (300, 300));
+        check("a box near the edge of the screen snaps to it",
+            BoxLayout.SnapPosition(15, 15, 320, 320, [], null, new BoxWorkArea(0, 0, 1920, 1040), settings) == (0, 0));
+        check("a box that is told not to snap stays where it is",
+            BoxLayout.SnapPosition(15, 15, 320, 320, [], null, new BoxWorkArea(0, 0, 1920, 1040),
+                new DasktopSettings { SnapToEdges = false }) == (15, 15));
+        check("a box that is dragged past the edge of the screen stops at its edge",
+            BoxLayout.KeepInside(new BoxBounds(-200, -200, 320, 320), new BoxWorkArea(0, 0, 1920, 1040))
+                == new BoxBounds(0, 0, 320, 320));
+
+        // The size of a box snaps to a whole number of icon cells.
+        var snapped = BoxLayout.SnapToGrid(new BoxBounds(100, 100, 350, 350), settings, null);
+        var column = BoxLayout.ColumnWidth(settings);
+        var rowHeight = BoxLayout.RowHeight(settings);
+        check("the size of a box snaps to the grid of its icons",
+            snapped.Width >= BoxWindowSize.MinWidth && snapped.Height >= BoxWindowSize.MinHeight
+            // 去掉两边的留白后，剩下的正好是「格数 x 格宽 + 格数之间的间距」。
+            && (snapped.Width - BoxWindowSize.GridPadding * 2 + settings.IconGapX) % (column + settings.IconGapX) < 0.01
+            && (snapped.Height - BoxWindowSize.TitleHeight - BoxWindowSize.GridPadding * 2 + settings.IconGapY) % (rowHeight + settings.IconGapY) < 0.01);
+
+        // The system entries a box can hold.
+        check("the system entries a box can hold are the five Windows shows",
+            BoxShellItems.All.Count == 5 && BoxShellItems.Find("this-pc") is not null
+            && BoxShellItems.FindDesktopIcon("this-pc")?.DesktopIconClsid == "{20D04FE0-3AEA-1069-A2D8-08002B30309D}");
+        check("a parsing name is told apart from the entry it stands for",
+            BoxShellItems.FromParsingName("::{20D04FE0-3AEA-1069-A2D8-08002B30309D}") == "this-pc"
+            && BoxShellItems.FromParsingName(@"C:\Windows\System32") is null);
+    }
+}

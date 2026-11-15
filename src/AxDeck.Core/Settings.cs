@@ -45,8 +45,8 @@ public sealed record IgnoredMediaApp(string AppId = "", string Name = "", string
 public enum ProviderId { Claude, Codex, Antigravity, Cursor, GlmChina, NewApi, Sub2Api, Custom, ZCode = 10, GlmGlobal = 11, Dsh = 12, DeepSeek = 13, GrokBot = 14, Kimi = 15, KimiApi = 16, OpenCode = 17, OpenCodeGo = 18, OpenRouter = 19, Pi = 20, LocalApp = 21 }
 public enum SettingsTheme { System, Light, Dark }
 // Pages are saved as numbers, so new members go at the end; their order in the page switch is DeckSettings.PageOrder.
-public enum DeckPage { Usage, Music, Monitor, Clipboard, Devices, Services }
-public enum DefaultDeckPage { Last, Usage, Music, Monitor, Clipboard, Devices, Services }
+public enum DeckPage { Usage, Music, Monitor, Clipboard, Devices, Services, Boxes }
+public enum DefaultDeckPage { Last, Usage, Music, Monitor, Clipboard, Devices, Services, Boxes }
 // What the mouse wheel does over the expanded panel. Saved as numbers, so new members go at the end.
 public enum MouseWheelAction { None, Pages, Volume }
 // What a double click on an end of the collapsed notch or capsule does: turn its auto width on or off, or start moving it
@@ -636,6 +636,14 @@ public sealed class DeckSettings
     public bool ServicesPage { get; set; } = true;
     public double ServicesWidth { get; set; } = 520;
     public double ServicesHeight { get; set; } = 420;
+    // The desktop organizer page: the boxes that group what lies on the desktop, and the rules that decide what
+    // happens to the real files behind them (DasktopData). The organizer's own data is saved here, so it is read and
+    // written with the settings, and it survives a restart like everything else in this file.
+    public bool BoxesPage { get; set; } = true;
+    public double BoxesWidth { get; set; } = 520;
+    public double BoxesHeight { get; set; } = 400;
+    // The organizer itself: the boxes, what they hold and its rules. Null in a file written before the organizer existed.
+    public DasktopData? Boxes { get; set; }
     // The Android emulator the same page drives (the old "AxTV 模拟器管理器"): the AVD to start, and whether an
     // installation whose signature differs from the one on the device may remove the installed app and retry.
     public string AxTvAvd { get; set; } = "axtv_tv";
@@ -822,6 +830,11 @@ public sealed class DeckSettings
         DevicesHeight = double.IsFinite(DevicesHeight) ? Math.Clamp(DevicesHeight, DeckPages.MinHeight, DeckPages.MaxHeight) : 200;
         ServicesWidth = double.IsFinite(ServicesWidth) ? Math.Clamp(ServicesWidth, DeckPages.MinWidth, DeckPages.MaxWidth) : 520;
         ServicesHeight = double.IsFinite(ServicesHeight) ? Math.Clamp(ServicesHeight, DeckPages.MinHeight, DeckPages.MaxHeight) : 420;
+        BoxesWidth = double.IsFinite(BoxesWidth) ? Math.Clamp(BoxesWidth, DeckPages.MinWidth, DeckPages.MaxWidth) : 520;
+        BoxesHeight = double.IsFinite(BoxesHeight) ? Math.Clamp(BoxesHeight, DeckPages.MinHeight, DeckPages.MaxHeight) : 400;
+        // The organizer's own data: an empty one when the file has none, so the rest of the program can read it without
+        // asking whether it is there.
+        Boxes ??= new DasktopData();
         AxTvAvd = (AxTvAvd ?? "").Trim();
         if (AxTvAvd.Length == 0) AxTvAvd = "axtv_tv";
         DeviceChoices = [.. (DeviceChoices ?? []).OfType<DeviceChoice>().Where(device => !string.IsNullOrWhiteSpace(device.Key)).DistinctBy(device => device.Key).Take(256)];
