@@ -92,6 +92,61 @@ internal static class ShellContextMenu
         }
     }
 
+    // 打开一项的属性对话框，不弹菜单。文件路径本来可以走 ShellExecute 的 properties 动词，但系统项
+    // （::{...} 这样的解析名）ShellExecute 不认——所以这里还是走 IContextMenu，只是按规范动词直接调命令。
+    // lpVerb 除了「命令在菜单里的位置」还能装一个指向动词字符串的指针：shell 看到指针值落在命令编号
+    // 范围之外就按字符串读。64 位进程里指针必然在那之上，不会跟 MAKEINTRESOURCE 混淆。
+    public static bool ShowPropertiesDialog(string parsingName)
+    {
+        var pidl = IntPtr.Zero;
+        var verb = IntPtr.Zero;
+        var com = EnsureCom();
+        try
+        {
+            pidl = ParseDisplayName(parsingName);
+            if (pidl == IntPtr.Zero) return false;
+
+            var child = IntPtr.Zero;
+            var folder = IntPtr.Zero;
+            var menuPointer = IntPtr.Zero;
+            IContextMenu? menu = null;
+            try
+            {
+                var asked = BuildMenu(pidl, IntPtr.Zero, out menuPointer, out child, out folder);
+                if (asked < 0 || menuPointer == IntPtr.Zero) return false;
+
+                menu = (IContextMenu)Marshal.GetObjectForIUnknown(menuPointer);
+                Marshal.Release(menuPointer);
+                menuPointer = IntPtr.Zero;
+                if (menu is null) return false;
+
+                // CMINVOKECOMMANDINFO 是 ANSI 结构，动词字符串按 ANSI 给。
+                verb = Marshal.StringToHGlobalAnsi("properties");
+                var info = new InvokeCommandInfo
+                {
+                    Size = (uint)Marshal.SizeOf<InvokeCommandInfo>(),
+                    Verb = verb,
+                    Show = ShowNormal
+                };
+                return menu.InvokeCommand(ref info) >= 0;
+            }
+            finally
+            {
+                // child 是父 PIDL 里面指着的一段，不是单独分配的，不能释放——
+                // 释放了就是把别人的内存还回去，进程当场崩。
+                if (menuPointer != IntPtr.Zero) Marshal.Release(menuPointer);
+                if (menu is not null) Marshal.ReleaseComObject(menu);
+                if (folder != IntPtr.Zero) Marshal.Release(folder);
+            }
+        }
+        finally
+        {
+            if (pidl != IntPtr.Zero) Marshal.FreeCoTaskMem(pidl);
+            if (verb != IntPtr.Zero) Marshal.FreeHGlobal(verb);
+            com.Dispose();
+        }
+    }
+
     // COM 的准备：这一段线程得是一个「套间」，系统的那些对象才肯出来。
     // 它只能在同一个线程上用完就放，所以做成一次性的。
     private sealed class ComScope : IDisposable

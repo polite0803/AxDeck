@@ -218,4 +218,6 @@ public partial class MainWindow
     private BoxService? _desktopProbeBoxes;
     internal BoxService Boxes => _desktopProbeBoxes ??= new BoxService();
     internal void BoxesOpenPage() { }
+    // 菜单和拖动结束后视图会来问一次「指针还在不在面板里」；测试窗口不接收起流程，空着就好。
+    internal void MenuClosed() { }
 }
