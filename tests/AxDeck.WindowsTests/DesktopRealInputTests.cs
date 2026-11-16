@@ -1,6 +1,7 @@
 using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Threading;
@@ -39,9 +40,17 @@ internal static class DesktopRealInputTests
             WindowsHost.ConfigureOverlay(window, capturable: false);
             HwndSource.FromHwnd(handle)?.AddHook((IntPtr hwnd, int message, IntPtr w, IntPtr l, ref bool handled) =>
             {
-                if (message is 0x0201 or 0x0202 or 0x0204 or 0x0205) messages.Add(message);
+                if (message is 0x0201 or 0x0202 or 0x0203 or 0x0204 or 0x0205) messages.Add(message);
                 return IntPtr.Zero;
             });
+            // WPF 把「点了几下」放在事件参数里，而它来自系统送来的消息：双击那一下系统要送的是
+            // WM_LBUTTONDBLCLK（0x0203），不是又一次 WM_LBUTTONDOWN。这里两处都记下来，看哪一处才有 2。
+            var clicks = new List<string>();
+            // 只在窗口这一层听：不拦住，双击会真的把桌面上那个程序拉起来。
+            view.AddHandler(UIElement.PreviewMouseLeftButtonDownEvent,
+                new MouseButtonEventHandler((_, e) => clicks.Add($"按下 {e.ClickCount}")), true);
+            view.AddHandler(UIElement.PreviewMouseLeftButtonUpEvent,
+                new MouseButtonEventHandler((_, e) => clicks.Add($"抬起 {e.ClickCount}")), true);
             Pump();
             check("真实窗口建起来了", handle != IntPtr.Zero);
             // 真点屏幕上的某一点，那一点上最上面的窗口就必须是本窗口；别的窗口开着的时候
@@ -116,6 +125,39 @@ internal static class DesktopRealInputTests
             Click(screen, flags: (0x0008, 0x0010)); // MOUSEEVENTF_RIGHTDOWN / RIGHTUP
             Pump();
             check($"系统把右键消息也送进了窗口（收到 {Describe(messages)}）", messages.Contains(0x0204));
+
+            // ---- 双击打开 ----
+            // 双击是这一页最要紧的一条：桌面就是这个规矩，点两下打开。
+            // 打开的动作换成一个只记事的函数，免得真把桌面上的程序拉起来。
+            var opened = new List<string>();
+            DesktopIconsView.OpenOverride = item => opened.Add(item.Path);
+            try
+            {
+                SetCursorPos((int)Math.Round(screen.X), (int)Math.Round(screen.Y));
+                Pump();
+                messages.Clear();
+                clicks.Clear();
+
+                // 双击的数只有「按下」那一下带：WPF 在 MouseLeftButtonDown 里给 2，随后的抬起永远是 1。
+                // 这就是先前双击一直不打开的原因——判断写在了抬起上，那里问出来永远是 1。
+                Click(screen, clickCount: 2);
+                Pump();
+                Console.WriteLine($"  两下之后收到的消息：{Describe(messages)}；WPF 的数法：{(clicks.Count == 0 ? "一个事件都没有" : string.Join("、", clicks))}");
+                check($"WPF 在第二下的按下里给出了 ClickCount 为 2（{string.Join("、", clicks)}）",
+                    clicks.Any(text => text.StartsWith("按下") && text.EndsWith(" 2")));
+                check($"双击真的打开了这一项（打开 {opened.Count} 次）", opened.Count == 1);
+                check("打开的是点到的那一项", opened.Count == 1 && opened[0] == (icon.Tag as string));
+
+                // 单击不能打开：点一下只是选中，这个规矩不能因为修双击而丢掉。
+                // 先等过系统的双击时限：刚才那两下还没结算完，紧接着的一下会被算成同一次双击的第三下
+                // （真实的桌面也是这样），那测的就不是「单击」了。
+                opened.Clear();
+                Thread.Sleep((int)GetDoubleClickTime() + 120);
+                Click(screen, clickCount: 1);
+                Pump();
+                check($"单击只选中、不打开（打开 {opened.Count} 次）", opened.Count == 0);
+            }
+            finally { DesktopIconsView.OpenOverride = null; }
         }
         finally { window.Close(); }
     }
@@ -138,6 +180,10 @@ internal static class DesktopRealInputTests
     // 光标挪到屏幕上的这一点。
     [DllImport("user32.dll")]
     private static extern bool SetCursorPos(int x, int y);
+
+    // 两次点击相隔多久还算「连着点」，系统自己定。
+    [DllImport("user32.dll")]
+    private static extern uint GetDoubleClickTime();
 
     [StructLayout(LayoutKind.Sequential)]
     private struct PIXELPOINT { public int X, Y; }

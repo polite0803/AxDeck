@@ -45,6 +45,12 @@ internal sealed class DesktopIconsView : Grid
     private string? _pressPath;
     private Point _pressAt;
     private bool _dragging;
+    // 这一下是连着点的第几下。
+    //
+    // 双击的数只有「按下」那一下带：WPF 在 MouseLeftButtonDown 里给 ClickCount=2，而随后的
+    // MouseLeftButtonUp 永远是 1——抬起本身没有双击的概念。所以打开一项的判断必须看按下时记下的这个数，
+    // 在抬起时再问 e.ClickCount 是问不出来的（问出来永远是 1，双击就永远不打开）。
+    private int _clickCount;
     // 系统菜单开着：这期间面板不能收起来，否则菜单跟着一起没了。
     private bool _menuOpen;
 
@@ -261,6 +267,8 @@ internal sealed class DesktopIconsView : Grid
     private void Icons_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
         Focus();
+        // 双击的数只在这一下里，先记下来；下面的分支可能会早退，记晚了一步这个数就丢了。
+        _clickCount = e.ClickCount;
         if (TagOf(e.OriginalSource as FrameworkElement) is not { } path) return;
         // Ctrl 加选、Shift 连选，跟资源管理器一样；不按修饰键时点谁选谁。
         if ((Keyboard.Modifiers & ModifierKeys.Control) != 0)
@@ -317,11 +325,15 @@ internal sealed class DesktopIconsView : Grid
     private void Icons_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
     {
         _pressPath = null;
+        // 这一下是第几下，一进门就取走：下面哪条路提前返回，这个数都不会留到下一次去。
+        var count = _clickCount;
+        _clickCount = 0;
         if (_dragging) return;
         if (TagOf(e.OriginalSource as FrameworkElement) is not { } path) return;
         if (ItemAt(path) is not { } item) return;
         // 双击打开。桌面就是这个规矩：点一下选中，点两下打开。
-        if (e.ClickCount < 2) return;
+        // 数看的是按下时记下的那个：抬起事件自己的 ClickCount 永远是 1（见 _clickCount）。
+        if (count < 2) return;
         Open(item);
         e.Handled = true;
     }
@@ -329,6 +341,8 @@ internal sealed class DesktopIconsView : Grid
     private void Area_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
         Focus();
+        // 按在空白处也是连着点的第一下或第二下：这个数照样记，抬起时才不会拿上一次的旧值。
+        _clickCount = e.ClickCount;
         // 按在图标上：这一下属于图标（选中、双击、往外面拖）。这里只是冒泡到图标区的父级，
         // 不能把图标刚记下的「按在哪一项上」清掉——清掉了，拖动就永远起不来。
         if (TagOf(e.OriginalSource as FrameworkElement) is not null) return;
@@ -445,6 +459,9 @@ internal sealed class DesktopIconsView : Grid
 
     private static void Open(DesktopItems.Item item)
     {
+        // When set, opening an item is handed over instead of starting the real program. Tests assign a single function,
+        // so that a double click can be checked without launching whatever happens to be on the desktop.
+        if (OpenOverride is { } over) { over(item); return; }
         try
         {
             if (item.Kind == DesktopItems.Kind.Shell && ShellIdOf(item.Path) is { Length: > 0 } id) BoxShell.OpenShellItem(id);
@@ -455,6 +472,9 @@ internal sealed class DesktopIconsView : Grid
             BoxReport.Error(Loc.T("打不开这一项：", "This item could not be opened: ") + ex.Message);
         }
     }
+
+    // 打开了什么，交给这个函数。测试用它接住「双击打开」，免得真把桌面上的程序拉起来。
+    internal static Action<DesktopItems.Item>? OpenOverride { get; set; }
 
     // ---- 拖进来 ----
 
