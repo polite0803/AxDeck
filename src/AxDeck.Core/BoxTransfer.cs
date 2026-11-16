@@ -32,8 +32,9 @@ public static class BoxTransferPlanner
         var plans = new List<BoxTransferPlan>();
         foreach (var source in paths)
         {
-            // A file that is already in the target folder is left alone: moving it there changes nothing.
-            if (action == BoxDropAction.Move && BoxNaming.IsDirectChildOf(source, destinationFolder)) continue;
+            // A file that is already in the target folder is left alone: moving it there changes nothing, and copying it
+            // there would only put a "name (2)" copy beside it — a file dragged out of the page and dropped back on it.
+            if (BoxNaming.IsDirectChildOf(source, destinationFolder)) continue;
             // Windows does not allow a folder to be moved inside itself; catching it here gives a clearer answer than the move itself.
             if (action == BoxDropAction.Move && BoxNaming.IsInside(source, destinationFolder)) continue;
 

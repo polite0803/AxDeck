@@ -54,6 +54,11 @@ internal static class ShellFileOperations
 
     // One shell file operation. The operation structure is filled in and handed over; the shell keeps its own copy of the paths
     // for as long as the call lasts.
+    //
+    // The answer is checked: a zero return means it worked, and anything else means it did not — a full disk, a path that
+    // could not be read, a file that vanished. The aborted flag is the other failure: the user pressed Cancel in the
+    // shell's own dialog. Both were once swallowed, and then a half-finished move looked like a success to the caller,
+    // which went on believing the files had arrived.
     private static void Run(uint function, IntPtr from, IntPtr to, ushort flags)
     {
         try
@@ -65,7 +70,12 @@ internal static class ShellFileOperations
                 To = to,
                 Flags = flags
             };
-            SHFileOperationW(ref operation);
+            var result = SHFileOperationW(ref operation);
+            if (result != 0)
+                throw new IOException(string.Format(System.Globalization.CultureInfo.InvariantCulture,
+                    "The shell file operation failed with error 0x{0:X8}.", result));
+            if (operation.Aborted)
+                throw new OperationCanceledException("The shell file operation was cancelled.");
         }
         finally
         {

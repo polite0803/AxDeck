@@ -11,13 +11,19 @@ namespace AxDeck.Native;
 internal static class BoxIcons
 {
     // The icons already read, by the path they were read for; the page shows the same files many times over.
+    // 文件的键带修改时间：文件换了图标（改了关联程序、换了 .ico），时间会变，旧图标不该再被画出来。
     private static readonly Dictionary<string, ImageSource?> Icons = new(StringComparer.OrdinalIgnoreCase);
     private static readonly Dictionary<string, ImageSource?> ShellIcons = new(StringComparer.Ordinal);
 
     // The Explorer's icon for the file. A file that is gone still gets the icon of its type, as the file transfer page does.
-    public static ImageSource? ForFile(string path)
+    public static ImageSource? ForFile(string path) => ForFile(path, stamp: null);
+
+    // stamp 是文件的修改时间：给得出就进键，文件变了缓存自然失效。给不出（文件刚被删、读不到）按没有算，
+    // 键里就少这一段——和旧的一样，类型图标也总是对的。
+    public static ImageSource? ForFile(string path, DateTime? stamp)
     {
-        if (Icons.TryGetValue(path, out var known)) return known;
+        var key = stamp is { } time ? $"{path}|{time.Ticks}" : path;
+        if (Icons.TryGetValue(key, out var known)) return known;
         ImageSource? icon = null;
         var info = new ShellFileInfo();
         uint flags = 0x100u /* SHGFI_ICON */ | (File.Exists(path) || Directory.Exists(path) ? 0u : 0x10u /* SHGFI_USEFILEATTRIBUTES */);
@@ -32,7 +38,7 @@ internal static class BoxIcons
             finally { DestroyIcon(info.Icon); }
         }
         if (Icons.Count > 500) Icons.Clear();
-        Icons[path] = icon;
+        Icons[key] = icon;
         return icon;
     }
 

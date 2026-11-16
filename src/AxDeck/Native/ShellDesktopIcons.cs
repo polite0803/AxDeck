@@ -17,14 +17,20 @@ internal static class ShellDesktopIcons
         @"Software\Microsoft\Windows\CurrentVersion\Explorer\HideDesktopIcons\ClassicStartMenu"
     ];
 
-    // Whether the system entry's native icon is shown now. A key or a value that is not there means Windows shows it.
+    // Whether the system entry's native icon is shown now. A key or a value that is not there means Windows shows it:
+    // Explorer only writes a value when the user has touched the switch, and an entry that has never been touched
+    // keeps the icon Windows itself put there (This PC and Network ship with no value and are shown).
+    //
+    // 之前这里把「注册表里没有值」交给 defaultVisible 回答，而此电脑、网络的 default 是 false——于是
+    // 从没动过那个开关的机器上，AxDeck 会把 Windows 明明画着的两个系统项当成藏着的，桌面页少画它们。
+    // Windows 的规矩是「无值即显示」，这里跟它走：defaultVisible 只在注册表读不出来（权限、IO）时兜底。
     public static bool IsVisible(string clsid, bool defaultVisible)
     {
         try
         {
             using var key = Registry.CurrentUser.OpenSubKey(VisibilityPaths[0]);
-            if (key?.GetValue(clsid) is not int value) return defaultVisible;
-            return value == 0;
+            if (key is null) return true;
+            return key.GetValue(clsid) is not int value || value == 0;
         }
         catch (Exception ex) when (ex is UnauthorizedAccessException or System.Security.SecurityException or IOException)
         {

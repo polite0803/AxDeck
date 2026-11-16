@@ -32,6 +32,12 @@ internal static class BoxTests
         var moved = BoxTransferPlanner.Plan([source], folder, BoxDropAction.Move, BoxConflictPolicy.Rename);
         check("a file dragged in is moved to the folder",
             moved.Plans.Count == 1 && moved.Plans[0].Kind == BoxTransferKind.Move);
+        // 已经在目标文件夹里的文件再拖回这一页：移动它什么也不变，复制它只会多出一份 "note (2)" 副本——都不做。
+        var inside = Path.Combine(folder, "note.txt");
+        File.WriteAllText(inside, "already there");
+        check("a file that is already in the folder is left alone, whatever the drag means",
+            BoxTransferPlanner.Plan([inside], folder, BoxDropAction.Move, BoxConflictPolicy.Rename).Plans.Count == 0
+            && BoxTransferPlanner.Plan([inside], folder, BoxDropAction.Copy, BoxConflictPolicy.Rename).Plans.Count == 0);
 
         // The same name twice: the rule decides what happens.
         File.WriteAllText(Path.Combine(folder, "note.txt"), "old");

@@ -34,7 +34,9 @@ internal static class ShellDesktop
     // 这个文件夹通常要管理员权限才能写，所以它只用来读，往桌面上放东西还是用 FolderPath()。
     public static string SharedFolderPath()
     {
-        var known = KnownFolderPath(new Guid("C5D4E3A9-DB2C-424C-B029-7FE99A87C641"));
+        // FOLDERID_PublicDesktop：先前写的一个 GUID 并不存在（HKLM FolderDescriptions 里查无此项），
+        // SHGetKnownFolderPath 一直失败、永远走下面的兜底。功能没坏，但主查询是死路，这里改成对的。
+        var known = KnownFolderPath(new Guid("C4AA340D-F20F-4863-AFEF-F87EF2E6BA25"));
         if (known is { Length: > 0 } && Directory.Exists(known)) return known;
         var shared = Environment.GetFolderPath(Environment.SpecialFolder.CommonDesktopDirectory);
         return shared.Length > 0 && Directory.Exists(shared) ? shared : "";
@@ -157,7 +159,7 @@ internal static class ShellDesktop
 
     // Explorer 的桌面现在画没画图标：桌面的图标列表窗口（SHELLDLL_DefView 里的 SysListView32）可见不可见。
     // 找不到桌面或那个列表时返回空——那就说不清 Explorer 现在是什么样子。
-    private static bool? DrawnIconsVisible()
+    internal static bool? DrawnIconsVisible()
     {
         var list = FindIconList();
         if (list == IntPtr.Zero) return null;

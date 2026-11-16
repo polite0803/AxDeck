@@ -50,6 +50,8 @@ public partial class MainWindow
                     break;
                 case DeckPage.Desktop:
                     held |= _desktopView is not null;
+                    // 先把观察器和定时器放掉再扔引用：只置空的话它们就失联了，泄漏着继续跑。
+                    _desktopView?.Dispose();
                     _desktopView = null;
                     break;
             }

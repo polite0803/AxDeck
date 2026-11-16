@@ -35,33 +35,12 @@ internal static class ShellShortcuts
         }
     }
 
-    // Whether a shortcut is shown on the desktop. The user can turn that off for one shortcut ("Show on desktop" in the
-    // menu), and then the desktop does not draw it even though the file lies in the desktop folder.
-    //
-    // The answer is in the shortcut's own header: the flags sit at a fixed place near the front of the file, and the first
-    // of them says whether the shortcut belongs on the desktop. This is read straight out of the file rather than asked
-    // of the shell: the shell's own answer needs an interface that is a trouble to call, and this one cannot go wrong.
-    public static bool OnDesktop(string shortcutPath)
-    {
-        try
-        {
-            using var stream = new FileStream(shortcutPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
-            using var reader = new BinaryReader(stream);
-            // The header's size, then the class id (16 bytes), then the flags.
-            if (stream.ReadByte() != 0x4C || stream.ReadByte() != 0x00) return true;   // "L\0": a shell link starts so.
-            stream.Position = 0x14;
-            var flags = reader.ReadUInt32();
-            return (flags & OnDesktopFlag) != 0;
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
-        {
-            // A file that cannot be read this way is left in: it is better to show one icon too many than to lose one.
-            return true;
-        }
-    }
-
-    // The flag that says the shortcut is shown on the desktop.
-    private const uint OnDesktopFlag = 0x00000001;
+    // A shortcut that lies in the desktop folder is shown on the desktop. There is no per-shortcut "show on desktop"
+    // switch to read: the header flag this once answered from (bit 0 of the flags at 0x14) is HasLinkInfo, which every
+    // real .lnk carries, so the "user removed it from the desktop" filter never filtered anything. The user removes an
+    // icon from the desktop by deleting the file or moving it away, and Explorer draws what is in the folder — so this
+    // page does too.
+    public static bool OnDesktop(string shortcutPath) => true;
 
     [ComImport]
     [Guid("00021401-0000-0000-C000-000000000046")]

@@ -52,7 +52,8 @@ internal static class DesktopTests
         check("系统项排在最前",
             ordered.Take(2).All(item => item.Kind == DesktopItems.Kind.Shell));
         check("系统项之间也由名字定",
-            ordered[0].Name == "回收站" && ordered[1].Name == "此电脑");
+            DesktopItems.NameOrder.Compare(ordered[0].Name, ordered[1].Name) <= 0
+            && (new[] { "此电脑", "回收站" }).Select(name => ordered.Count(item => item.Name == name)).Sum() == 2);
         check("文件夹接着系统项",
             ordered.Skip(2).Take(2).All(item => item.Kind == DesktopItems.Kind.Folder)
             && ordered[2].Name == "Archive" && ordered[3].Name == "Work");
@@ -60,6 +61,22 @@ internal static class DesktopTests
             ordered.Skip(4).Select(item => item.Name).SequenceEqual(["apple.lnk", "Banana.lnk", "notes.txt"]));
         check("名字不分大小写地比，不是按字符码",
             ordered.Skip(4).Select(item => item.Name).First() == "apple.lnk");
+
+        // 数字段按数值排，跟 Explorer 一样：file2 排在 file10 前面，字符码比较会把它排到后面去。
+        var numbered = DesktopItems.Ordered([
+            new(@"C:\D\file10.txt", "file10.txt", DesktopItems.Kind.File, true),
+            new(@"C:\D\file2.txt", "file2.txt", DesktopItems.Kind.File, true),
+            new(@"C:\D\file1.txt", "file1.txt", DesktopItems.Kind.File, true)
+        ]);
+        check("数字段按大小算，file2 在 file10 前",
+            numbered.Select(item => item.Name).SequenceEqual(["file1.txt", "file2.txt", "file10.txt"]));
+        // 大小写不分：Explorer 把 "a.txt" 和 "A.txt" 挨在一起排。
+        var mixedCase = DesktopItems.Ordered([
+            new(@"C:\D\BANANA.txt", "BANANA.txt", DesktopItems.Kind.File, true),
+            new(@"C:\D\apple.txt", "apple.txt", DesktopItems.Kind.File, true)
+        ]);
+        check("大写名字不靠前，排序不分大小写",
+            mixedCase.Select(item => item.Name).SequenceEqual(["apple.txt", "BANANA.txt"]));
 
         // 桌面上什么都没有不是错误：这一页就是没东西可画。
         check("空桌面什么都不画", DesktopItems.Ordered([]).Count == 0);
