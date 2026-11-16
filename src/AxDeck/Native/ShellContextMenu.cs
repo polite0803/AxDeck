@@ -288,17 +288,22 @@ internal static class ShellContextMenu
     private static extern void CoUninitialize();
 
     // What InvokeCommand needs to run the command the user chose. The layout is the shell's own, so every field has to
-    // be there: the shell reads them by their place.
+    // be there and in its place: the shell reads them by their place, and it also checks cbSize against the size it
+    // knows. The order below is CMINVOKECOMMANDINFO from shlobj_core.h (56 bytes on x64) — cbSize, fMask, hwnd, lpVerb,
+    // lpParameters, lpDirectory, nShow, dwHotKey, hIcon. Getting a field out of order does not fail loudly: the shell
+    // reads a bogus size, refuses the call, and the command the user picked simply never runs.
     [StructLayout(LayoutKind.Sequential)]
     private struct InvokeCommandInfo
     {
         public uint Size;
+        public uint Mask;
         public IntPtr Owner;
         public IntPtr Verb;
-        public int Show;
-        public uint Mask;
         public IntPtr Parameters;
         public IntPtr Directory;
+        public int Show;
+        public uint HotKey;
+        public IntPtr Icon;
     }
 
     [ComImport]

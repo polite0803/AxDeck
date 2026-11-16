@@ -13,6 +13,38 @@ internal static class DesktopChecks
         CheckDesktopWindowFound(check);
         CheckIconsStateRead(check);
         CheckSystemEntriesHaveTheirOwnIcons(check);
+        CheckShellMenuCommandLayout(check);
+    }
+
+    // 右键菜单里选一项，命令交回系统去执行时用的那个结构体：CMINVOKECOMMANDINFO。
+    // 系统是按字段的位置读的，还拿 cbSize 核对大小；位置错一个，菜单照样弹出来，命令却一个都不执行，
+    // 而且不报错。这一版之前它就是这么错的（把 hwnd 放在了 fMask 该在的地方），所以这条按偏移钉死。
+    private static void CheckShellMenuCommandLayout(Action<string, bool> check)
+    {
+        var type = typeof(AxDeck.Native.ShellContextMenu).GetNestedType("InvokeCommandInfo",
+            System.Reflection.BindingFlags.NonPublic);
+        if (type is null) { check("系统菜单的命令结构体还在", false); return; }
+
+        // x64 上 CMINVOKECOMMANDINFO 是 56 字节；字段按这个顺序排：
+        // cbSize, fMask, hwnd, lpVerb, lpParameters, lpDirectory, nShow, dwHotKey, hIcon。
+        var expected = new (string Field, int Offset, int Size)[]
+        {
+            ("Size", 0, 4), ("Mask", 4, 4), ("Owner", 8, 8), ("Verb", 16, 8),
+            ("Parameters", 24, 8), ("Directory", 32, 8), ("Show", 40, 4), ("HotKey", 44, 4), ("Icon", 48, 8)
+        };
+
+        var size = System.Runtime.InteropServices.Marshal.SizeOf(type);
+        check($"命令结构体是系统认的 56 字节（现在是 {size}）", size == 56);
+
+        foreach (var (name, offset, width) in expected)
+        {
+            var field = type.GetField(name, System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic
+                | System.Reflection.BindingFlags.Instance);
+            if (field is null) { check($"命令结构体有 {name} 这一格", false); continue; }
+            int at = (int)System.Runtime.InteropServices.Marshal.OffsetOf(type, name);
+            int bytes = System.Runtime.InteropServices.Marshal.SizeOf(field.FieldType);
+            check($"{name} 在偏移 {offset}、占 {width} 字节（现在在 {at}、占 {bytes}）", at == offset && bytes == width);
+        }
     }
 
     // 每个系统项画的是它自己的图标。上一版把 `::{GUID}` 直接当路径交给 SHGetFileInfoW，还带着
