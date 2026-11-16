@@ -29,7 +29,6 @@ Desktop.ini
 
 # Local AI assistant instructions and configuration
 CLAUDE.md
-AGENTS.md
 .claude/
 .agents/
 .codex/
