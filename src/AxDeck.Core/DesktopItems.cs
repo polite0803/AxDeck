@@ -46,6 +46,19 @@ public static class DesktopItems
         return string.IsNullOrEmpty(name) ? path : name;
     }
 
+    // 桌面的内容来自两个文件夹：当前用户自己的桌面，和所有账户共用的公共桌面。安装程序往往把快捷方式
+    // 写在公共桌面上，所以只看用户桌面就会漏掉一半。Explorer 把两者合成一份画出来：同一个名字只画一个，
+    // 用户桌面上的那个优先（那是用户自己放上去的那一份）。调用方先把用户桌面递进来。
+    public static IReadOnlyList<Item> Merged(IEnumerable<Item> userDesktop, IEnumerable<Item> sharedDesktop)
+    {
+        List<Item> items = [];
+        // Windows 的文件名不分大小写，两个桌面上叫 Readme 和 readme 的是同一个名字。
+        HashSet<string> names = new(StringComparer.OrdinalIgnoreCase);
+        foreach (var item in userDesktop.Concat(sharedDesktop))
+            if (names.Add(item.Name)) items.Add(item);
+        return items;
+    }
+
     // 要画的那些项，按画的顺序。顺序跟资源管理器一样：文件夹在前，文件夹之间、其余之间都由名字定。
     // 系统项（此电脑、回收站）排在最前：Windows 的桌面也是把它们摆在文件前面的。
     public static IReadOnlyList<Item> Ordered(IEnumerable<Item> items)

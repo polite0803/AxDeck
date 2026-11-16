@@ -64,6 +64,42 @@ internal static class DesktopTests
         // 桌面上什么都没有不是错误：这一页就是没东西可画。
         check("空桌面什么都不画", DesktopItems.Ordered([]).Count == 0);
 
+        // 桌面上看到的是两个文件夹合起来的一份：用户自己的桌面，和所有账户共用的公共桌面。
+        // 安装程序把快捷方式装在公共桌面上，只看用户桌面就会漏掉它们。
+        var userSide = new List<DesktopItems.Item>
+        {
+            new(@"C:\Users\me\Desktop\notes.txt", "notes.txt", DesktopItems.Kind.File, true)
+        };
+        var publicSide = new List<DesktopItems.Item>
+        {
+            new(@"C:\Users\Public\Desktop\WeChat.lnk", "WeChat.lnk", DesktopItems.Kind.Shortcut, true),
+            new(@"C:\Users\Public\Desktop\Work", "Work", DesktopItems.Kind.Folder, true)
+        };
+        var merged = DesktopItems.Merged(userSide, publicSide);
+        check("公共桌面上的东西也画出来",
+            merged.Count == 3 && merged.Any(item => item.Name == "WeChat.lnk" && item.Path.StartsWith(@"C:\Users\Public\")));
+        check("合并后用户桌面上的那些还在", merged.Any(item => item.Name == "notes.txt"));
+
+        // 两个桌面上有同一个名字时只画一个，画的用户自己桌面上的那一份：那是用户自己放上去的。
+        var clashUser = new List<DesktopItems.Item>
+        {
+            new(@"C:\Users\me\Desktop\Teams.lnk", "Teams.lnk", DesktopItems.Kind.Shortcut, true)
+        };
+        var clashPublic = new List<DesktopItems.Item>
+        {
+            new(@"C:\Users\Public\Desktop\Teams.lnk", "Teams.lnk", DesktopItems.Kind.Shortcut, true)
+        };
+        var deduped = DesktopItems.Merged(clashUser, clashPublic);
+        check("两个桌面上同名的项只画一个",
+            deduped.Count == 1 && deduped[0].Path == @"C:\Users\me\Desktop\Teams.lnk");
+        // Windows 的文件名不分大小写，Readme 和 readme 是同一个名字。
+        check("同名的判断不分大小写",
+            DesktopItems.Merged(
+                [new(@"C:\Users\me\Desktop\Teams.lnk", "Teams.lnk", DesktopItems.Kind.Shortcut, true)],
+                [new(@"C:\Users\Public\Desktop\teams.LNK", "teams.LNK", DesktopItems.Kind.Shortcut, true)]).Count == 1);
+        check("没有公共桌面时照旧只画用户的", DesktopItems.Merged(userSide, []).Count == 1);
+        check("用户桌面读不到时公共桌面上的照画", DesktopItems.Merged([], publicSide).Count == 2);
+
         // ---- 接管桌面 ----
 
         // 图标本来是显示的，用户要接管：记住"原来是显示的"，然后藏起来。

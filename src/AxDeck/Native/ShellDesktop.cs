@@ -15,6 +15,9 @@ internal static class ShellDesktop
 {
     // The desktop folder of the user who is running now. It is not the same on every machine: OneDrive may have taken it
     // over, and then the files sit somewhere else entirely.
+    //
+    // 这是「用户的」桌面，也是往桌面上放东西时的去处：拖出到桌面、拖进来落到桌面，都落在用户自己的
+    // 桌面上，不该落到公共桌面上去（那要管理员权限，而且会出现在所有账户的桌面上）。
     public static string FolderPath()
     {
         // The desktop known folder is asked for first: Windows knows best where it is, including when OneDrive moved it.
@@ -27,32 +30,22 @@ internal static class ShellDesktop
         return Directory.Exists(desktop) ? desktop : "";
     }
 
+    // 所有账户共用的桌面（C:\Users\Public\Desktop）。安装程序大多把快捷方式装在这里，只读用户桌面就会漏掉它们。
+    // 这个文件夹通常要管理员权限才能写，所以它只用来读，往桌面上放东西还是用 FolderPath()。
+    public static string SharedFolderPath()
+    {
+        var known = KnownFolderPath(new Guid("C5D4E3A9-DB2C-424C-B029-7FE99A87C641"));
+        if (known is { Length: > 0 } && Directory.Exists(known)) return known;
+        var shared = Environment.GetFolderPath(Environment.SpecialFolder.CommonDesktopDirectory);
+        return shared.Length > 0 && Directory.Exists(shared) ? shared : "";
+    }
+
     // 桌面上有哪些东西：桌面文件夹里的文件、文件夹和快捷方式，加上 Windows 自己画的那几个系统项。
     // 排不排序、藏不藏哪一项，都交给 Core.DesktopItems 去算，这里只负责把事实问出来。
     public static IReadOnlyList<Core.DesktopItems.Item> Items()
     {
-        List<Core.DesktopItems.Item> items = [];
-        var folder = FolderPath();
-        if (folder.Length > 0)
-        {
-            try
-            {
-                foreach (var path in Directory.EnumerateFileSystemEntries(folder))
-                {
-                    // desktop.ini 之类被标成隐藏的文件，桌面上本来就看不见，这里也不画。
-                    if (HasHiddenAttribute(path)) continue;
-                    var isDirectory = IsDirectory(path);
-                    var kind = Core.DesktopItems.KindOf(path, isDirectory);
-                    // 快捷方式自己带着一个"显示在桌面上"的标志：用户拿掉的那一个，Windows 不画。
-                    var onDesktop = kind != Core.DesktopItems.Kind.Shortcut || ShellShortcuts.OnDesktop(path);
-                    items.Add(new Core.DesktopItems.Item(path, Core.DesktopItems.NameOf(path), kind, onDesktop));
-                }
-            }
-            catch (Exception ex) when (ex is UnauthorizedAccessException or IOException)
-            {
-                // 桌面读不了不是错误：这一页就当桌面上什么也没有。
-            }
-        }
+        // 桌面上看到的是两个文件夹合起来的一份：用户自己的桌面，和所有账户共用的公共桌面。
+        List<Core.DesktopItems.Item> items = [.. Core.DesktopItems.Merged(FolderItems(FolderPath()), FolderItems(SharedFolderPath()))];
         // Windows 自己画的系统项：此电脑、回收站、网络、控制面板、用户文件夹。用户关掉了哪一个，这里就不画哪一个。
         foreach (var entry in Core.BoxShellItems.All)
         {
@@ -66,6 +59,31 @@ internal static class ShellDesktop
             items.Add(new Core.DesktopItems.Item(target, entry.Name, Core.DesktopItems.Kind.Shell, true));
         }
         return Core.DesktopItems.Ordered(items);
+    }
+
+    // 一个桌面文件夹里有什么。桌面读不了不是错误：那一半就当桌面上什么也没有。
+    private static List<Core.DesktopItems.Item> FolderItems(string folder)
+    {
+        List<Core.DesktopItems.Item> items = [];
+        if (folder.Length == 0) return items;
+        try
+        {
+            foreach (var path in Directory.EnumerateFileSystemEntries(folder))
+            {
+                // desktop.ini 之类被标成隐藏的文件，桌面上本来就看不见，这里也不画。
+                if (HasHiddenAttribute(path)) continue;
+                var isDirectory = IsDirectory(path);
+                var kind = Core.DesktopItems.KindOf(path, isDirectory);
+                // 快捷方式自己带着一个"显示在桌面上"的标志：用户拿掉的那一个，Windows 不画。
+                var onDesktop = kind != Core.DesktopItems.Kind.Shortcut || ShellShortcuts.OnDesktop(path);
+                items.Add(new Core.DesktopItems.Item(path, Core.DesktopItems.NameOf(path), kind, onDesktop));
+            }
+        }
+        catch (Exception ex) when (ex is UnauthorizedAccessException or IOException)
+        {
+            // 桌面读不了不是错误：这一页就当桌面上什么也没有。
+        }
+        return items;
     }
 
     // 这一项是不是文件夹。问不出来就当它不是：一个读不到的项，宁可当文件画出来。
