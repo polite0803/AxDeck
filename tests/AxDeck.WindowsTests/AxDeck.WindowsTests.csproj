@@ -80,6 +80,7 @@
     <Compile Include="..\..\src\AxDeck\BoxDialogs.cs" Link="BoxDialogs.cs" />
     <Compile Include="..\..\src\AxDeck\BoxItemMenu.cs" Link="BoxItemMenu.cs" />
     <!-- The desktop page: the crossfade of a page swap is checked on its own (the crash where the same element was added twice). -->
+    <Compile Include="..\..\src\AxDeck\DesktopIconsView.cs" Link="DesktopIconsView.cs" />
     <Compile Include="..\..\src\AxDeck\MonitorCrossfade.cs" Link="MonitorCrossfade.cs" />
     <Compile Include="..\..\src\AxDeck\Motion.cs" Link="Motion.cs" />
   </ItemGroup>

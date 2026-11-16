@@ -30,6 +30,10 @@ internal static class Program
             if (args is ["--only", "box"]) { AxDeck.BoxWindowTests.Run(Check); return Finish(); }
             if (args is ["--only", "boxprobe"]) { AxDeck.BoxInteractionTests.Run(Check); return Finish(); }
             if (args is ["--only", "desktop"]) { AxDeck.DesktopChecks.Run(Check); return Finish(); }
+            // 桌面页的图标收不收得到点击：搭起真实的 DesktopIconsView，用命中测试问一句。
+            if (args is ["--only", "desktophit"]) { AxDeck.DesktopHitTests.Run(Check); return Finish(); }
+            // 真实的鼠标输入打进真实结构的窗口：桌面页收不收得到点击，只能这样问。
+            if (args is ["--only", "desktopinput"]) { AxDeck.DesktopRealInputTests.Run(Check); return Finish(); }
             // 这条真的会把桌面图标藏起来再放回来，所以在用户眼前动桌面，只能按名字跑。
             if (args is ["--only", "desktop-toggle"]) { AxDeck.DesktopChecks.RunToggle(Check); return Finish(); }
             // The live check starts real console programs and reads this machine's Android SDK, so it is asked for by name.
@@ -50,6 +54,8 @@ internal static class Program
             AxDeck.DesktopChecks.Run(Check);
             AxDeck.BoxWindowTests.Run(Check);
             DrawnAutomationTests.Run(Check);
+            // 桌面页的图标收不收得到点击：分层窗口会让全透明的像素穿过点击，这条只有按像素问得出来。
+            AxDeck.DesktopHitTests.Run(Check);
             RingLetterChecks.Run(Check);
             SettingsFocusTests.Run(Check);
             AxDeck.MainWindow.CheckPageCapsule(Check);

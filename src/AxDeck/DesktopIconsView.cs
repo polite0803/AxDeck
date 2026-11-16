@@ -18,6 +18,17 @@ namespace AxDeck;
 // 程序退出时桌面图标放回去，跟原来一模一样。
 internal sealed class DesktopIconsView : Grid
 {
+    // 这一页的底色：几乎是透明的黑，不是全透明。
+    //
+    // AxDeck 的面板是分层窗口，而 Windows 对分层窗口只让画了东西的像素接住点击——完全透明（alpha=0）的
+    // 像素它直接放过去，点击落到下面那个窗口上，WPF 连消息都收不到。WPF 自己的命中测试不看这个，所以
+    // 全透明的面板在命中测试里好好的，真点下去却毫无反应：点图标图以外的地方（名字上、格子的空处、
+    // 两格之间）全部落空，单击选不中、双击打不开。
+    // alpha 只留 1 就够了，肉眼看不出来；面板折叠时的悬停条（MainWindow.xaml 的 HoverExtension）也是这么做的。
+    private static readonly Brush Surface = Frozen(new SolidColorBrush(Color.FromArgb(1, 0, 0, 0)));
+
+    private static Brush Frozen(Brush brush) { brush.Freeze(); return brush; }
+
     private readonly MainWindow _owner;
     private readonly BoxIconGrid _icons;
     private readonly Grid _area;
@@ -40,9 +51,9 @@ internal sealed class DesktopIconsView : Grid
     public DesktopIconsView(MainWindow owner)
     {
         _owner = owner;
-        // 背景必须是透明而不是没有：WPF 里没有背景的面板不参与命中测试，
-        // 空白处的点击和拖放就永远到不了这一页。
-        Background = Brushes.Transparent;
+        // 背景必须有，而且不能是全透明：没有背景的面板不参与命中测试，全透明的像素又会被分层窗口放过去
+        // （见 Surface）。两件事同时满足，空白处的点击和拖放才到得了这一页。
+        Background = Surface;
         Focusable = true;
         AllowDrop = true;
 
@@ -50,7 +61,7 @@ internal sealed class DesktopIconsView : Grid
         {
             HorizontalAlignment = HorizontalAlignment.Left,
             VerticalAlignment = VerticalAlignment.Top,
-            Background = Brushes.Transparent
+            Background = Surface
         };
 
         // 拖进来的文件会落在哪一格，由这条竖线指示。它靠左靠上排：不定对齐的话 Grid 会把它摆在中间。
@@ -64,7 +75,7 @@ internal sealed class DesktopIconsView : Grid
             IsHitTestVisible = false
         };
 
-        _area = new Grid { Background = Brushes.Transparent, AllowDrop = true };
+        _area = new Grid { Background = Surface, AllowDrop = true };
         _area.Children.Add(_icons);
         _area.Children.Add(_dropMark);
 
@@ -73,7 +84,7 @@ internal sealed class DesktopIconsView : Grid
             VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
             HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
             Content = _area,
-            Background = Brushes.Transparent
+            Background = Surface
         });
 
         // 桌面上什么也没有时写的一句话，盖在图标区上，不接鼠标。
@@ -195,7 +206,7 @@ internal sealed class DesktopIconsView : Grid
             Child = panel,
             Width = BoxLayout.ColumnWidth(look),
             Height = BoxLayout.RowHeight(look),
-            Background = Brushes.Transparent,
+            Background = Surface,
             CornerRadius = new CornerRadius(Math.Clamp(look.CornerRadius, 0, 12)),
             Tag = item.Path,
             ToolTip = item.Path
@@ -216,7 +227,9 @@ internal sealed class DesktopIconsView : Grid
         foreach (var child in _icons.Children.OfType<Border>())
         {
             bool chosen = child.Tag is string path && _selected.Contains(path);
-            child.Background = chosen ? new SolidColorBrush(Color.FromArgb(60, 120, 170, 255)) : Brushes.Transparent;
+            // 没选中时用 Surface 而不是全透明：全透明的那一块会被分层窗口让点击穿过去，
+            // 图标图以外的地方（名字上、格子上下留的空）就点不着了。
+            child.Background = chosen ? new SolidColorBrush(Color.FromArgb(60, 120, 170, 255)) : Surface;
             child.BorderBrush = chosen ? new SolidColorBrush(Color.FromArgb(150, 120, 170, 255)) : null;
             child.BorderThickness = new Thickness(chosen ? 1 : 0);
         }
@@ -316,8 +329,10 @@ internal sealed class DesktopIconsView : Grid
     private void Area_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
         Focus();
-        _pressPath = null;
+        // 按在图标上：这一下属于图标（选中、双击、往外面拖）。这里只是冒泡到图标区的父级，
+        // 不能把图标刚记下的「按在哪一项上」清掉——清掉了，拖动就永远起不来。
         if (TagOf(e.OriginalSource as FrameworkElement) is not null) return;
+        _pressPath = null;
         _selected.Clear();
         PaintSelection();
     }
