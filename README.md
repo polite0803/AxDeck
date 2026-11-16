@@ -133,6 +133,14 @@ For the supported connections, brands and models, see [Supported devices](docs/e
 
 For how to use it and its settings, see [Clipboard and file transfer](docs/en-US/clipboard.md).
 
+### Desktop
+
+- Brings the Windows desktop into the panel: the files, folders and shortcuts of your desktop and the shared desktop, plus the system entries (This PC, the Recycle Bin and the rest), laid out as the desktop lays them out.
+- While AxDeck runs it can take over the desktop: Windows' own icons are hidden and the panel's page shows the same things in their place, with the icons brought back as they were when AxDeck exits.
+- Select, open, drag in and out, and use Explorer's own right-click menus, the clipboard (Ctrl+C/X/V), and the keyboard the desktop takes — arrows, F2, Delete, Alt+Enter, the menu key.
+
+For what it reads and how the takeover works, see [Desktop page](docs/en-US/desktop.md).
+
 ### Services and tools
 
 - **Cloudflare tunnel**: the environment of your own tunnel (cloudflared, the SSH config, the ProxyCommand and the edge) and the site entries you list in `services.json` on this PC, each with the action that fits it. The sites can be probed, a local forwarder started or stopped, and the diagnostics copied to the clipboard. No host name, port or path ships with AxDeck.
