@@ -14,6 +14,9 @@ public partial class MainWindow
     internal void BoxesLoad(bool force = false)
     {
         if (_boxesService is not null && !force) return;
+        // 换掉的那一份里可能还记着被藏起来的 Windows 桌面图标：先按记录放回去，再换数据，
+        // 否则那些记录跟着旧数据一起丢掉，图标就再也不会复原了。
+        _boxesService?.RestoreShellIcons();
         _boxesService = new BoxService();
         _boxesService.Load(Settings.Boxes ?? new DesktopLook());
         Settings.Boxes = _boxesService.Snapshot();

@@ -722,10 +722,13 @@ public sealed partial class SettingsWindow : Window, IKeepsAppFonts
                 case ThemePage:{ChooseTheme(s,defaults.PanelTheme);var palette=PanelThemes.Resolve(PanelTheme.Find(defaults.PanelTheme));
                     s.ClockStyle=defaults.ClockStyle;s.ClockColor=defaults.ClockColor;s.ClockCustomColor=defaults.ClockCustomColor;s.ClockGradient=[.. palette.ClockGradients[0].Stops];
                     PanelThemes.ApplyMatching(palette,s);break;}
-                // 桌面页的全部设置就在 DeckSettings.Boxes 里；恢复默认是换一整套新的，老版本藏过的桌面图标先放回去。
-                case OrganizerSettingsPage:{s.Boxes=new DesktopLook();_app.Deck.BoxesLoad();break;}
+                // 桌面页的全部设置都在 DeckSettings.Boxes 里，恢复默认就是换一整套新的。
+                case OrganizerSettingsPage:s.Boxes=new DesktopLook();break;
             }
         });
+        // 桌面页的数据由 BoxService 自己拿着一份，而上面改的只是副本，UpdateSettings 之后才生效：必须在这里、等新的
+        // DeckSettings.Boxes 生效之后才重新读，否则这一页画的还是旧数据，下一次保存又把旧的写回去。
+        if(_page==OrganizerSettingsPage)_app.Deck.BoxesLoad(force: true);
         if(_page==0)RebuildTheme();else ShowPage(_page);
     }
 
