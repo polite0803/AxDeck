@@ -333,10 +333,14 @@ internal static class ShellContextMenu
     [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
     private interface IContextMenu
     {
+        // 这上面只有这三个方法，顺序也不能改：接口是一张按顺序对着的表，多写一格或写错一格，
+        // 后面那几格就都对着别人的位置了。SDK 的定义见 ShObjIdl_core.h 的 IContextMenu。
         [PreserveSig] int QueryContextMenu(IntPtr menu, uint insertPosition, uint firstId, uint lastId, uint flags);
         // The command the user chose is given back by its id.
         [PreserveSig] int InvokeCommand(ref InvokeCommandInfo info);
-        void GetDefaultCommand(out uint commandId);
-        void SetDefaultCommand(uint commandId);
+        // 问一项的规范动词名（properties、open 这些，跟系统用哪种语言无关）。这里一直没调用过，
+        // 但声明必须是对的：先前这一格被写成了根本不存在的 GetDefaultCommand，还多占了一格。
+        // 缓冲区是窄字符还是宽字符由 type 里的 GCS_UNICODE 决定，所以按裸指针给，免得封送按错的那种去写。
+        [PreserveSig] int GetCommandString(IntPtr commandOffset, uint type, IntPtr reserved, IntPtr name, uint maxLength);
     }
 }

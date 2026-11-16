@@ -45,6 +45,17 @@ internal static class DesktopChecks
             int bytes = System.Runtime.InteropServices.Marshal.SizeOf(field.FieldType);
             check($"{name} 在偏移 {offset}、占 {width} 字节（现在在 {at}、占 {bytes}）", at == offset && bytes == width);
         }
+
+        // 接口那边也一样：IContextMenu 一共三个方法，第三格是 GetCommandString。
+        // 先前那一格被写成了根本不存在的 GetDefaultCommand，后面还多摆了一格——接口是按顺序对的表，
+        // 多一格就等于把名字接到了别人的位置上。
+        var menu = typeof(AxDeck.Native.ShellContextMenu).GetNestedType("IContextMenu",
+            System.Reflection.BindingFlags.NonPublic);
+        if (menu is null) { check("系统菜单的接口还在", false); return; }
+        var methods = menu.GetMethods().Select(method => method.Name).ToArray();
+        var wanted = new[] { "QueryContextMenu", "InvokeCommand", "GetCommandString" };
+        check($"系统菜单的接口正好这三格，顺序也对（现在是 {string.Join("、", methods)}）",
+            methods.SequenceEqual(wanted));
     }
 
     // 每个系统项画的是它自己的图标。上一版把 `::{GUID}` 直接当路径交给 SHGetFileInfoW，还带着
