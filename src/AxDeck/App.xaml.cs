@@ -126,8 +126,7 @@ public partial class App : Application
         WindowDrags = new WindowDrags();
         Shelf = new ShelfService(folder, Dispatcher); Shelf.Apply(Settings);
         Deck = new MainWindow(this); MainWindow = Deck;
-        // The desktop organizer reads what it saved before the first window appears: an icon a box holds has to stay hidden from
-        // the moment the program starts, and it has to come back when the program goes.
+        // 桌面页的设置要在第一扇窗口出现前读进来：老版本的分组可能藏过桌面图标，退出时得放得回去。
         Deck.BoxesLoad();
         // 桌面页接管真实桌面：把 Windows 自己画的桌面图标藏起来，桌面上的东西此后只在 AxDeck 里看得见。
         // 用户可能本来就关掉了图标，也可能在设置里关了接管，两种情况下它都不动桌面。退出时 DesktopRestore 放回去。
@@ -185,17 +184,12 @@ public partial class App : Application
         Resources["UnpinSourceName"] = Loc.T("取消固定", "Unpin");
     }
     public void OpenSettings() => ShowSettings(false);
-    // The desktop organizer's own menu in the tray: open its settings, make a new box, show the boxes that are open, and put
-    // the native desktop icons back.
+    // The desktop page's menu in the tray: open its settings, and put the native desktop icons back.
     private MenuItem BoxesMenu()
     {
         var menu = new MenuItem();
-        var open = new MenuItem { Header = Loc.T("桌面整理设置", "Organizer settings") }; open.Click += (_, _) => Deck.BoxesOpenPage();
+        var open = new MenuItem { Header = Loc.T("桌面页设置", "Desktop page settings") }; open.Click += (_, _) => Deck.BoxesOpenPage();
         menu.Items.Add(open);
-        var create = new MenuItem { Header = Loc.T("新建分组", "New box") }; create.Click += (_, _) => Deck.BoxesCreate();
-        menu.Items.Add(create);
-        var show = new MenuItem { Header = Loc.T("显示所有分组", "Show all boxes") }; show.Click += (_, _) => Deck.BoxesShowAll();
-        menu.Items.Add(show);
         menu.Items.Add(new Separator());
         var restore = new MenuItem { Header = Loc.T("恢复桌面图标", "Restore the desktop icons") }; restore.Click += (_, _) => Deck.BoxesRestoreIcons();
         menu.Items.Add(restore);
@@ -203,7 +197,7 @@ public partial class App : Application
     }
     // The clipboard page's menus open the settings at its own pages (SettingsWindow.ClipboardSettingsPage, TransferSettingsPage).
     internal void OpenSettingsPage(int page) { ShowSettings(false); _settingsWindow?.ShowPage(page); }
-    // 整理器里的数据变了（Settings.Boxes 已指向新的快照）：让设置窗口里的整理器页跟着重画。
+    // 桌面页的数据变了（Settings.Boxes 已指向新的快照）：让设置窗口里的「桌面页」跟着重画。
     internal void OrganizerChanged() => _settingsWindow?.OrganizerChanged();
     // Starting AxDeck while it runs shows the hidden panels as well as the settings, so the panels come back even without
     // the tray icon.
@@ -566,7 +560,7 @@ public partial class App : Application
         Exiting = true; Lifetime.Cancel(); _save.Stop(); _trim?.Stop(); _release?.Stop(); StopBackgroundUpdates(); DisplayPower.Uninstall(); Microsoft.Win32.SystemEvents.UserPreferenceChanged -= SystemThemeChanged; _tray?.Dispose(); DisposeHotkeys(); WindowDrags?.Dispose(); _listener?.Unregister(null); _settingsEvent?.Dispose();
         // The desktop organizer gives the native desktop icons back before it goes, so Windows is not left without them. The
         // record of what it hid is written out with it, so the next start does not hide them again.
-        Deck.DesktopRestore(); Deck.BoxesRestoreIcons(save: false); BoxWindows.CloseAll();
+        Deck.DesktopRestore(); Deck.BoxesRestoreIcons(save: false);
         FlushSettings(); FinishWriting();
         if (Shelf is not null) { Shelf.Exit(); Shelf.Dispose(); }
         Media?.Dispose(); _restingMedia?.Dispose(); Monitor?.Dispose(); SensorGuard.Finish(); Devices?.Dispose(); Lyrics?.Dispose(); Prices?.Dispose(); _mutex?.Dispose(); base.OnExit(e);

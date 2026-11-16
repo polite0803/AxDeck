@@ -1,56 +1,26 @@
-using System.Windows;
 using AxDeck.Core;
 
 namespace AxDeck;
 
-// 「桌面整理」页面上的动作：新建分组、显示、删除、改规则、改外观、开关原生图标。
-// 这些动作都改整理器里的数据，改完保存一次，页面自己重画。
+// 设置窗口里「桌面页」那一页的动作：改外观、改名字怎么写、改同名怎么办、开关 Windows 自己的桌面图标。
+// 这些动作都改 BoxService 里的数据，改完保存一次，页面自己重画。
+//
+// 分组的那些动作（新建、显示、删除、显示所有）随分组窗口一起删掉了。
 public partial class MainWindow
 {
-    // 新建一个分组，并把它显示出来。
-    internal void BoxesCreate()
-    {
-        var box = Boxes.Create(Loc.T("新建分组", "New box"));
-        BoxesChanged();
-        BoxWindows.Show(Boxes, box);
-        _app.OrganizerChanged();
-    }
-
-    // 显示一个分组的窗口。
-    internal void BoxesShow(string boxId)
-    {
-        var box = Boxes.Find(boxId);
-        if (box is null) return;
-        BoxWindows.Show(Boxes, box);
-    }
-
-    // 删掉一个分组：它的真实文件夹按规则处理，它收着的原生图标放回桌面。
-    internal void BoxesDelete(string boxId)
-    {
-        var box = Boxes.Find(boxId);
-        if (box is null) return;
-        var desktop = Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory);
-        Boxes.Delete(box, desktop);
-        BoxWindows.Close(boxId);
-        BoxesChanged();
-    }
-
-    // 改一条规则。which 是 drop、dragOut、conflict、delete 或 names。
+    // 改一条规则。which 是 conflict（同名文件怎么办）或 names（图标下的名字怎么写）。
     internal void BoxesSetPolicy(string which, string code)
     {
         var settings = Boxes.Settings;
         switch (which)
         {
-            case "drop": settings.DropAction = code; break;
-            case "dragOut": settings.DragOutAction = code; break;
             case "conflict": settings.ConflictPolicy = code; break;
-            case "delete": settings.DeletePolicy = code; break;
             case "names": settings.NameDisplayMode = code; break;
         }
         BoxesChanged();
     }
 
-    // 改一项外观：图标大小、名字字号、横竖两种间距、圆角、底色。
+    // 改一项外观：图标大小、名字字号、横竖两种间距、圆角。
     internal void BoxesSetLook(string which, int value)
     {
         var settings = Boxes.Settings;
@@ -61,7 +31,6 @@ public partial class MainWindow
             case "iconGapX": settings.IconGapX = Math.Clamp(value, 0, 24); break;
             case "iconGapY": settings.IconGapY = Math.Clamp(value, 0, 24); break;
             case "cornerRadius": settings.CornerRadius = Math.Clamp(value, 0, 24); break;
-            case "backgroundOpacity": settings.BackgroundOpacity = Math.Clamp(value, 0, 100); break;
         }
         BoxesChanged();
     }
@@ -72,11 +41,8 @@ public partial class MainWindow
         var settings = Boxes.Settings;
         switch (which)
         {
-            case "doubleClickOpen": settings.DoubleClickOpen = value; break;
             case "showItemLabels": settings.ShowItemLabels = value; break;
             case "showShortcutArrow": settings.ShowShortcutArrow = value; break;
-            case "snapToEdges": settings.SnapToEdges = value; break;
-            case "autoHideShellIcons": settings.AutoHideShellIcons = value; break;
         }
         BoxesChanged();
     }
@@ -88,23 +54,14 @@ public partial class MainWindow
         BoxesChanged();
     }
 
-    // 打开「桌面整理」的设置页：托盘菜单、桌面页的右键菜单点它的时候用。
-    // 它不再是展开面板的一页，所以打开的是设置窗口，停在整理器所在的那一页。
+    // 打开「桌面」页的设置页（沿用原来的页号 OrganizerSettingsPage）：桌面页的右键菜单点它的时候用。
     internal void BoxesOpenPage() => _app.OpenSettingsPage(SettingsWindow.OrganizerSettingsPage);
 
-    // 把所有分组都显示出来。
-    internal void BoxesShowAll()
-    {
-        foreach (var box in Boxes.Boxes.ToList()) BoxWindows.Show(Boxes, box);
-    }
-
-    // 把 Windows 自己的桌面图标放回去：收进分组时藏起来的那些。
-    // 退出时程序会调用它：图标回到桌面，Windows 才不会留下一个空桌面。
+    // 把 Windows 自己的桌面图标按记录放回去。退出时程序会调用它：不留下一张不完整的桌面。
     internal void BoxesRestoreIcons(bool save = true)
     {
         Boxes.RestoreShellIcons();
-        // The icons are back, so the record of them is no longer needed. It is written out, so the next start does not hide
-        // them again behind a record that says they were hidden.
+        // 图标都放回去了，记录也就没用了。写出去，下次启动才不会照着一条「藏起来了」的旧记录再藏一遍。
         Settings.Boxes = Boxes.Snapshot();
         if (save) _app.QueueSave();
         _app.OrganizerChanged();

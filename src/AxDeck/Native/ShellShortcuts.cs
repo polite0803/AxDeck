@@ -4,7 +4,7 @@ using System.Text;
 
 namespace AxDeck.Native;
 
-// The Windows shortcuts a mapped box item is: a shortcut that points at a file that stays where it is, so the box holds a
+// The Windows shortcuts a mapped desktop item is: a shortcut that points at a file that stays where it is, so the page holds a
 // reference rather than a copy. Ported from Dasktop (https://github.com/AugSakura/Dasktop, MIT), which does the same.
 
 internal static class ShellShortcuts

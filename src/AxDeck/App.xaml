@@ -3,9 +3,7 @@
   <Application.Resources>
     <ResourceDictionary>
     <ResourceDictionary.MergedDictionaries>
-      <!-- The menus of the box windows live in their own windows, not in the panel, so the styles they take have to be
-           where every window can find them: in the application's own dictionary. They were only merged into the panel's
-           window, and a lookup in the application found nothing, so the right button of a box threw and opened no menu. -->
+      <!-- 菜单的样式要放在应用程序自己的字典里，别处才查得到：桌面页的右键菜单不画在面板里，而是自己开一个菜单窗口。 -->
       <ResourceDictionary Source="ShelfResources.xaml"/>
       <!-- The panel theme's colors, the dark theme's until PanelTheme publishes the theme in use: it replaces this whole dictionary,
            and panel styles refer to these brushes with DynamicResource. Panel brushes defined directly below would never change. -->

@@ -97,7 +97,7 @@ public sealed class TrayIcon : IDisposable
         if (toggleHidden is not null) { var show = new MenuItem { Header = hidden ? Loc.T("显示面板", "Show panel") : Loc.T("隐藏面板", "Hide panel") }; show.Click += (_, _) => toggleHidden(); menu.Items.Add(show); }
         if (toggleClickThrough is not null) { var through = new MenuItem { Header = clickThrough ? Loc.T("关闭鼠标穿透", "Turn off mouse pass-through") : Loc.T("开启鼠标穿透", "Turn on mouse pass-through") }; through.Click += (_, _) => toggleClickThrough(); menu.Items.Add(through); }
         // The desktop organizer: a place to open it from, wherever the panel is.
-        if (boxes is not null) { var organize = boxes(); organize.Header = Loc.T("桌面整理", "Desktop organizer"); menu.Items.Add(organize); }
+        if (boxes is not null) { var organize = boxes(); organize.Header = Loc.T("桌面页", "Desktop page"); menu.Items.Add(organize); }
         var open = new MenuItem { Header = Loc.T("设置", "Settings") }; open.Click += (_, _) => settings(); menu.Items.Add(open);
         menu.Items.Add(new Separator());
         var quit = new MenuItem { Header = Loc.T("退出", "Exit") }; quit.Click += (_, _) => exit(); menu.Items.Add(quit);

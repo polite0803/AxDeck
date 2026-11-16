@@ -6,11 +6,10 @@ public static class DeckPages
 {
     // The page switch, left to right, until the order is changed in the settings (DeckSettings.PageOrder). The clipboard comes
     // before the devices, as their groups do in the settings' list.
-    // 桌面整理（DeckPage.Boxes）不在其中：它原本是展开面板的一页，现在退成了设置入口，
-    // 从桌面页的右键菜单、托盘菜单、设置窗口进。老存档里的它会在 Normalize 里被丢掉。
+    // 桌面整理（DeckPage.Boxes）不在其中：分组窗口已经整套删掉，这一页只剩下一个还在枚举里的空位。
     public static readonly IReadOnlyList<DeckPage> Order = [DeckPage.Usage, DeckPage.Music, DeckPage.Monitor, DeckPage.Clipboard, DeckPage.Devices, DeckPage.Services, DeckPage.Desktop];
     // Each known page once, in the saved order; a page missing from the file takes its default place after the others.
-    // The organizer is dropped from an older file: it is no longer a page of the switch.
+    // 老存档里还带着 DeckPage.Boxes：它已经不是一页了，从顺序里丢掉。
     public static List<DeckPage> Normalize(IEnumerable<DeckPage>? order) => [.. (order ?? []).Where(page => Enum.IsDefined(page) && page != DeckPage.Boxes).Concat(Order).Distinct()];
 
     public static bool Shown(DeckSettings settings, DeckPage page) => page switch
@@ -56,7 +55,6 @@ public static class DeckPages
             case DeckPage.Devices: settings.DevicesWidth = width; settings.DevicesHeight = height; break;
             case DeckPage.Clipboard: settings.ClipboardWidth = width; settings.ClipboardHeight = height; break;
             case DeckPage.Services: settings.ServicesWidth = width; settings.ServicesHeight = height; break;
-            case DeckPage.Boxes: settings.BoxesWidth = width; settings.BoxesHeight = height; break;
             case DeckPage.Desktop: settings.DesktopWidth = width; settings.DesktopHeight = height; break;
             default: settings.Width = width; settings.Height = height; break;
         }
@@ -69,7 +67,6 @@ public static class DeckPages
         DeckPage.Devices => (settings.DevicesWidth, settings.DevicesHeight),
         DeckPage.Clipboard => (settings.ClipboardWidth, settings.ClipboardHeight),
         DeckPage.Services => (settings.ServicesWidth, settings.ServicesHeight),
-        DeckPage.Boxes => (settings.BoxesWidth, settings.BoxesHeight),
         DeckPage.Desktop => (settings.DesktopWidth, settings.DesktopHeight),
         _ => (Math.Max(settings.Width, settings.MinimumWidth), settings.Height)
     };

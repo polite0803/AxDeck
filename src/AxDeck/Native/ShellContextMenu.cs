@@ -2,7 +2,7 @@ using System.Runtime.InteropServices;
 
 namespace AxDeck.Native;
 
-// The Explorer's own right-click menu, for an item in a box. The menu is the system's: its items come from the shell
+// The Explorer's own right-click menu, for an item on the desktop page. The menu is the system's: its items come from the shell
 // handlers registered for that kind of file, and the commands are run by the shell itself. Ported from Dasktop
 // (https://github.com/AugSakura/Dasktop, MIT), which shows the very same menu (shell_context/menu.rs).
 //

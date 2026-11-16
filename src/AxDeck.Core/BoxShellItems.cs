@@ -1,23 +1,23 @@
 namespace AxDeck.Core;
 
-// The Windows system entries that can be kept in a box: the ones the desktop shows as icons but that have no folder of their own.
+// The Windows system entries the desktop page shows: the ones the desktop draws as icons but that have no folder of their own.
 // They are named by their parsing name, which Windows gives them, and each is recognized by the class id the desktop shows it
 // under. Ported from Dasktop (https://github.com/AugSakura/Dasktop, MIT).
 
-// One of the system entries a box can hold.
+// One of the system entries the desktop page shows.
 public sealed record ShellVirtualItem(string Id, string Chinese, string English, IReadOnlyList<string> ParsingNames, string? DesktopIconClsid, bool DefaultVisible)
 {
     // The name in the language in use now: the entry is named when it is shown, not when the program starts.
     public string Name => Loc.T(Chinese, English);
 }
 
-// The system entries a box can hold. The user folder is resolved for the running user, so its parsing name is not fixed here.
+// The system entries the desktop page shows. The user folder is resolved for the running user, so its parsing name is not fixed here.
 public static class BoxShellItems
 {
     // The id of the user folder, which is a known folder and has no fixed parsing name.
     public const string UserFolder = "user-folder";
 
-    // Every entry a box can hold. The first parsing name is the one Windows opens it by.
+    // Every entry the desktop page shows. The first parsing name is the one Windows opens it by.
     public static readonly IReadOnlyList<ShellVirtualItem> All =
     [
         new("this-pc", "此电脑", "This PC", ["::{20D04FE0-3AEA-1069-A2D8-08002B30309D}"], "{20D04FE0-3AEA-1069-A2D8-08002B30309D}", false),

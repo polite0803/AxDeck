@@ -43,9 +43,6 @@ public partial class MainWindow
     // 桌面页开着的时候系统菜单也开着：这期间面板不能收起来，否则菜单跟着一起没了。
     internal bool DesktopMenuOpen => _desktopView?.MenuOpen == true;
 
-    // 打开「桌面整理」这一页（分组那套设置）：从桌面页的右键菜单里进。
-    internal void DesktopOpenSettings() => _app.OpenSettings();
-
     // 打开 AxDeck 的设置窗口，停在「展开外观」：这一页的开关和尺寸都在那里。
     internal void DesktopOpenPageSettings() => _app.OpenSettingsPage(2);
 

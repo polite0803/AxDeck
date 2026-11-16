@@ -30,7 +30,7 @@ public sealed partial class SettingsWindow : Window, IKeepsAppFonts
     private ScrollViewer _scroll = null!;
     private static string[] _pages => [Loc.T("常规", "General"), Loc.T("收起外观", "Collapsed view"), Loc.T("展开外观", "Expanded view"),
         Loc.T("配额与统计", "Quotas and usage"), Loc.T("模型价格", "Model prices"), Loc.T("样式", "Style"), Loc.T("播放器", "Players"), Loc.T("关于 AxDeck", "About AxDeck"), Loc.T("面板主题", "Panel theme"), Loc.T("显示与读数", "Display and readings"), Loc.T("增强传感器", "Enhanced sensors"), Loc.T("快捷键", "Shortcuts"), Loc.T("显示与设备", "Display and devices"),
-        Loc.T("剪贴板", "Clipboard"), Loc.T("文件中转", "File transfer"), Loc.T("快捷操作", "Quick actions"), Loc.T("桌面整理", "Desktop organizer")];
+        Loc.T("剪贴板", "Clipboard"), Loc.T("文件中转", "File transfer"), Loc.T("快捷操作", "Quick actions"), Loc.T("桌面页", "Desktop page")];
     // The order of the pages in the navigation; the theme page (ThemePage) and the shortcuts (HotkeysPage) are listed with the
     // basic pages, and the system monitor's page (MonitorSettingsPage) has its own group after music, then the clipboard's two
     // pages, before About.
@@ -722,9 +722,8 @@ public sealed partial class SettingsWindow : Window, IKeepsAppFonts
                 case ThemePage:{ChooseTheme(s,defaults.PanelTheme);var palette=PanelThemes.Resolve(PanelTheme.Find(defaults.PanelTheme));
                     s.ClockStyle=defaults.ClockStyle;s.ClockColor=defaults.ClockColor;s.ClockCustomColor=defaults.ClockCustomColor;s.ClockGradient=[.. palette.ClockGradients[0].Stops];
                     PanelThemes.ApplyMatching(palette,s);break;}
-                // The organizer's data lives in DeckSettings.Boxes as a whole; the reset puts a fresh organizer back, and the
-                // native icons it had hidden go back the way they were first.
-                case OrganizerSettingsPage:{s.Boxes=new DasktopData();_app.Deck.BoxesLoad();break;}
+                // 桌面页的全部设置就在 DeckSettings.Boxes 里；恢复默认是换一整套新的，老版本藏过的桌面图标先放回去。
+                case OrganizerSettingsPage:{s.Boxes=new DesktopLook();_app.Deck.BoxesLoad();break;}
             }
         });
         if(_page==0)RebuildTheme();else ShowPage(_page);

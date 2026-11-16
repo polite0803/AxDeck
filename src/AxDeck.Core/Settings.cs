@@ -637,12 +637,13 @@ public sealed class DeckSettings
     public bool ServicesPage { get; set; } = true;
     public double ServicesWidth { get; set; } = 520;
     public double ServicesHeight { get; set; } = 420;
-    // The desktop organizer is no longer a page of the switch (it lives behind the desktop page and the settings window),
-    // but its sizes stay: an old file still carries them, and DeckPages.SetSize keeps writing them from DeckPage.Boxes.
+    // 「桌面整理」的分组窗口已经删掉，这一页也不再是切换里的一页；尺寸留着，因为老存档里还带着它们，删掉会让
+    // 那几个数字再也写不回去。DeckPages 不再按 DeckPage.Boxes 读写它们。
     public double BoxesWidth { get; set; } = 520;
     public double BoxesHeight { get; set; } = 400;
-    // The organizer itself: the boxes, what they hold and its rules. Null in a file written before the organizer existed.
-    public DasktopData? Boxes { get; set; }
+    // 「桌面」页长什么样（图标大小、间距、名字怎么写、拖进来遇到同名怎么办）。键名还是 Boxes：老存档里的
+    // 图标大小和间距就在这个键下面，改名就读不回来了。
+    public DesktopLook? Boxes { get; set; }
     // 「桌面」页：把桌面文件夹里的东西以图标画在展开的面板里。AxDeck 运行期间真实桌面的图标是藏起来的，
     // 程序退出时再放回去，所以桌面上的东西只有展开 AxDeck 才看得见。
     public bool DesktopPage { get; set; } = true;
@@ -840,9 +841,8 @@ public sealed class DeckSettings
         BoxesHeight = double.IsFinite(BoxesHeight) ? Math.Clamp(BoxesHeight, DeckPages.MinHeight, DeckPages.MaxHeight) : 400;
         DesktopWidth = double.IsFinite(DesktopWidth) ? Math.Clamp(DesktopWidth, DeckPages.MinWidth, DeckPages.MaxWidth) : 760;
         DesktopHeight = double.IsFinite(DesktopHeight) ? Math.Clamp(DesktopHeight, DeckPages.MinHeight, DeckPages.MaxHeight) : 400;
-        // The organizer's own data: an empty one when the file has none, so the rest of the program can read it without
-        // asking whether it is there.
-        Boxes ??= new DasktopData();
+        // 「桌面」页的外观设置：存档里没有就给一份默认的，后面的代码直接用，不必先问有没有。
+        Boxes ??= new DesktopLook();
         AxTvAvd = (AxTvAvd ?? "").Trim();
         if (AxTvAvd.Length == 0) AxTvAvd = "axtv_tv";
         DeviceChoices = [.. (DeviceChoices ?? []).OfType<DeviceChoice>().Where(device => !string.IsNullOrWhiteSpace(device.Key)).DistinctBy(device => device.Key).Take(256)];

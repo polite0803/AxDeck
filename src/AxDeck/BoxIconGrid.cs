@@ -3,7 +3,7 @@ using System.Windows.Controls;
 
 namespace AxDeck;
 
-// The grid of icons inside a box: a row of equally wide places, each one as tall as a row of icons, with a gap between
+// The grid of icons on the desktop page: a row of equally wide places, each one as tall as a row of icons, with a gap between
 // two of them. Ported from Dasktop (https://github.com/AugSakura/Dasktop, MIT), where the icons sit in a CSS grid whose
 // columnGap and rowGap are the two sliders the user sets (index.vue, boxGridStyle).
 //

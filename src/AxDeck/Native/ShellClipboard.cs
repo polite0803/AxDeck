@@ -4,7 +4,7 @@ using System.Text;
 namespace AxDeck.Native;
 
 // The file clipboard, the one Explorer uses: a list of paths (CF_HDROP) plus the intent of the last operation
-// (copy or cut). With it a box's copy and paste speak the same language as the rest of Windows, so files can be
+// (copy or cut). With it the desktop page's copy and paste speak the same language as the rest of Windows, so files can be
 // pasted into Explorer and out of it. Ported from Dasktop (https://github.com/AugSakura/Dasktop, MIT), which writes
 // the same clipboard (shell_clipboard.rs).
 

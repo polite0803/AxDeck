@@ -5,12 +5,12 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 namespace AxDeck.Native;
 
-// The icons the boxes show: the Explorer's icon for a file, and the icon of the Windows system entries, which have no file of
-// their own and are drawn by the shell from their parsing name.
+// The icons the desktop page shows: the Explorer's icon for a file, and the icon of the Windows system entries, which have no
+// file of their own and are drawn by the shell from their parsing name.
 
 internal static class BoxIcons
 {
-    // The icons already read, by the path they were read for; a box shows the same files many times over.
+    // The icons already read, by the path they were read for; the page shows the same files many times over.
     private static readonly Dictionary<string, ImageSource?> Icons = new(StringComparer.OrdinalIgnoreCase);
     private static readonly Dictionary<string, ImageSource?> ShellIcons = new(StringComparer.Ordinal);
 

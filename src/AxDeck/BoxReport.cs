@@ -6,13 +6,13 @@ using AxDeck.Core;
 
 namespace AxDeck;
 
-// 桌面整理自己说的话：一个小窗口，说清楚哪里出了问题，或问一个问题等回答。
-// 不用系统的消息框：它盖在透明置顶的分组窗口上时很突兀，也不进本程序的无障碍树。
+// 桌面页自己说的话：一个小窗口，说清楚哪里出了问题，或问一个问题等回答。
+// 不用系统的消息框：它盖在透明置顶的面板上时很突兀，也不进本程序的无障碍树。
 internal static class BoxReport
 {
     // 一句说明：这个做不了的事，为什么做不了。
     public static void Error(string message)
-        => Say(null, Loc.T("桌面整理", "Desktop organizer"), message, Loc.T("知道了", "Got it"), danger: true);
+        => Say(null, Loc.T("桌面", "Desktop"), message, Loc.T("知道了", "Got it"), danger: true);
 
     // 一句说明：做完一件事之后告诉用户结果。
     public static void Notice(string title, string message)

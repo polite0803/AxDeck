@@ -3,7 +3,7 @@ using AxDeck.Core;
 
 namespace AxDeck;
 
-// The transfer of real files into and out of a box, and what happens when it goes wrong. A transfer that fails halfway is undone:
+// The transfer of real files onto and off the desktop page, and what happens when it goes wrong. A transfer that fails halfway is undone:
 // the files that were moved are moved back, the copies that were made are removed, and a file that was put aside is put back.
 // Ported from Dasktop (https://github.com/AugSakura/Dasktop, MIT), which rolls back the same way.
 

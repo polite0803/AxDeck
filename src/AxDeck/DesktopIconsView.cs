@@ -147,11 +147,11 @@ internal sealed class DesktopIconsView : Grid
         _empty.Visibility = items.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
     }
 
-    // 图标的大小、间距、名字怎么写，跟分组共用一套设置：用户在整理设置里调一次，两边一起变。
-    private DasktopSettings Look => _owner.Boxes.Settings;
+    // 图标的大小、间距、名字怎么写：在设置窗口的「桌面页」里调，这一页照着画。
+    private DesktopLookSettings Look => _owner.Boxes.Settings;
 
     // 一项的图标和名字。
-    private FrameworkElement ItemView(DesktopItems.Item item, DasktopSettings look)
+    private FrameworkElement ItemView(DesktopItems.Item item, DesktopLookSettings look)
     {
         bool shell = item.Kind == DesktopItems.Kind.Shell;
         var icon = shell ? BoxIcons.ForShellItem(ShellIdOf(item.Path)) : BoxIcons.ForFile(item.Path);
@@ -360,7 +360,7 @@ internal sealed class DesktopIconsView : Grid
             catch (Exception ex) { BoxReport.Error(Loc.T("无法打开桌面文件夹：", "The desktop folder could not be opened: ") + ex.Message); }
         }, BoxMenu.MenuIcons.Folder));
         menu.Items.Add(BoxMenu.Separator());
-        menu.Items.Add(BoxMenu.Item(Loc.T("桌面整理设置", "Organizer settings"), () => _owner.BoxesOpenPage(), BoxMenu.MenuIcons.Desktop));
+        menu.Items.Add(BoxMenu.Item(Loc.T("桌面页设置", "Desktop page settings"), () => _owner.BoxesOpenPage(), BoxMenu.MenuIcons.Desktop));
         BoxMenu.Open(_owner, menu);
         e.Handled = true;
     }
@@ -475,7 +475,7 @@ internal sealed class DesktopIconsView : Grid
     }
 
     // 一行摆得下几格。图标区按可用宽度撑开，所以用它的实际宽度算，跟 BoxIconGrid 摆图标用的是同一个式子。
-    private int Columns(DasktopSettings look)
+    private int Columns(DesktopLookSettings look)
     {
         var usable = _icons.ActualWidth > 0 ? _icons.ActualWidth : ActualWidth;
         if (!(usable > 0)) return Math.Max(1, _items.Count);
@@ -483,7 +483,7 @@ internal sealed class DesktopIconsView : Grid
     }
 
     // 鼠标落在第几格。
-    private int CellAt(Point at, DasktopSettings look)
+    private int CellAt(Point at, DesktopLookSettings look)
     {
         int columns = Columns(look);
         int column = Math.Clamp((int)Math.Floor((at.X + BoxLayout.ColumnGap(look) / 2) / BoxLayout.ColumnStride(look)), 0, columns);

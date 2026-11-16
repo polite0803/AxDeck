@@ -1,10 +1,16 @@
 namespace AxDeck.Core;
 
-// The plan for a batch of files dragged into or out of a box: what each file becomes, where it lands, and whether the file that is
+// The plan for a batch of files dragged onto the desktop page: what each file becomes, where it lands, and whether the file that is
 // already there has to be kept aside first. Ported from Dasktop (https://github.com/AugSakura/Dasktop, MIT).
 
 // What one file becomes.
 public enum BoxTransferKind { Copy, Move, Shortcut }
+
+// What the user did to bring a file in: copied it, moved it, or asked for a shortcut to where it already is.
+public enum BoxDropAction { Copy, Move, Map }
+
+// What happens when a file of that name is already there.
+public enum BoxConflictPolicy { Rename, Skip, Replace }
 
 // One file of a batch, and where it goes.
 public sealed record BoxTransferPlan(string Source, string Destination, BoxTransferKind Kind, bool ReplacesExisting)

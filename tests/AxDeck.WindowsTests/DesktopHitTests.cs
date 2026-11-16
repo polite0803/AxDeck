@@ -214,7 +214,7 @@ internal static class DesktopHitTests
 
 public partial class MainWindow
 {
-    // 桌面页只用到整理器的设置（图标大小、间距）和这一页的菜单去向，测试里给最小的桩。
+    // 桌面页只用到外观设置（图标大小、间距）和这一页的菜单去向，测试里给最小的桩。
     private BoxService? _desktopProbeBoxes;
     internal BoxService Boxes => _desktopProbeBoxes ??= new BoxService();
     internal void BoxesOpenPage() { }

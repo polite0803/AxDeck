@@ -6,8 +6,8 @@ using AxDeck.Core;
 // Redraws the elements whose values are easing, while any is, with the display. Otherwise it is unhooked and the panel costs
 // nothing between readings.
 //
-// 单独放在一个文件里：跟页面无关的通用重绘机制，换页的淡入淡出（MonitorCrossfade）、监视页的脚步、
-// 分组窗口的动画都从这里起步。测试单独考换页的那一下，也要它能跑。
+// 单独放在一个文件里：跟页面无关的通用重绘机制，换页的淡入淡出（MonitorCrossfade）、监视页的脚步都从这里起步。
+// 测试单独考换页的那一下，也要它能跑。
 internal static class Motion
 {
     private static readonly List<UIElement> Moving = [];

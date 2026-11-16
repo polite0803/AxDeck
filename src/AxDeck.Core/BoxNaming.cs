@@ -1,14 +1,12 @@
 namespace AxDeck.Core;
 
-// The rules for the names of the real files behind the boxes: which names Windows will not take, how a name that already exists
-// is made unique, and how two paths are compared. Ported from Dasktop (https://github.com/AugSakura/Dasktop, MIT), where the
-// same rules guard the real file operations from an unchecked path fragment.
+// The rules for the names of the real files dropped onto the desktop page: which names Windows will not take, how a name that
+// already exists is made unique, and how two paths are compared. Ported from Dasktop (https://github.com/AugSakura/Dasktop, MIT),
+// where the same rules guard the real file operations from an unchecked path fragment.
 
-// The names and the paths of the files behind the boxes.
+// The names and the paths of the files the desktop page handles.
 public static class BoxNaming
 {
-    // The prefix of the real folder of a box; the folder is named after the box's id, never after its title.
-    public const string BoxFolderPrefix = "box_";
     // The extension of a Windows shortcut.
     public const string ShortcutExtension = ".lnk";
     // The characters Windows does not allow in a file name.
@@ -26,20 +24,6 @@ public static class BoxNaming
     private const string DuplicateFallbackStem = "file";
     // How many copies of a name are tried before giving up, so an odd folder cannot make an endless loop.
     private const int DuplicateNameLimit = 10_000;
-
-    // The real folder name of a box, checked against the rule that it comes from the organizer itself and not from a title the
-    // user typed: a folder name takes part in a real path, so it is not taken on trust.
-    public static bool IsValidBoxFolderName(string? name)
-    {
-        if (string.IsNullOrWhiteSpace(name)) return false;
-        var trimmed = name.Trim();
-        if (!trimmed.StartsWith(BoxFolderPrefix, StringComparison.Ordinal)) return false;
-        if (trimmed.Length == BoxFolderPrefix.Length) return false;
-        return trimmed.All(value => char.IsAsciiLetterOrDigit(value) || value == '_' || value == '-');
-    }
-
-    // The name of the real folder of a box: the prefix and the box's id, which is a number and a letter and stays the same.
-    public static string BoxFolderName(string id) => BoxFolderPrefix + id;
 
     // A name the user typed, checked against what Windows accepts. An empty result means the name cannot be used.
     public static string? SanitizeUserFileName(string? name)

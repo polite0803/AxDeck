@@ -4,7 +4,7 @@ using System.Runtime.InteropServices;
 
 namespace AxDeck.Native;
 
-// Opening what a box holds: a real file with the program Windows gives it, and one of the Windows system entries with the shell.
+// Opening what the desktop page shows: a real file with the program Windows gives it, and one of the Windows system entries with the shell.
 
 internal static class BoxShell
 {

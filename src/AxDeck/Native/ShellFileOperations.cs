@@ -3,8 +3,8 @@ using System.Runtime.InteropServices;
 
 namespace AxDeck.Native;
 
-// The real file operations behind the boxes. Moving and deleting go through the Windows shell, so Explorer sees the change at
-// once and the recycle bin keeps what it deletes. Ported from Dasktop (https://github.com/AugSakura/Dasktop, MIT).
+// The real file operations behind the desktop page. Moving and deleting go through the Windows shell, so Explorer sees the
+// change at once and the recycle bin keeps what it deletes. Ported from Dasktop (https://github.com/AugSakura/Dasktop, MIT).
 
 internal static class ShellFileOperations
 {
