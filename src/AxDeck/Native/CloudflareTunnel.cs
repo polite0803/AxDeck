@@ -5,13 +5,16 @@ using System.Net.Http;
 using System.Net.Sockets;
 using System.Runtime.InteropServices;
 using System.Text;
+using AxDeck.Core;
 
 namespace AxDeck.Native;
 
-// Manages the personal Cloudflare tunnel infrastructure on this machine without Python: the local
-// cloudflared.exe, the SSH config and its ProxyCommand, the bgnone.cn sites, and the remote docker
-// container "cloudflared" on the NAS. The logic mirrors the standalone Python tool it replaces; every
-// child process has a timeout and runs with no window, and no credentials or tokens are stored here.
+// Manages the Cloudflare tunnel infrastructure configured on this machine without Python: the local
+// cloudflared.exe, the SSH config and its ProxyCommand, the tunnel entries, and the remote docker
+// container "cloudflared". The logic mirrors the standalone Python tool it replaces; every child
+// process has a timeout and runs with no window, and no credentials or tokens are stored here.
+// Nothing here names this machine's own hosts or ports: they come from ServicesConfig (services.json in
+// the data folder), so the repository and the published build carry none of them.
 // All side effects (launching cloudflared / ssh / tasklist, probing the edge) go through small seams
 // (RunnerOverride, HttpGetOverride) so the pure decisions can be unit-tested without a live network.
 internal static class CloudflareTunnel
@@ -24,39 +27,44 @@ internal static class CloudflareTunnel
     public static readonly string SshConfig = Path.Combine(SshDir, "config");
     public static readonly string ProxyBat = Path.Combine(SshDir, "cloudflared-ssh.bat");
     public static readonly string Cloudflared = @"C:\Windows\System32\cloudflared.exe";
-    public static readonly string TunnelHostname = "ssh.bgnone.cn";
-    // 2026-11-10 修正：nas-tunnel 依赖本机 12222 转发器（无常驻、无自启），默认选它会必然失败；
-    // ssh.bgnone.cn 走 ssh config 的 ProxyCommand，是已验证可用的隧道路径。
-    public static readonly string DefaultSshHost = "ssh.bgnone.cn";
-    public static readonly IReadOnlyList<string> SshHosts = ["ssh.bgnone.cn", "nas", "nas-tunnel", "wsl"];
-    public static readonly IReadOnlyList<int> LocalPorts = [10000, 12222];
+    // The docker container the remote actions address. Not installed by AxDeck; it only names a container the user runs.
     public static readonly string RemoteContainer = "cloudflared";
     public static readonly string AccessLogDir = Path.Combine(Path.GetTempPath(), "ctm-access");
 
     public static readonly string SshExe = FindSsh();
 
-    public enum SiteKind { Http, Tcp, Ssh }
+    // The config the page works from. ServicesPanel assigns it whenever it reloads services.json.
+    public static ServicesConfig Config { get; set; } = new();
 
-    // One bgnone.cn entry. kind: http=浏览器直开；tcp/rdp=需 cloudflared access 本地转发；ssh=走 ssh config 的 ProxyCommand。
+    public static string TunnelHostname => Config.Tunnel.Hostname;
+    public static string DefaultSshHost => Config.Tunnel.DefaultSshHost.Length > 0
+        ? Config.Tunnel.DefaultSshHost
+        : Config.Tunnel.SshHosts.FirstOrDefault() ?? "";
+    public static IReadOnlyList<string> SshHosts => Config.Tunnel.SshHosts;
+    public static IReadOnlyList<int> LocalPorts => Config.Tunnel.Ports;
+
+    public enum SiteKind { Http, Tcp, Rdp, Ssh }
+
+    // One tunnel entry. kind: http=浏览器直开；tcp/rdp=需 cloudflared access 本地转发；ssh=走 ssh config 的 ProxyCommand。
     public readonly record struct Site(string Host, SiteKind Kind, string Label, string Backend, string? Path, string? Proto, int? Port, string? Client);
 
-    public static readonly IReadOnlyList<Site> Sites = [
-        new("bgnone.cn", SiteKind.Http, "主站", "NAS 主站", "/", null, null, null),
-        new("1panel.bgnone.cn", SiteKind.Http, "1Panel 面板", "1panel 容器", "/entrance", null, null, null),
-        new("hermes.bgnone.cn", SiteKind.Http, "Hermes 仪表盘", "hermes:9119（自带登录页）", "/", null, null, null),
-        new("openclaw.bgnone.cn", SiteKind.Http, "OpenClaw", "OpenClaw:18789", "/", null, null, null),
-        new("qwenpaw.bgnone.cn", SiteKind.Http, "QWenPaw", "QWenPaw:8089", "/", null, null, null),
-        new("postgres.bgnone.cn", SiteKind.Tcp, "PostgreSQL", "postgresql:5432", null, "tcp", 15432, "客户端连 127.0.0.1:15432"),
-        new("mssql.bgnone.cn", SiteKind.Tcp, "SQL Server", "mssql:1433", null, "tcp", 11433, "SSMS 服务器名填 127.0.0.1,11433"),
-        new("rdp.bgnone.cn", SiteKind.Tcp, "远程桌面", "RDP:3389", null, "rdp", 13389, "mstsc /v:127.0.0.1:13389"),
-        new("ssh.bgnone.cn", SiteKind.Ssh, "NAS SSH", "NAS sshd:10000", null, null, 10000, "ssh ssh.bgnone.cn（ProxyCommand 已配置）"),
-    ];
+    // The configured entries, in file order. A kind this build does not know was already dropped by ServicesConfig.Normalized.
+    public static IReadOnlyList<Site> Sites => [.. Config.Tunnel.Sites.Select(site => new Site(
+        site.Host, KindOf(site.Kind), site.Label, site.Backend, site.Path, site.Proto, site.Port, site.Client))];
+
+    public static SiteKind KindOf(string kind) => kind switch
+    {
+        TunnelSiteKind.Tcp => SiteKind.Tcp,
+        TunnelSiteKind.Rdp => SiteKind.Rdp,
+        TunnelSiteKind.Ssh => SiteKind.Ssh,
+        _ => SiteKind.Http,
+    };
 
     // ----------------------------------------------------------------------
     // Path discovery (mirrors find_ssh / find_cloudflared)
     // ----------------------------------------------------------------------
 
-    // Fixed on Windows: Git Bash's ssh rewrites the ProxyCommand's backslashes and "exec: C:Userspolit... not found".
+    // Fixed on Windows: Git Bash's ssh rewrites the ProxyCommand's backslashes and then fails to find the executable.
     private static string FindSsh()
     {
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
@@ -188,6 +196,8 @@ internal static class CloudflareTunnel
 
     public static bool PublicTcpReachable(double timeoutSeconds = 5)
     {
+        // No tunnel host configured: there is nothing to reach, and connecting to an empty name would just throw.
+        if (string.IsNullOrWhiteSpace(TunnelHostname)) return false;
         using var client = new TcpClient();
         try
         {
@@ -250,11 +260,11 @@ internal static class CloudflareTunnel
         if (resp.ExceptionMessage is null)
         {
             if (resp.Body != null && resp.Body.Contains("1033"))
-                return ("error 1033：NAS 侧 cloudflared 连接器离线", false);
+                return ("error 1033：远端 cloudflared 连接器离线", false);
             if (resp.IsHttpError)
             {
                 if ((resp.Body != null && resp.Body.Contains("1033")) || resp.StatusCode == 530)
-                    return ("error 1033：NAS 侧 cloudflared 连接器离线", false);
+                    return ("error 1033：远端 cloudflared 连接器离线", false);
                 return ($"在线 HTTP {resp.StatusCode}（非 1033）", true);
             }
             return ($"在线 HTTP {resp.StatusCode}", true);
@@ -308,15 +318,24 @@ internal static class CloudflareTunnel
         var d = detail.ToLowerInvariant();
         if (d.Contains("unknown port -1") || d.Contains("getpeername") || d.Contains("kex_exchange_identification"))
         {
-            if (host == "nas-tunnel")
-                return "本地 127.0.0.1:12222 无 cloudflared access tcp 转发器监听；Windows OpenSSH 会伪装成 banner exchange / UNKNOWN port -1。"
-                    + "改用 Host「ssh.bgnone.cn」即可（ProxyCommand 直连）。";
+            // A host other than the configured default is reached through a local forwarder, which must be running first.
+            if (DefaultSshHost.Length > 0 && !string.Equals(host, DefaultSshHost, StringComparison.OrdinalIgnoreCase))
+            {
+                // The port comes from services.json: the site entry for that host if it has one, and otherwise the last
+                // port listed there, which is where the hand-written forwarders listen.
+                int port = Sites.Where(site => string.Equals(site.Host, host, StringComparison.OrdinalIgnoreCase))
+                    .Select(site => site.Port ?? 0).FirstOrDefault(value => value > 0);
+                if (port == 0 && LocalPorts.Count > 0) port = LocalPorts[^1];
+                var where = port > 0 ? $"本地 127.0.0.1:{port}" : "本地转发器";
+                return $"{where} 没有 cloudflared access tcp 转发器监听；Windows OpenSSH 会伪装成 banner exchange / UNKNOWN port -1。"
+                    + $"改用 Host「{DefaultSshHost}」即可（ProxyCommand 直连）。";
+            }
             return "底层连接被重置，检查目标端口是否真的有服务在监听。";
         }
         if (d.Contains("websocket: bad handshake") || d.Contains("1033"))
-            return "Cloudflare 边缘拒绝：NAS 侧 cloudflared 连接器离线（error 1033）。";
+            return "Cloudflare 边缘拒绝：远端 cloudflared 连接器离线（error 1033）。";
         if (d.Contains("permission denied"))
-            return "公钥认证失败，检查 ~/.ssh/nas_key 与 NAS authorized_keys。";
+            return "公钥认证失败，检查 ~/.ssh/config 为该 Host 指定的 IdentityFile 与远端的 authorized_keys。";
         if (d.Contains("timed out") || d.Contains("timeout"))
             return "连接超时，检查网络与隧道连接器状态。";
         return "";
@@ -363,7 +382,9 @@ internal static class CloudflareTunnel
     {
         if (site.Kind == SiteKind.Http) return "https://" + site.Host + (site.Path ?? "/");
         if (site.Kind == SiteKind.Ssh) return "ssh " + site.Host;
-        return $"cloudflared access {site.Proto} --hostname {site.Host} --url 127.0.0.1:{site.Port}\n# 然后：{site.Client}";
+        // A tcp/rdp entry without a port in services.json has nowhere to listen; say that instead of printing a bare colon.
+        if (site.Port is not { } port) return $"# services.json 里 {site.Host} 缺 port 与 proto，无法生成本地转发命令";
+        return $"cloudflared access {site.Proto ?? "tcp"} --hostname {site.Host} --url 127.0.0.1:{port}\n# 然后：{site.Client}";
     }
 
     public readonly record struct SiteInfo(string Host, SiteKind Kind, string Label, string Backend, int? Port);
@@ -478,24 +499,29 @@ internal static class CloudflareTunnel
                 detail = ok ? "ProxyCommand 正常 ✓" : $"ProxyCommand 异常 ✗（检查 {ProxyBat}）";
                 level = ok ? "ok" : "bad";
             }
-            else // tcp / rdp
+            else if (site.Port is not { } localPort) // tcp / rdp without a port in services.json
             {
-                var up = PortOpen(site.Port!.Value);
+                ok = false; level = "bad";
+                detail = "services.json 里这一项缺 port，无法本地转发";
+            }
+            else
+            {
+                var up = PortOpen(localPort);
                 var edge = EdgeStatus(site.Host, attempts: 1);
                 var running = ForwarderRunning(site.Host);
                 if (!up)
                 {
                     ok = false; level = "warn";
-                    detail = $"127.0.0.1:{site.Port} 未监听（转发进程{(running ? "在跑" : "未启动")}）；边缘 {edge.Detail}";
+                    detail = $"127.0.0.1:{localPort} 未监听（转发进程{(running ? "在跑" : "未启动")}）；边缘 {edge.Detail}";
                 }
                 else
                 {
                     ok = edge.Online; level = ok ? "ok" : "bad";
-                    detail = $"127.0.0.1:{site.Port} 监听中；边缘 {edge.Detail}";
+                    detail = $"127.0.0.1:{localPort} 监听中；边缘 {edge.Detail}";
                 }
             }
-            // http / ssh never use "warn": a firm ok / bad verdict.
-            if (site.Kind != SiteKind.Tcp) level = ok ? "ok" : "bad";
+            // Only the forwarded kinds (tcp / rdp) can be "warn"; http and ssh always get a firm verdict.
+            if (site.Kind is not (SiteKind.Tcp or SiteKind.Rdp)) level = ok ? "ok" : "bad";
             outp.Add(new(site.Host, site.Kind, site.Label, site.Backend, ok, level, detail));
         }
         return outp;

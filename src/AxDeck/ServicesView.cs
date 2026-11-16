@@ -61,7 +61,8 @@ internal sealed class ServicesView : Grid
         buttons.Children.Add(ActionButton(Loc.T("容器状态", "Container status"), () => _owner.ServicesContainer("status")));
         buttons.Children.Add(ActionButton(Loc.T("容器日志", "Container logs"), () => _owner.ServicesContainer("logs")));
         buttons.Children.Add(ActionButton(Loc.T("容器重启", "Restart container"), () => _owner.ServicesContainer("restart")));
-        buttons.Children.Add(ActionButton(Loc.T("编辑配置", "Edit config"), () => _owner.ServicesEditConfig()));
+        buttons.Children.Add(ActionButton(Loc.T("打开配置", "Open config"), () => _owner.ServicesOpenConfig()));
+        buttons.Children.Add(ActionButton(Loc.T("编辑 SSH 配置", "Edit SSH config"), () => _owner.ServicesEditConfig()));
         buttons.Children.Add(ActionButton(Loc.T("复制诊断", "Copy diagnostics"), () => _owner.ServicesCopyDiagnostics()));
         bar.Children.Add(buttons);
         Grid.SetRow(bar, 1);
@@ -88,7 +89,18 @@ internal sealed class ServicesView : Grid
 
         _sitesPanel.Children.Clear();
         var probeByHost = probes?.ToDictionary(p => p.Host);
-        foreach (var site in CloudflareTunnel.Sites)
+        var sites = CloudflareTunnel.Sites;
+        if (sites.Count == 0)
+        {
+            // Nothing to list: the entries are the user's own, read from services.json, and this build ships none.
+            var hint = UI.Text(Loc.T(
+                "还没有配置站点。隧道入口来自本机的 services.json（与 settings.json 同一目录），仓库和安装包里不带任何主机名。点下面「打开配置」可以生成一份模板，改完保存即生效。",
+                "No sites configured yet. The tunnel entries come from services.json on this PC (the folder that holds settings.json); the repository and the installer carry no host names. Use Open config to write a template, then edit and save it."), 11.5, UI.Secondary);
+            hint.TextWrapping = TextWrapping.Wrap;
+            hint.Margin = new Thickness(2, 2, 2, 2);
+            _sitesPanel.Children.Add(hint);
+        }
+        foreach (var site in sites)
         {
             CloudflareTunnel.SiteProbe? probe = probeByHost is { } map && map.TryGetValue(site.Host, out var p) ? p : null;
             _sitesPanel.Children.Add(SiteRow(site, probe));
@@ -100,9 +112,11 @@ internal sealed class ServicesView : Grid
     public void UpdateBge(BgeM3Service.Snapshot snapshot)
     {
         _bgePanel.Children.Clear();
-        bool missing = !snapshot.ServerFound || !snapshot.ModelFound;
+        bool configured = snapshot.ModelPath.Length > 0;
+        bool missing = !snapshot.ServerFound || !configured || !snapshot.ModelFound;
         string state = snapshot.Running ? Loc.T("运行中", "running")
             : snapshot.Loading ? Loc.T("加载模型中…", "loading the model…")
+            : !configured ? Loc.T("模型未配置", "no model configured")
             : !snapshot.ServerFound ? Loc.T("未找到 llama-server.exe", "llama-server.exe not found")
             : !snapshot.ModelFound ? Loc.T("模型缺失", "model missing")
             : Loc.T("已停止", "stopped");
@@ -116,6 +130,9 @@ internal sealed class ServicesView : Grid
         _bgePanel.Children.Add(EnvRow(Loc.T("端口", "Port"),
             $"{BgeM3Service.Port}  |  {Loc.T("模型", "model")} {BgeM3Service.ModelLabel}  |  {Loc.T("维度", "dims")} {BgeM3Service.EmbeddingDimensions}", IdleColor));
         _bgePanel.Children.Add(EnvRow(Loc.T("API", "API"), BgeM3Service.EmbeddingsApi, IdleColor));
+        _bgePanel.Children.Add(EnvRow(Loc.T("模型文件", "Model file"),
+            snapshot.ModelPath.Length > 0 ? snapshot.ModelPath : Loc.T("未配置（在 services.json 里设置 bge.modelPath）", "not configured (set bge.modelPath in services.json)"),
+            snapshot.ModelPath.Length > 0 ? IdleColor : BadColor));
 
         var actions = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 6, 0, 0) };
         actions.Children.Add(ActionButton(Loc.T("启动", "Start"), () => _owner.ServicesStartBge(), small: true));
@@ -340,7 +357,7 @@ internal sealed class ServicesView : Grid
 
     private static Border KindBadge(CloudflareTunnel.SiteKind kind)
     {
-        string text = kind switch { CloudflareTunnel.SiteKind.Http => "HTTP", CloudflareTunnel.SiteKind.Tcp => "TCP", CloudflareTunnel.SiteKind.Ssh => "SSH", _ => "?" };
+        string text = kind switch { CloudflareTunnel.SiteKind.Http => "HTTP", CloudflareTunnel.SiteKind.Tcp => "TCP", CloudflareTunnel.SiteKind.Rdp => "RDP", CloudflareTunnel.SiteKind.Ssh => "SSH", _ => "?" };
         var border = new Border
         {
             Margin = new Thickness(8, 0, 0, 0), Padding = new Thickness(5, 1, 5, 1), CornerRadius = new CornerRadius(3),

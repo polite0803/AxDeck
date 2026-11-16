@@ -16,6 +16,7 @@ public partial class MainWindow
     internal void ServicesSshTest(string host) { }
     internal void ServicesContainer(string action) { }
     internal void ServicesEditConfig() { }
+    internal void ServicesOpenConfig() { }
     internal void ServicesOpenSite(CloudflareTunnel.Site site) { }
     internal void ServicesToggleForwarder(CloudflareTunnel.Site site) { }
     internal void ServicesCopyCommand(CloudflareTunnel.Site site) { }
@@ -87,10 +88,10 @@ internal static class ServicesViewTests
                 texts.Any(t => t.Contains("切换 AVD", StringComparison.Ordinal)) && texts.Any(t => t.Contains("截图", StringComparison.Ordinal)));
 
             // The path the user put in survives the next reading.
-            view.SetApkPath(@"C:\Users\polit\Downloads\AxTV-0.1.8-x86_64.apk");
+            view.SetApkPath(@"C:\Users\someone\Downloads\AxTV-0.1.8-x86_64.apk");
             view.UpdateAxTv(status, "axtv_tv");
             check("the path of the package stays where the user put it",
-                view.ApkPath == @"C:\Users\polit\Downloads\AxTV-0.1.8-x86_64.apk");
+                view.ApkPath == @"C:\Users\someone\Downloads\AxTV-0.1.8-x86_64.apk");
         }
         finally { window.Close(); }
     }

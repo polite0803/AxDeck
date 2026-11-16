@@ -631,7 +631,8 @@ public sealed class DeckSettings
     public bool DevicesPage { get; set; } = true;
     public double DevicesWidth { get; set; } = 460;
     public double DevicesHeight { get; set; } = 200;
-    // The services & tools page: the personal Cloudflare tunnel infrastructure (cloudflared, SSH config, bgnone.cn sites).
+    // The services & tools page: the local Cloudflare tunnel infrastructure (cloudflared, SSH config, and the sites listed
+    // in services.json — the site table is not in the settings file).
     // It probes the environment only while it is open on screen.
     public bool ServicesPage { get; set; } = true;
     public double ServicesWidth { get; set; } = 520;

@@ -135,7 +135,7 @@ For how to use it and its settings, see [Clipboard and file transfer](docs/en-US
 
 ### Services and tools
 
-- **Cloudflare tunnel**: the environment of your own tunnel (cloudflared, the SSH config, the ProxyCommand and the edge) and the 9 bgnone.cn entries, each with the action that fits it. The sites can be probed, a local forwarder started or stopped, and the diagnostics copied to the clipboard.
+- **Cloudflare tunnel**: the environment of your own tunnel (cloudflared, the SSH config, the ProxyCommand and the edge) and the site entries you list in `services.json` on this PC, each with the action that fits it. The sites can be probed, a local forwarder started or stopped, and the diagnostics copied to the clipboard. No host name, port or path ships with AxDeck.
 - **BGE-M3 embedding service**: starts and stops the local llama.cpp server that serves the bge-m3 model on `http://localhost:8091/v1/embeddings`, and shows whether it is running, how many slots are busy, and how many requests and tokens it has handled.
 - **AxTV emulator**: starts, closes and restarts the Android Studio AVD, places its window (small, borderless full screen, back in place), switches between the landscape and portrait AVD, changes the screen orientation with a check that rolls back if the picture stays blank, installs the AxTV package and takes screenshots.
 - All three were standalone Python tools before. Their logic is now native C# inside AxDeck, which calls the same system programs directly, so the packaged `.exe` files are no longer needed.

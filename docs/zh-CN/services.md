@@ -21,7 +21,7 @@
 
 ### 站点入口
 
-列出 9 个 bgnone.cn 入口，按类型给出对应的操作：
+站点表不写在程序里，而是来自本机的 `services.json`（见下面的[配置文件](#配置文件)），列出你在里面填的入口，按类型给出对应的操作：
 
 | 类型 | 打开方式 | 页面上的操作 |
 | --- | --- | --- |
@@ -29,16 +29,47 @@
 | SSH | 走 SSH 配置里的 ProxyCommand | 「测试」「复制」 |
 | TCP / 远程桌面 | 需要 `cloudflared access tcp` 本地转发 | 「启动」「停止」「复制」 |
 
-「探测站点」会逐个访问入口并显示结果，「复制诊断」把上面这些环境读数复制到剪贴板，「编辑配置」用记事本打开 SSH 配置。
+「探测站点」会逐个访问入口并显示结果，「复制诊断」把上面这些环境读数复制到剪贴板，「编辑 SSH 配置」用记事本打开 `~/.ssh/config`，「打开配置」用记事本打开 `services.json`（文件还不存在时先写一份只含占位符的模板）。
+
+### 配置文件
+
+AxDeck 的发布包和仓库里不含任何主机名、端口或本机路径：这些属于你个人的网络，写在本机的 `services.json` 里。它和 `settings.json` 放在同一个目录（`%LOCALAPPDATA%\AxDeck\services.json`），每次页面刷新都会重新读取，改完点「刷新」即可生效，不用重启。
+
+```json
+{
+  "tunnel": {
+    "hostname": "your-host.example.com",
+    "defaultSshHost": "your-host.example.com",
+    "sshHosts": ["your-host.example.com", "nas"],
+    "ports": [10000],
+    "sites": [
+      { "host": "your-host.example.com", "kind": "http", "label": "站点", "backend": "container:8080", "path": "/" },
+      { "host": "db.your-host.example.com", "kind": "tcp", "label": "数据库", "backend": "postgres:5432", "proto": "tcp", "port": 15432, "client": "127.0.0.1:15432" }
+    ]
+  },
+  "bge": { "modelPath": "C:\\models\\bge-m3.Q5_K_M.gguf" }
+}
+```
+
+| 字段 | 含义 |
+| --- | --- |
+| `tunnel.hostname` | 「公网 443」和「边缘状态」探测的主机名 |
+| `tunnel.defaultSshHost` | 「SSH 登录测试」与远端容器操作使用的 Host（`~/.ssh/config` 里的名字）；留空时取 `sshHosts` 的第一个 |
+| `tunnel.sshHosts` | 页面下拉里可选的 SSH Host |
+| `tunnel.ports` | 本地转发器监听的端口，用于显示环境读数 |
+| `tunnel.sites[].kind` | `http`、`tcp`、`rdp` 或 `ssh`；`tcp`/`rdp` 需要 `proto` 与 `port`，`client` 说明客户端该连哪里 |
+| `bge.modelPath` | `llama-server` 加载的 bge-m3 gguf 文件；留空表示未配置 |
+
+文件不存在、读不出来或某项填错时，页面不会报错退出：缺失的入口会被跳过，页面会提示写一份 `services.json`。
 
 ## BGE-M3 向量服务
 
-这一块管理本机的 llama.cpp 向量服务：用 `llama-server` 以嵌入模式加载本地模型 `E:\llama-models\bge-m3.Q5_K_M.gguf`，在 `http://localhost:8091` 上提供 `/v1/embeddings` 接口（1024 维）。
+这一块管理本机的 llama.cpp 向量服务：用 `llama-server` 以嵌入模式加载 `services.json` 里 `bge.modelPath` 指定的模型，在 `http://localhost:8091` 上提供 `/v1/embeddings` 接口（1024 维）。
 
 ### 依赖
 
 - **llama.cpp**：需要安装 `llama-server.exe`。AxDeck 会依次在 WinGet 的 `ggml.llamacpp_*` 包目录、WinGet 的 Links 目录以及 `Program Files\llama.cpp` 下寻找。
-- **模型文件**：默认路径为 `E:\llama-models\bge-m3.Q5_K_M.gguf`。
+- **模型文件**：在 `services.json` 的 `bge.modelPath` 里填写，例如 `"C:\\models\\bge-m3.Q5_K_M.gguf"`。AxDeck 不附带模型，也不猜路径。
 
 两者都缺失时，页面会直接显示「未找到 llama-server.exe」或「模型缺失」，不会尝试安装或下载。
 
@@ -52,12 +83,13 @@
 
 | 项目 | 含义 |
 | --- | --- |
-| 服务状态 | 运行中 / 加载模型中… / 已停止 / 未找到 llama-server.exe / 模型缺失 |
+| 服务状态 | 运行中 / 加载模型中… / 已停止 / 未找到 llama-server.exe / 模型未配置 / 模型缺失 |
 | 处理状态 | 空闲（没有槽位在处理）/ 处理中（有槽位在处理） |
 | 槽位 | 空闲槽位数 / 总槽位数 |
 | 累计请求 | 服务启动后处理过的请求数 |
 | 累计 Token | 已处理的 prompt token 数，超过一千按 `1.2k` 显示 |
 | 端口 | 8091、模型 Q5_K_M、维度 1024 |
+| 模型文件 | `services.json` 里配置的路径，以及该文件是否存在 |
 | API | `http://localhost:8091/v1/embeddings` |
 
 页面打开时每两秒读一次状态，切到别的页面就停止读取。
@@ -125,7 +157,7 @@
 ## 隐私
 
 - AxDeck 只读取本机的状态并在你点击按钮时执行对应的操作，不会把任何内容发到外部。
-- 隧道部分只会连接你自己的 `bgnone.cn` 域名和你自己的 NAS，不涉及第三方服务。
+- 隧道部分只会连接你在 `services.json` 里填写的自己的域名和你自己的 NAS，不涉及第三方服务。AxDeck 的发布包不含任何主机名、端口或本机路径。
 - BGE-M3 部分完全在本机运行，模型不会离开这台电脑。
 - 模拟器部分只与本机的 Android SDK 交互，不联网。
 - 不保存任何凭据或令牌。

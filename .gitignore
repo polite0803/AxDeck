@@ -37,6 +37,10 @@ AGENTS.md
 # Local design drafts
 output/
 
+# Local service config: the tunnel hosts, ports and model path of one machine (see docs/*/services.md).
+# It normally lives in %LOCALAPPDATA%\AxDeck, never in the repository; this keeps a copy dropped here out of git.
+services.json
+
 # Local development notes: architecture, design decisions, plans, release steps
 dev-docs/
 

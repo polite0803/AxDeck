@@ -79,6 +79,7 @@ try
     await InstallerUpdateTests.Run(root, Check);
     await PortableUpdateTests.Run(root, Check);
     SettingsMigrationTests.Run(root, Check);
+    ServicesConfigTests.Run(root, Check);
     BoxTests.Run(root, Check);
     DesktopTests.Run(Check);
     MemoryModeTests.Run(Check);

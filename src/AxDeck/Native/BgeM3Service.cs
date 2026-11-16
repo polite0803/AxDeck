@@ -18,7 +18,9 @@ internal sealed class BgeM3Service
     // Constants (mirrors the old panel's module level)
     // ----------------------------------------------------------------------
 
-    public const string ModelPath = @"E:\llama-models\bge-m3.Q5_K_M.gguf";
+    // The model file comes from services.json beside settings.json (ServicesConfig.Bge.ModelPath), because it is a path on
+    // one machine and not something a published build can guess. Empty means none is configured.
+    public string ModelPath { get; set; } = "";
     public const string Host = "0.0.0.0";
     public const int Port = 8091;
     public const string BaseUrl = "http://localhost:8091";
@@ -70,7 +72,8 @@ internal sealed class BgeM3Service
         int TotalSlots,
         long TotalTokens,
         int TotalRequests,
-        string Detail);
+        string Detail,
+        string ModelPath = "");
 
     /// <summary>The slot statistics parsed out of /slots.</summary>
     public readonly record struct Slots(int Total, int Busy, int Idle, long Tokens, int[] Tasks, int MaxTaskId);
@@ -201,9 +204,11 @@ internal sealed class BgeM3Service
     /// <summary>Starts llama-server with the BGE-M3 model and waits for it to report healthy.</summary>
     public (bool Ok, string Detail) Start()
     {
+        // The config is checked before the executable: an empty services.json is the likelier problem and gives the clearer message.
+        if (ModelPath.Length == 0) return (false, "no model configured: set bge.modelPath in services.json");
+        if (!File.Exists(ModelPath)) return (false, $"model missing: {ModelPath}");
         var server = ResolveServerPath();
         if (server is null) return (false, "llama-server.exe not found");
-        if (!File.Exists(ModelPath)) return (false, $"model missing: {ModelPath}");
         if (IsHealthy(out _)) return (false, "already running");
 
         var start = new ProcessStartInfo
@@ -294,11 +299,11 @@ internal sealed class BgeM3Service
     public Snapshot Poll()
     {
         bool serverFound = ResolveServerPath() is not null;
-        bool modelFound = File.Exists(ModelPath);
+        bool modelFound = ModelPath.Length > 0 && File.Exists(ModelPath);
         if (!IsHealthy(out var detail))
         {
             bool loading = detail == "loading";
-            return new(serverFound, modelFound, false, loading, 0, 0, 0, _totalTokens, _totalRequests, detail);
+            return new(serverFound, modelFound, false, loading, 0, 0, 0, _totalTokens, _totalRequests, detail, ModelPath);
         }
         int busy = 0, idle = 0, total = 0;
         detail = "ok";
@@ -318,7 +323,7 @@ internal sealed class BgeM3Service
                 detail = busy > 0 ? "busy" : "idle";
             }
         }
-        return new(serverFound, modelFound, true, false, busy, idle, total, _totalTokens, _totalRequests, detail);
+        return new(serverFound, modelFound, true, false, busy, idle, total, _totalTokens, _totalRequests, detail, ModelPath);
     }
 
     /// <summary>True when the server answers /health with status ok.</summary>

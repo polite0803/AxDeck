@@ -8,16 +8,19 @@ internal static class BgeM3Checks
 {
     public static void Run(Action<string, bool> check)
     {
-        // The settings the old panel hard-coded.
-        check("The model path is the local bge-m3 gguf", BgeM3Service.ModelPath == @"E:\llama-models\bge-m3.Q5_K_M.gguf");
+        // The settings the old panel hard-coded, except the model file: it is a path on the user's machine and comes from
+        // services.json, so a fresh service has none and the page says so.
+        var configured = new BgeM3Service { ModelPath = @"C:\models\bge-m3.Q5_K_M.gguf" };
+        check("A new service has no model configured", new BgeM3Service().ModelPath == "");
+        check("The model path is what the config says", configured.ModelPath == @"C:\models\bge-m3.Q5_K_M.gguf");
         check("The server binds 0.0.0.0", BgeM3Service.Host == "0.0.0.0");
         check("The server listens on port 8091", BgeM3Service.Port == 8091);
         check("The base url is the local port", BgeM3Service.BaseUrl == "http://localhost:8091");
         check("The embeddings API is the v1 path", BgeM3Service.EmbeddingsApi == "http://localhost:8091/v1/embeddings");
 
         // The llama-server command line: the model, the bind address, the port and the embeddings mode.
-        var args = BgeM3Service.BuildArguments(BgeM3Service.ModelPath, BgeM3Service.Host, BgeM3Service.Port);
-        check("The command line loads the model", args[0] == "-m" && args[1] == BgeM3Service.ModelPath);
+        var args = BgeM3Service.BuildArguments(configured.ModelPath, BgeM3Service.Host, BgeM3Service.Port);
+        check("The command line loads the model", args[0] == "-m" && args[1] == configured.ModelPath);
         check("The command line binds the host", args[2] == "--host" && args[3] == "0.0.0.0");
         check("The command line sets the port", args[4] == "--port" && args[5] == "8091");
         check("The command line turns on the embeddings mode", args[6] == "--embeddings" && args.Count == 7);
@@ -87,6 +90,14 @@ internal static class BgeM3Checks
         BgeM3Service.HttpGetOverride = url => url.EndsWith("/health") ? "{\"status\":\"ok\"}" : plainBody;
         var plainFirst = plain.Poll();
         check("A server without task ids counts no request yet", plainFirst.TotalRequests == 0);
+
+        // A server that is not configured must not be started: there is no model to hand llama-server.
+        var unconfigured = new BgeM3Service().Start();
+        check("Starting without a model is refused", !unconfigured.Ok && unconfigured.Detail.Contains("services.json"));
+
+        // The poll carries the configured path through, so the page can show it even when the file is missing.
+        check("The poll reports the configured model path", first.ModelPath == "" && configured.Poll().ModelPath == @"C:\models\bge-m3.Q5_K_M.gguf");
+        check("A missing model file is reported as not found", !configured.Poll().ModelFound);
 
         // Poll: a server that is not there.
         BgeM3Service.HttpGetOverride = _ => null;

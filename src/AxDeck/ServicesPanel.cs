@@ -27,9 +27,22 @@ public partial class MainWindow
     private DispatcherTimer? _axtvTimer;
     private bool _axtvPolling;
 
+    // Reads services.json again and hands it to the page and the embedding server. The file belongs to the user; nothing in it
+    // ships with AxDeck. Reloading on every open picks up an edit without a restart.
+    private void ServicesReloadConfig()
+    {
+        var config = ServicesConfig.Load(_app.Store.DirectoryPath);
+        CloudflareTunnel.Config = config;
+        _bge.ModelPath = config.Bge.ModelPath;
+        _servicesConfigPath = config.FilePath;
+    }
+
+    private string _servicesConfigPath = "";
+
     private void RenderServices()
     {
         bool shown = ServicesContent.Visibility == Visibility.Visible && _servicesView is not null && ServicesContent.Children.Contains(_servicesView);
+        ServicesReloadConfig();
         RefreshStatus();
         UsageContent.Visibility = Visibility.Collapsed; MusicContent.Visibility = Visibility.Collapsed; ShelfContent.Visibility = Visibility.Collapsed; DevicesContent.Visibility = Visibility.Collapsed; MonitorContent.Visibility = Visibility.Collapsed; DesktopContent.Visibility = Visibility.Collapsed; ServicesContent.Visibility = Visibility.Visible;
         ModelToolbar.Visibility = Visibility.Collapsed; ApplicationPages.Visibility = Visibility.Collapsed; ClockLabel.Visibility = Visibility.Visible;
@@ -67,6 +80,7 @@ public partial class MainWindow
     // probe = true also runs ProbeSites (per-site status); false refreshes only the environment and the site list.
     internal void ServicesRefresh(bool probe)
     {
+        ServicesReloadConfig();
         _servicesView?.SetStatus(Loc.T("读取中…", "Reading…"));
         Task.Run(() =>
         {
@@ -88,6 +102,12 @@ public partial class MainWindow
 
     internal void ServicesSshTest(string host)
     {
+        // Without a host in services.json there is nothing to connect to; say so instead of running `ssh ""`.
+        if (string.IsNullOrWhiteSpace(host))
+        {
+            _servicesView?.SetStatus(Loc.T("services.json 里还没有配置 SSH Host（tunnel.defaultSshHost）。", "No SSH host configured yet: set tunnel.defaultSshHost in services.json."));
+            return;
+        }
         _servicesView?.SetStatus(Loc.T("SSH 测试中…", "SSH test…"));
         Task.Run(() =>
         {
@@ -101,6 +121,11 @@ public partial class MainWindow
 
     internal void ServicesContainer(string action)
     {
+        if (string.IsNullOrWhiteSpace(CloudflareTunnel.DefaultSshHost))
+        {
+            _servicesView?.SetStatus(Loc.T("services.json 里还没有配置 SSH Host（tunnel.defaultSshHost）。", "No SSH host configured yet: set tunnel.defaultSshHost in services.json."));
+            return;
+        }
         _servicesView?.SetStatus(Loc.T("容器操作中…", "Container op…"));
         Task.Run(() =>
         {
@@ -121,6 +146,24 @@ public partial class MainWindow
         {
             Process.Start(new ProcessStartInfo("notepad.exe", CloudflareTunnel.SshConfig) { UseShellExecute = true });
             _servicesView?.SetStatus(Loc.T("已用记事本打开 SSH 配置", "Opened SSH config in Notepad"));
+        }
+        catch (System.Exception ex) { _servicesView?.SetStatus(Loc.T("打开失败：", "Open failed: ") + ex.Message); }
+    }
+
+    // services.json: the site list, the tunnel host and the model path. Written from a template the first time, so the file
+    // opened is never empty and every placeholder in it says what it is for.
+    internal void ServicesOpenConfig()
+    {
+        try
+        {
+            var config = ServicesConfig.Load(_app.Store.DirectoryPath);
+            if (!System.IO.File.Exists(config.FilePath))
+            {
+                System.IO.Directory.CreateDirectory(_app.Store.DirectoryPath);
+                System.IO.File.WriteAllText(config.FilePath, config.Template());
+            }
+            Process.Start(new ProcessStartInfo("notepad.exe", config.FilePath) { UseShellExecute = true });
+            _servicesView?.SetStatus(Loc.T("已打开 ", "Opened ") + config.FilePath + Loc.T("，保存后点「刷新」生效", "; save it, then press Refresh"));
         }
         catch (System.Exception ex) { _servicesView?.SetStatus(Loc.T("打开失败：", "Open failed: ") + ex.Message); }
     }
@@ -174,6 +217,8 @@ public partial class MainWindow
             sb.AppendLine($"proxy command ok: {s.ProxyCommandOk}");
             sb.AppendLine($"ssh hosts: {string.Join(", ", s.SshHosts)}");
             sb.AppendLine($"ports: {string.Join(", ", s.Ports.Select(p => $"{p.Key}={(p.Value ? "open" : "closed")}"))}");
+            // Where the entries come from, so a diagnostic pasted elsewhere says which file was read.
+            sb.AppendLine($"services.json: {_servicesConfigPath} ({(System.IO.File.Exists(_servicesConfigPath) ? "present" : "missing")}, {CloudflareTunnel.Sites.Count} sites)");
             var text = sb.ToString();
             OnUi(() =>
             {

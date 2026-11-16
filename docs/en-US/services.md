@@ -21,7 +21,7 @@ The page replaces three separate Python tools (Cloudflare Tunnel Manager, the BG
 
 ### Site entries
 
-The 9 bgnone.cn entries are listed with the action that fits their kind:
+The site table is not built into the program; it comes from `services.json` on this PC (see [The config file](#the-config-file) below), and the entries you put there are listed with the action that fits their kind:
 
 | Kind | How it is reached | Actions on the page |
 | --- | --- | --- |
@@ -29,16 +29,47 @@ The 9 bgnone.cn entries are listed with the action that fits their kind:
 | SSH | Through the ProxyCommand in the SSH config | "Test", "Copy" |
 | TCP / remote desktop | Needs a local `cloudflared access tcp` forwarder | "Start", "Stop", "Copy" |
 
-"Probe sites" visits every entry and shows the result. "Copy diagnostics" puts the environment readings above on the clipboard, and "Edit config" opens the SSH config in Notepad.
+"Probe sites" visits every entry and shows the result. "Copy diagnostics" puts the environment readings above on the clipboard, "Edit SSH config" opens `~/.ssh/config` in Notepad, and "Open config" opens `services.json` (writing a template of placeholders first when the file does not exist yet).
+
+### The config file
+
+Neither the repository nor the published package carries a host name, a port or a path on anyone's machine: those belong to your own network and live in `services.json` on this PC. It sits next to `settings.json` (`%LOCALAPPDATA%\AxDeck\services.json`), is read again on every refresh, and an edit takes effect when you press "Refresh" — no restart.
+
+```json
+{
+  "tunnel": {
+    "hostname": "your-host.example.com",
+    "defaultSshHost": "your-host.example.com",
+    "sshHosts": ["your-host.example.com", "nas"],
+    "ports": [10000],
+    "sites": [
+      { "host": "your-host.example.com", "kind": "http", "label": "Site", "backend": "container:8080", "path": "/" },
+      { "host": "db.your-host.example.com", "kind": "tcp", "label": "Database", "backend": "postgres:5432", "proto": "tcp", "port": 15432, "client": "127.0.0.1:15432" }
+    ]
+  },
+  "bge": { "modelPath": "C:\\models\\bge-m3.Q5_K_M.gguf" }
+}
+```
+
+| Field | Meaning |
+| --- | --- |
+| `tunnel.hostname` | The host "Public 443" and "Edge status" probe |
+| `tunnel.defaultSshHost` | The Host (as named in `~/.ssh/config`) used by "SSH login test" and the remote container actions; when empty the first of `sshHosts` is used |
+| `tunnel.sshHosts` | The SSH hosts offered on the page |
+| `tunnel.ports` | The ports the local forwarders listen on, shown with the environment readings |
+| `tunnel.sites[].kind` | `http`, `tcp`, `rdp` or `ssh`; `tcp`/`rdp` need `proto` and `port`, and `client` says where a client should connect |
+| `bge.modelPath` | The bge-m3 gguf file `llama-server` loads; empty means none is configured |
+
+A missing, unreadable or partly wrong file never stops the page: entries that cannot be used are skipped, and the page says to write a `services.json`.
 
 ## BGE-M3 embedding service
 
-This part manages the local llama.cpp embedding service: `llama-server` loads the model `E:\llama-models\bge-m3.Q5_K_M.gguf` in embeddings mode and serves `/v1/embeddings` on `http://localhost:8091` (1024 dimensions).
+This part manages the local llama.cpp embedding service: `llama-server` loads the model named by `bge.modelPath` in `services.json` in embeddings mode and serves `/v1/embeddings` on `http://localhost:8091` (1024 dimensions).
 
 ### What it needs
 
 - **llama.cpp**: `llama-server.exe` has to be installed. AxDeck looks for it in the WinGet `ggml.llamacpp_*` package folder, in the WinGet Links folder, and under `Program Files\llama.cpp`, in that order.
-- **The model file**: the default path is `E:\llama-models\bge-m3.Q5_K_M.gguf`.
+- **The model file**: set it in `bge.modelPath` in `services.json`, for example `"C:\\models\\bge-m3.Q5_K_M.gguf"`. AxDeck ships no model and does not guess a path.
 
 When either is missing the page says so ("llama-server.exe not found" or "model missing"); nothing is installed or downloaded for you.
 
@@ -52,12 +83,13 @@ When either is missing the page says so ("llama-server.exe not found" or "model 
 
 | Item | What it means |
 | --- | --- |
-| Service state | Running / loading the model… / stopped / llama-server.exe not found / model missing |
+| Service state | Running / loading the model… / stopped / llama-server.exe not found / no model configured / model missing |
 | Processing | Idle (no slot is working) / busy (a slot is working) |
 | Slots | Idle slots / total slots |
 | Requests | How many requests the server has handled |
 | Tokens | The prompt tokens processed, shown as `1.2k` above a thousand |
 | Port | 8091, model Q5_K_M, 1024 dimensions |
+| Model file | The path set in `services.json`, and whether that file exists |
 | API | `http://localhost:8091/v1/embeddings` |
 
 The page reads the state every two seconds while it is open, and stops reading as soon as another page takes over.
@@ -125,7 +157,7 @@ With the emulator not running, these say so instead of waiting for something tha
 ## Privacy
 
 - AxDeck only reads local state and runs the action you click; nothing is sent anywhere.
-- The tunnel part talks to your own `bgnone.cn` domains and your own NAS, and to no third-party service.
+- The tunnel part talks only to the domains and the NAS you list in `services.json`, and to no third-party service. No published package carries a host name, a port or a path from anyone's machine.
 - The BGE-M3 part runs entirely on this PC and the model never leaves it.
 - The emulator part only talks to the Android SDK on this PC; it does not go online.
 - No credentials or tokens are stored.
