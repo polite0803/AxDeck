@@ -57,6 +57,8 @@ public partial class MainWindow
     private TextBlock? _musicElapsed, _musicDuration, _lyricPrevious, _lyricNext, _musicMessage;
     // The current line scrolls when it is wider than the column; the lines around it are cut off with an ellipsis.
     private MusicMarquee? _lyricCurrent, _musicTitle;
+    // The current lyric's translation, under it; null when the room or the setting leaves it out.
+    private TextBlock? _lyricTranslation;
     // Without the cover the lyrics column shows more lines around the current one (MusicLayout.Columns).
     private TextBlock[] _lyricsAbove = [], _lyricsBelow = [];
     private Grid? _musicInfo;
@@ -233,6 +235,9 @@ public partial class MainWindow
         if (MediaSourceButton.ContextMenu is { IsOpen: true } open)
             foreach (var item in open.Items.OfType<MenuItem>().Where(item => Equals(item.Tag, "action"))) item.IsEnabled = _media?.RestartingNetease != true;
         AutomationProperties.SetName(MediaSourceButton, alone ? FullControlButtonLabel : Loc.T("切换播放来源", "Switch playback source"));
+        // The output device's button belongs to the music page: it is where the sound is played.
+        AudioOutputButton.Visibility = IsMusicPage ? Visibility.Visible : Visibility.Collapsed;
+        AutomationProperties.SetName(AudioOutputButton, Loc.T("切换输出设备", "Switch output device"));
         MediaSourceLabel.Text = _mediaTrack is { } playing ? Loc.Label(playing.Source) : alone ? FullControlButtonLabel : "";
         MediaSourcePin.Visibility = _pinnedMedia is not null && _pinnedMedia == _mediaTrack?.Id ? Visibility.Visible : Visibility.Collapsed;
         MediaSourceChevron.Visibility = _mediaTrack is not null && (_mediaTracks.Count > 1 || entry) ? Visibility.Visible : Visibility.Collapsed;
@@ -455,8 +460,10 @@ public partial class MainWindow
         var modes = track is null ? [] : MusicPlaybackModes.Supported(track);
         // While the timeline is held (MusicTimelineHold) the bar stays in its place, empty and without times.
         bool timeline = track?.HasTimeline == true || track is not null && _timelineHold.Holds(DateTimeOffset.UtcNow);
+        // A translation is laid out only for a synced lyric: the current line is the one it goes under.
+        bool synced = track is not null && (playerLyrics || _lyrics.CanSynchronize(track));
         var layout = MusicLayout.Calculate(w, h, hasLyrics, timeline, message.Length > 0, logMode || appleEntry || kugouEntry, transport: !showSmtcHint,
-            lyricsExpected: Settings.LyricsEnabled);
+            lyricsExpected: Settings.LyricsEnabled, translation: LyricsTranslated && synced);
         var c = layout.Metrics;
         // With the usage page on, the controls are the usage page's, as it would lay them out now; see PanelHeader.WithControlsOf.
         // Fitting the usage page for them is kept until its size, data or settings change (CachedUsageHeader): this runs on every
@@ -465,13 +472,13 @@ public partial class MainWindow
         bool animate = Settings.Animations && SystemParameters.ClientAreaAnimation;
         // Without the cover the lyrics, or a message, take a column of their own; with neither the titles have the width.
         bool lyricColumn = !Settings.MusicPageCover && (hasLyrics || message.Length > 0);
-        string key = $"{track?.Id}|{track?.SongKey}|{logMode}|{appleEntry}|{kugouEntry}|{_media?.RestartingNetease}|{_media?.RestartingKugou}|{track?.State}|{track?.CanToggle}|{track?.CanPrevious}|{track?.CanNext}|{track?.CanSeek}|{track?.CanRepeat}|{track?.CanShuffle}|{track?.Shuffle}|{track?.Repeat}|{track?.CanLike}|{track?.Liked}|{track?.HasTimeline}|{timeline}|{playerLyrics}|{hasPlayerLyric}|{w}|{h}|{_lyrics.GetHashCode()}|{_mediaCover?.GetHashCode()}|{_media?.Error}|{_media?.KugouError}|{Settings.LyricsEnabled}|{Settings.MusicPageCover}|{Settings.EqualizerColor}|{Settings.EqualizerCustomColor}|{Settings.MusicLyricColor}|{Settings.MusicLyricCustomColor}|{Settings.MusicEqualizerBars}|{Settings.UiFont}|{Loc.Language}|{animate}";
+        string key = $"{track?.Id}|{track?.SongKey}|{logMode}|{appleEntry}|{kugouEntry}|{_media?.RestartingNetease}|{_media?.RestartingKugou}|{track?.State}|{track?.CanToggle}|{track?.CanPrevious}|{track?.CanNext}|{track?.CanSeek}|{track?.CanRepeat}|{track?.CanShuffle}|{track?.Shuffle}|{track?.Repeat}|{track?.CanLike}|{track?.Liked}|{track?.HasTimeline}|{timeline}|{playerLyrics}|{hasPlayerLyric}|{w}|{h}|{_lyrics.GetHashCode()}|{_mediaCover?.GetHashCode()}|{_media?.Error}|{_media?.KugouError}|{Settings.LyricsEnabled}|{Settings.MusicLyricTranslation}|{Settings.MusicPageCover}|{Settings.EqualizerColor}|{Settings.EqualizerCustomColor}|{Settings.MusicLyricColor}|{Settings.MusicLyricCustomColor}|{Settings.MusicEqualizerBars}|{Settings.UiFont}|{Loc.Language}|{animate}";
         if (_musicRenderKey == key) { UpdateMusicPosition(); return; }
         _musicRenderKey = key;
         string song = track is null ? "" : $"{track.Id}|{track.SongKey}|{track.Title}|{track.Artist}";
         // Lyrics that arrive after the song, or come and go with the player's line, only fade in their own lines (lyricsArrive):
         // the form counts the lyric lines the room holds, not whether lyrics are there.
-        string form = $"{track is null}|{layout.LyricRoom}|{layout.MergeTitle}|{layout.ShowFullControl}|{layout.ShowMessage}|{Settings.LyricsEnabled}|{Settings.MusicPageCover}|{lyricColumn}|{showSmtcHint}|{timeline}";
+        string form = $"{track is null}|{layout.LyricRoom}|{layout.LyricTranslation}|{layout.MergeTitle}|{layout.ShowFullControl}|{layout.ShowMessage}|{Settings.LyricsEnabled}|{Settings.MusicPageCover}|{lyricColumn}|{showSmtcHint}|{timeline}";
         bool lyricsArrive = shown && hasLyrics && !_musicHadLyrics && Soft.Enabled;
         _musicHadLyrics = hasLyrics;
         // A new song changes the titles and perhaps the cover; the rest of the page is the same and stays still. The titles
@@ -492,7 +499,7 @@ public partial class MainWindow
         // Keep the transport layer attached: replacing a hovered button restarts
         // hit testing and its fade-in on every metadata, artwork or lyric update.
         _handover.Hold(MusicContent, keep: _musicControls);
-        _musicSeek = null; _musicElapsed = null; _musicDuration = null; _musicEqualizer = null; _musicTitle = null; _lyricCurrent = null; _lyricPrevious = null; _lyricNext = null; _lyricsAbove = []; _lyricsBelow = []; _musicMessage = null; _musicInfo = null;
+        _musicSeek = null; _musicElapsed = null; _musicDuration = null; _musicEqualizer = null; _musicTitle = null; _lyricCurrent = null; _lyricPrevious = null; _lyricNext = null; _lyricTranslation = null; _lyricsAbove = []; _lyricsBelow = []; _musicMessage = null; _musicInfo = null;
         MusicContent.Margin = new Thickness(c.Side, 0, c.Side, c.Bottom);
         if (track is null)
         {
@@ -550,11 +557,13 @@ public partial class MainWindow
             if (hasLyrics && lyricLines > 0 && synchronized)
             {
                 var lyrics = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
-                // All lines share one size; only its color (MusicLyricColor) marks the current one.
+                // All lines share one size; only its color (MusicLyricColor) marks the current one. With a translation under the
+                // current line, one neighbour gives way to it (MusicLayout.LyricsRoom).
                 if (lyricLines == 3) { _lyricPrevious = UI.Fixed("", c.Lyric, c.LyricLine, UI.Tertiary); lyrics.Children.Add(_lyricPrevious); }
                 _lyricCurrent = new MusicMarquee { FontSize = c.Lyric, Height = c.LyricLine, CenterWhenFits = false, Foreground = LyricInk,
                     Backdrop = PanelTheme.MarqueeBackdrop, InkFade = PanelTheme.InkFade };
                 lyrics.Children.Add(_lyricCurrent); UpdateLyricScrolling();
+                if (layout.LyricTranslation) { _lyricTranslation = UI.Fixed("", c.Translation, c.TranslationLine, UI.Secondary); lyrics.Children.Add(_lyricTranslation); }
                 if (lyricLines >= 2) { _lyricNext = UI.Fixed("", c.Lyric, c.LyricLine, UI.Tertiary); lyrics.Children.Add(_lyricNext); }
                 lyrics.Visibility = layout.ShowMessage ? Visibility.Collapsed : Visibility.Visible; middle.Children.Add(lyrics);
             }
@@ -777,7 +786,8 @@ public partial class MainWindow
         string message, bool rise, bool lyricsArrive)
     {
         var c = layout.Metrics;
-        var columns = layout.Columns(lyricColumn);
+        // The player's own single line (QQ) comes with no translation of its own, so it keeps the room to itself.
+        var columns = layout.Columns(lyricColumn, translation: layout.LyricTranslation && !playerLyrics);
         var upper = new Grid { Height = columns.Height, VerticalAlignment = VerticalAlignment.Top };
         body.Children.Add(upper);
         var info = new StackPanel { Width = columns.InfoWidth, HorizontalAlignment = HorizontalAlignment.Left, VerticalAlignment = VerticalAlignment.Center };
@@ -820,6 +830,7 @@ public partial class MainWindow
             _lyricCurrent = new MusicMarquee { FontSize = columns.CurrentLyric, Height = columns.CurrentLine, CenterWhenFits = false, Foreground = LyricInk,
                 Backdrop = PanelTheme.MarqueeBackdrop, InkFade = PanelTheme.InkFade };
             lyrics.Children.Add(_lyricCurrent); UpdateLyricScrolling();
+            if (columns.Translation) { _lyricTranslation = UI.Fixed("", c.Translation, c.TranslationLine, UI.Secondary); lyrics.Children.Add(_lyricTranslation); }
             _lyricsBelow = [.. Enumerable.Range(0, below).Select(_ => Dim())];
             middle.Children.Add(lyrics);
         }
@@ -964,6 +975,7 @@ public partial class MainWindow
         if (page && _lyricCurrent is not null) _lyricCurrent.Text = line.Current;
         if (page && _lyricPrevious is not null) _lyricPrevious.Text = line.Previous;
         if (page && _lyricNext is not null) _lyricNext.Text = line.Next;
+        if (page && _lyricTranslation is not null) _lyricTranslation.Text = CurrentLyricWindow(track, 0, 0).Translation;
         if (page && _lyricsAbove.Length + _lyricsBelow.Length > 0)
         {
             // The lines above are filled from the bottom, so the line just sung stays next to the current one.
@@ -1055,7 +1067,10 @@ public partial class MainWindow
         // The devices' batteries keep one width too (as many devices as show, each with the room of its widest figure), counted with them.
         var devices = CompactDevices(scale);
         double devicesWidth = devices is null ? 0 : DevicePixels.Up(devices.PreferredWidth, dpi);
-        double transferWidth = transfer?.Width ?? 0, fixedFace = FixedFace(scale, clock?.ReservedWidth ?? 0, transferWidth, devicesWidth);
+        // The focus timer's countdown keeps one width as well: the longest figure it can show, so the row does not move as the seconds pass.
+        var focus = FocusBadgeElement(scale);
+        double focusWidth = focus?.Width ?? 0;
+        double transferWidth = transfer?.Width ?? 0, fixedFace = FixedFace(scale, clock?.ReservedWidth ?? 0, transferWidth, devicesWidth, focusWidth);
         // The system readings ask for the width of everything chosen, on whole device pixels; the whole ones that fit their region show.
         var strip = Settings.ShowsMonitor(EffectiveStyle) ? new MonitorStrip(Settings.CompactReadings, MonitorThemeColors.Strip(Settings), scale,
             !(media && showCover) && !equalizer && apps.Count == 0 && text.Length == 0 && clock is null && transfer is null && devices is null, _stripPresence, dpi, _stripUnavailable = _stripAdmission.Hidden, _stripAdmission) : null;
@@ -1086,14 +1101,17 @@ public partial class MainWindow
         bool hasCover = media && showCover && layout.CoverWidth >= layout.CoverSize - .001, hasEqualizer = equalizer && layout.EqualizerWidth >= layout.EqualizerSize - .001;
         bool hasFixed = fixedFace > 0 && layout.ClockWidth >= fixedFace - .001;
         bool hasClock = clock is not null && hasFixed, hasTransfer = transfer is not null && hasFixed, hasDevices = devices is not null && hasFixed, hasText = layout.TextWidth > 0 && text.Length > 0;
+        // The focus countdown shares the fixed room with the clock, the transfer's count and the devices: all of them keep
+        // their own width, and the row shows them whole or not at all.
+        bool hasFocus = focus is not null && hasFixed;
         double titleWanted = hasText ? layout.TextWidth : 0;
         double shortest = CompactMusicLayout.Whole(CompactMusicLayout.MinimumText * scale);
         double titleShare = hasText ? Math.Min(titleWanted, Math.Max(shortest, CompactMusicLayout.Whole(CompactSpacing.TitleMax * scale))) : 0;
         double titleFloor = hasText ? Math.Min(shortest, titleWanted) : 0;
         var ringWidths = apps.Select(_ => layout.RingSize).ToList();
         bool hasRings = ringWidths.Count > 0, hasReadings = readingWidths.Count > 0;
-        int parts = (hasCover ? 1 : 0) + (hasEqualizer ? 1 : 0) + (hasClock ? 1 : 0) + (hasTransfer ? 1 : 0) + (hasDevices ? 1 : 0) + (hasText ? 1 : 0) + (hasRings ? 1 : 0) + (hasReadings ? 1 : 0);
-        double others = (hasCover ? layout.CoverSize : 0) + (hasEqualizer ? layout.EqualizerSize : 0) + (hasClock ? clock!.ReservedWidth : 0) + (hasTransfer ? transferWidth : 0) + (hasDevices ? devicesWidth : 0) + Math.Max(0, parts - 1) * unit;
+        int parts = (hasCover ? 1 : 0) + (hasEqualizer ? 1 : 0) + (hasClock ? 1 : 0) + (hasTransfer ? 1 : 0) + (hasDevices ? 1 : 0) + (hasFocus ? 1 : 0) + (hasText ? 1 : 0) + (hasRings ? 1 : 0) + (hasReadings ? 1 : 0);
+        double others = (hasCover ? layout.CoverSize : 0) + (hasEqualizer ? layout.EqualizerSize : 0) + (hasClock ? clock!.ReservedWidth : 0) + (hasTransfer ? transferWidth : 0) + (hasDevices ? devicesWidth : 0) + (hasFocus ? focusWidth : 0) + Math.Max(0, parts - 1) * unit;
         double pool = SnapDown(contentWidth, dpi) - others - titleShare;
         // Too short for both narrowest windows, the title gives way down to its shortest.
         double needed = CompactSpacing.Minimum(ringWidths, layout.RingGap) + CompactSpacing.Minimum(readingWidths, strip?.Gap ?? 0);
@@ -1128,6 +1146,7 @@ public partial class MainWindow
             else if (part == CompactPart.Clock && hasClock) shown.Add((part, new(clock!.ReservedWidth)));
             else if (part == CompactPart.Transfer && hasTransfer) shown.Add((part, new(transferWidth)));
             else if (part == CompactPart.Devices && hasDevices) shown.Add((part, new(devicesWidth)));
+            else if (part == CompactPart.Focus && hasFocus) shown.Add((part, new(focusWidth)));
         }
         int title = shown.FindIndex(entry => entry.Part is CompactPart.Music);
         // One gap between every two parts; what is left widens them evenly and then centres the row.
@@ -1152,6 +1171,8 @@ public partial class MainWindow
                 case CompactPart.Devices:
                     devices!.Width = devicesWidth;
                     element = CompactRegion(devices, room, devicesWidth, devices.Height, row, RegionAnchor.Left, dpi); break;
+                case CompactPart.Focus:
+                    element = CompactRegion(focus!, room, focusWidth, focus!.Height, row, RegionAnchor.Left, dpi); break;
                 case CompactPart.Rings:
                     element = _quotaCarousel = new QuotaCarousel(steadyItems, layout.RingSize, layout.RingThickness, layout.Scale, layout.RingGap, rings.Count, Math.Min(layout.RingEdge, place.Gap), _quotaElapsed, animate,
                         flow > 0 ? rings.Window : null, ringCut); break;
@@ -1187,6 +1208,9 @@ public partial class MainWindow
     // The collapsed equalizer and the music page's share one color.
     private Brush EqualizerColor => MusicColor(Settings.EqualizerColor, Settings.EqualizerCustomColor, "equalizer");
     private Brush LyricInk => MusicColor(Settings.MusicLyricColor, Settings.MusicLyricCustomColor, "textPrimary", text: true);
+    // A translated lyric is laid out only when the setting asks for it and the song's lyrics have one: a song whose provider gave
+    // no translation keeps its full room for the lines around the current one.
+    private bool LyricsTranslated => Settings.MusicLyricTranslation && _lyrics.Lines.Any(line => line.Translation.Length > 0);
     // A color chosen among the clock's swatches, drawn as the theme can show it on its surface; text needs more contrast than
     // bars. White, and every choice under high contrast, is the theme's own color (theme).
     private Brush MusicColor(ClockColor chosen, string custom, string theme, bool text = false)

@@ -47,6 +47,12 @@ When a record carries its own amount (Cursor and OpenCode, for example), that am
 
 A price in that list usually comes from the cheapest provider and can differ from the model maker's list price. For example, GLM-5.3 is listed at 0.07 and 1.4 USD per million input and output tokens, while Z.AI charges 1.4 and 4.4. So for each model your records use, AxDeck looks up the model maker's own endpoint on OpenRouter and uses its prices instead; a model whose maker has no endpoint there keeps the list price. Each model's endpoint prices are looked up once a day and saved on this PC; when a lookup fails, the prices saved before are used. Prices added by hand take precedence.
 
+## Quota curves, arrival time and the working dot
+
+- **The curve**: a line behind each quota bar is drawn from the shares recorded today. Readings are kept at most once every 10 minutes for 30 days, and are recorded whether or not the panel is open, so the curve covers the time it was hidden. Nothing is drawn until there are enough readings to say anything. Only each quota's used share is stored — no token counts, no account, no conversation — in `%LOCALAPPDATA%\AxDeck\usage-history.json`.
+- **Arrival time**: hovering over a quota adds to its tooltip an estimate, at the pace of the recent readings, of when it would reach the column's critical level. Nothing is estimated when the readings do not support a pace, or when the share is not rising: the panel does not guess.
+- **The working dot**: while a tool is writing its own session records, a small dot in that app's color sits at the right end of its column's title, and its tooltip says so. AxDeck only compares the modification times of the session records; it never opens or reads them, and no network request follows. Tools that keep no session records have no dot.
+
 ## Quota rings and off-peak time
 
 Expand an app's row under Settings › Quotas and usage › Apps to set:

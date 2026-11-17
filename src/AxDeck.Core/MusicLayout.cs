@@ -8,6 +8,9 @@ public sealed record MusicMetrics(double Toolbar, double Top, double Bottom, dou
     double Time, double TimeLine, double SeekRow, double Bar, double BarHover, double SectionGap, double ControlsGap,
     double Play, double Skip, double Mode, double Equalizer)
 {
+    // The current lyric's translation, on a line of its own below it: a size smaller, so the two do not read as two lyrics.
+    public double Translation => Math.Round(Lyric * .85 * 2, MidpointRounding.AwayFromZero) / 2;
+    public double TranslationLine => Math.Round(LyricLine * .8, MidpointRounding.AwayFromZero);
     public static MusicMetrics At(double density)
     {
         double d = Math.Clamp(density, 0, 3);
@@ -60,10 +63,22 @@ public sealed record MusicLayout(MusicMetrics Metrics, double Density, double Bo
     public double UpperHeight { get; init; }
     // The lyric lines the room beside the cover holds, whether or not there are lyrics to show in them.
     public int LyricRoom => (int)Math.Clamp(Math.Floor((MiddleHeight - Metrics.MiddleGap) / Metrics.LyricLine), 0, 3);
+    // Whether the current lyric's translation fits under it, as the lines give way to it (LyricsRoom).
+    public bool LyricTranslation { get; init; }
+    // How many lyric lines a room holds, and whether a translation of the current one fits under it. The translation takes the
+    // place of a neighbouring line first, so a room that held three lines still holds the current one, its translation and one
+    // neighbour; a room with none to spare keeps its one line and no translation.
+    public static (int Lines, bool Translation) LyricsRoom(double room, MusicMetrics c, bool translation)
+    {
+        int lines = (int)Math.Clamp(Math.Floor(room / c.LyricLine), 0, 3);
+        if (!translation || lines == 0) return (lines, false);
+        while (lines > 1 && lines * c.LyricLine + c.TranslationLine > room) lines--;
+        return (lines, lines * c.LyricLine + c.TranslationLine <= room);
+    }
     // lyricsExpected lays out the titles as if lyrics were shown, so they keep their place while lyrics are still looked up,
-    // or when a song has none.
+    // or when a song has none. translation asks for a line under the current lyric for its translation, where the room allows.
     public static MusicLayout Calculate(double width, double height, bool lyrics, bool timeline, bool message = false, bool fullControlEntry = false, bool transport = true,
-        bool lyricsExpected = false)
+        bool lyricsExpected = false, bool translation = false)
     {
         double density = DensityFor(width, height);
         var c = MusicMetrics.At(density);
@@ -83,7 +98,7 @@ public sealed record MusicLayout(MusicMetrics Metrics, double Density, double Bo
         bool below = lyrics || lyricsExpected || message;
         bool merge = below ? Room(separate) < c.LyricLine : cover < separate;
         double headH = merge ? c.TitleLine : separate, room = Room(headH);
-        int lines = !lyrics ? 0 : (int)Math.Clamp(Math.Floor(room / c.LyricLine), 0, 3);
+        var (lines, translationLine) = lyrics ? LyricsRoom(room, c, translation) : (0, false);
         bool showMessage = message && room >= c.LyricLine;
         // The play button sits at the centre of the panel, with previous and next spread out with the panel's width
         // rather than packed beside it. The mode button is left of previous, with the same gap as between the others.
@@ -97,7 +112,8 @@ public sealed record MusicLayout(MusicMetrics Metrics, double Density, double Bo
         if (!enable) fullControlRoom = 0;
         double radius = Math.Clamp(Math.Round(cover * .08), 5, 16);
         return new(c, density, bodyW, bodyH, cover, coverY, radius, textX, textW, merge, headH, cover - headH, lines, showMessage,
-            timeline ? progressY : 0, timeline ? c.SeekRow : 0, timesY, controlsY, gap, tripletX, tripletW, modeX, enable, fullControlRoom) { UpperHeight = upper };
+            timeline ? progressY : 0, timeline ? c.SeekRow : 0, timesY, controlsY, gap, tripletX, tripletW, modeX, enable, fullControlRoom)
+            { UpperHeight = upper, LyricTranslation = translationLine };
     }
 
     // Without the cover the upper part has two columns, so the titles and the lyrics are not read as one block: the title,
@@ -105,7 +121,9 @@ public sealed record MusicLayout(MusicMetrics Metrics, double Density, double Bo
     // the width; a wider panel gives the lyrics the rest. The lyrics fill the upper part's height, the current line a size
     // larger, with as many lines before it as after it (one more after when the count is even). Without lyrics the titles
     // are centred across the whole width. The album, then the equalizer below the titles, give way to a short upper part.
-    public MusicColumns Columns(bool lyrics)
+    // translation asks for a line under the current lyric for its translation: the neighbours step aside for it, one line of room
+    // at a time, and the current line keeps its place even when no room is left for the translation.
+    public MusicColumns Columns(bool lyrics, bool translation = false)
     {
         var c = Metrics;
         double height = Math.Max(0, UpperHeight), gap = c.Gap;
@@ -113,11 +131,13 @@ public sealed record MusicLayout(MusicMetrics Metrics, double Density, double Bo
         double lyricsX = lyrics ? info + 2 * gap + 1 : BodyWidth, lyricsW = Math.Max(0, BodyWidth - lyricsX);
         double currentFont = Math.Round(c.Lyric * 1.15 * 2, MidpointRounding.AwayFromZero) / 2, currentLine = Math.Round(c.LyricLine * 1.15, MidpointRounding.AwayFromZero);
         int lines = !lyrics ? 0 : (int)Math.Clamp(1 + Math.Floor((height - currentLine) / c.LyricLine), 1, 7);
+        bool translated = translation && lyrics && currentLine + c.TranslationLine <= height;
+        if (translated) lines = Math.Max(1, (int)Math.Clamp(1 + Math.Floor((height - currentLine - c.TranslationLine) / c.LyricLine), 1, 7));
         int before = Math.Max(0, lines - 1) / 2, after = Math.Max(0, lines - 1 - before);
         bool album = c.TitleLine + 2 * c.ArtistLine <= height;
         double titles = c.TitleLine + (album ? 2 : 1) * c.ArtistLine;
         bool equalizer = titles + c.SectionGap + c.Equalizer <= height;
-        return new(height, info, gap, lyricsX, lyricsW, currentFont, currentLine, before, after, album, equalizer, c.SectionGap);
+        return new(height, info, gap, lyricsX, lyricsW, currentFont, currentLine, before, after, album, equalizer, c.SectionGap) { Translation = translated };
     }
 }
 
@@ -126,6 +146,8 @@ public sealed record MusicColumns(double Height, double InfoWidth, double Divide
     double CurrentLyric, double CurrentLine, int Before, int After, bool ShowAlbum, bool ShowEqualizer, double EqualizerGap)
 {
     public int LyricLines => LyricsWidth > 0 ? Before + 1 + After : 0;
+    // Whether a translation is shown under the current lyric (MusicLayout.Columns).
+    public bool Translation { get; init; }
 }
 
 // What the open music page's title needs worked out outside the window. The title's room is decided by the page's grid (the line

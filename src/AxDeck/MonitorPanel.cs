@@ -140,7 +140,7 @@ public partial class MainWindow
     {
         double height = ContentCanvas.Height;
         return MonitorLayout.For(ContentCanvas.Width - 2 * _header.Side, height - _header.Row - MonitorBottom(height), Settings.MonitorProcesses, sensors.Drives,
-            _monitorView is not null ? _monitorLayout : null, sensors.Power, Settings.MonitorFrames);
+            _monitorView is not null ? _monitorLayout : null, sensors.Power, Settings.MonitorFrames, Settings.MonitorTraffic);
     }
 
     // What the view is built from: its layout step, not its exact size, so a page resized within a step is not built again.
@@ -151,7 +151,7 @@ public partial class MainWindow
     // goes past the room.
     private string MonitorKey(MonitorLayout layout, bool small) => string.Join("|", layout, Settings.MonitorPalette, Settings.MonitorPalette == MonitorPalette.Custom ? Settings.MonitorCustomColors.Key : "", Settings.MonitorProcesses,
         Settings.MonitorMain, Settings.MonitorProcessView, Loc.Language, PanelTheme.Generation, Settings.MonitorTemperatures, small, Settings.MonitorPower, Native.BatteryProvider.SystemHasBattery,
-        Settings.MonitorFrames);
+        Settings.MonitorFrames, Settings.MonitorTraffic);
     // What the shown page was built for: its volumes' places, the small gauge's room and the lines for power and the battery.
     private (int Lines, int Columns, bool Small, int Power) _monitorSensors;
     private static (int Lines, int Columns, bool Small, int Power) BuiltSensors(MonitorLayout layout, bool small)

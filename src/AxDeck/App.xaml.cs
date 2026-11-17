@@ -89,6 +89,8 @@ public partial class App : Application
         _mutex = new Mutex(true, "Local\\AxDeck.Instance." + suffix, out var first);
         if (!first)
         {
+            // A second copy that was started for an address or a command line leaves its command for the running one.
+            HandOverCommand(e.Args, Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "AxDeck"));
             try { using var existing = EventWaitHandle.OpenExisting(eventName); existing.Set(); } catch (WaitHandleCannotBeOpenedException) { }
             Shutdown(); return;
         }
@@ -125,6 +127,10 @@ public partial class App : Application
         }));
         WindowDrags = new WindowDrags();
         Shelf = new ShelfService(folder, Dispatcher); Shelf.Apply(Settings);
+        // The day's traffic is counted in the background, whether the panel shows it or not.
+        StartTraffic();
+        // 专注计时器：倒计时在面板关闭时也继续走（App.Focus.cs）。
+        StartFocus();
         Deck = new MainWindow(this); MainWindow = Deck;
         // 桌面页的设置要在第一扇窗口出现前读进来：老版本的分组可能藏过桌面图标，退出时得放得回去。
         Deck.BoxesLoad();
@@ -147,8 +153,11 @@ public partial class App : Application
         ApplyTray();
         _settingsEvent = new EventWaitHandle(false, EventResetMode.AutoReset, eventName);
         _listener = ThreadPool.RegisterWaitForSingleObject(_settingsEvent, (_, _) => Dispatcher.BeginInvoke(ShowFromRelaunch), null, Timeout.Infinite, false);
-        if (e.Args.Contains("--settings")) OpenSettings();
-        // A portable update that kept this version says why on the About page.
+        // The axdeck:// addresses are registered for this user, so a link reaches the app.
+        RegisterProtocol();
+        // This copy’s own address or command line is run here; a portable update that kept this version says why on the About page.
+        var (kind, argument) = StartCommand(e.Args);
+        if (kind != AppCommandKind.None) RunCommand(kind, argument);
         else if (Updates.RestartFailed) OpenUpdateSettings();
     }
     // A resident app must not vanish without a trace. Unhandled errors are appended to crash.log in the data folder;
@@ -195,6 +204,20 @@ public partial class App : Application
         menu.Items.Add(restore);
         return menu;
     }
+    // The focus timer's menu in the tray: open the timer, and start or stop the countdown from there.
+    private MenuItem FocusMenu()
+    {
+        var menu = new MenuItem();
+        var open = new MenuItem { Header = Loc.T("打开专注计时", "Open the focus timer") }; open.Click += (_, _) => Deck.FocusOpen();
+        menu.Items.Add(open);
+        var start = new MenuItem { Header = Loc.T("开始 25 分钟", "Start 25 minutes") }; start.Click += (_, _) => { FocusStart(25); };
+        menu.Items.Add(start);
+        var pause = new MenuItem { Header = Loc.T("暂停计时", "Pause the countdown") }; pause.Click += (_, _) => { FocusPause(); };
+        menu.Items.Add(pause);
+        var reset = new MenuItem { Header = Loc.T("重置计时", "Reset the countdown") }; reset.Click += (_, _) => { FocusReset(); };
+        menu.Items.Add(reset);
+        return menu;
+    }
     // The clipboard page's menus open the settings at its own pages (SettingsWindow.ClipboardSettingsPage, TransferSettingsPage).
     internal void OpenSettingsPage(int page) { ShowSettings(false); _settingsWindow?.ShowPage(page); }
     // 桌面页的数据变了（Settings.Boxes 已指向新的快照）：让设置窗口里的「桌面页」跟着重画。
@@ -204,12 +227,14 @@ public partial class App : Application
     private void ShowFromRelaunch()
     {
         if (Exiting) return;
+        // A command waiting from a second copy is run in place of opening the settings: the address says what to show.
+        if (AppCommandInbox.Read(Store.DirectoryPath) is { } command) { SetUserHidden(false); RunCommand(command.Kind, command.Argument); return; }
         SetUserHidden(false); OpenSettings();
     }
     // Adds or removes the tray icon to match the settings.
     private void ApplyTray()
     {
-        if (Settings.ShowTrayIcon && _tray is null) _tray = new TrayIcon(Deck, OpenSettings, ExitApplication, ToggleHidden, () => UserHidden, ToggleClickThrough, () => Settings.ClickThrough, BoxesMenu);
+        if (Settings.ShowTrayIcon && _tray is null) _tray = new TrayIcon(Deck, OpenSettings, ExitApplication, ToggleHidden, () => UserHidden, ToggleClickThrough, () => Settings.ClickThrough, BoxesMenu, FocusMenu);
         else if (!Settings.ShowTrayIcon && _tray is not null) { _tray.Dispose(); _tray = null; }
     }
     // A Windows notification, sent through the tray icon (TrayIcon.Notify); it goes nowhere when the tray icon is off,
@@ -425,7 +450,7 @@ public partial class App : Application
     {
         var monitor = new SystemSampler(Dispatcher, () => (Settings.MonitorGpu, Settings.MonitorGpuName));
         monitor.UsePlan(MemoryPlan);
-        monitor.Updated += snapshot => MonitorUpdated?.Invoke(snapshot);
+        monitor.Updated += snapshot => MonitorUpdated?.Invoke(WithTraffic(snapshot));
         // A choice saved under an older key is kept under the adapter's key from now on (GpuChoice.Resolve).
         monitor.GpuKeyUpgraded += (old, key) => { if (Settings.MonitorGpu == old) { Settings.MonitorGpu = key; QueueSave(); } };
         return monitor;
@@ -586,7 +611,7 @@ public partial class App : Application
     }
     protected override void OnExit(ExitEventArgs e)
     {
-        Exiting = true; Lifetime.Cancel(); _save.Stop(); _trim?.Stop(); _release?.Stop(); StopBackgroundUpdates(); DisplayPower.Uninstall(); Microsoft.Win32.SystemEvents.UserPreferenceChanged -= SystemThemeChanged; _tray?.Dispose(); DisposeHotkeys(); WindowDrags?.Dispose(); _listener?.Unregister(null); _settingsEvent?.Dispose();
+        Exiting = true; Lifetime.Cancel(); _save.Stop(); FlushHistory(); FlushTraffic(); _trim?.Stop(); _release?.Stop(); StopBackgroundUpdates(); DisplayPower.Uninstall(); Microsoft.Win32.SystemEvents.UserPreferenceChanged -= SystemThemeChanged; _tray?.Dispose(); DisposeHotkeys(); WindowDrags?.Dispose(); _listener?.Unregister(null); _settingsEvent?.Dispose();
         // The desktop organizer gives the native desktop icons back before it goes, so Windows is not left without them. The
         // record of what it hid is written out with it, so the next start does not hide them again.
         Deck.DesktopRestore(); Deck.BoxesRestoreIcons(save: false);

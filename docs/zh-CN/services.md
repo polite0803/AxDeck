@@ -94,9 +94,13 @@ AxDeck 的发布包和仓库里不含任何主机名、端口或本机路径：�
 
 页面打开时每两秒读一次状态，切到别的页面就停止读取。
 
+### 开机自启
+
+打开「开机自启」后，AxDeck 在当前用户下注册一个启动项（`HKCU\Software\Microsoft\Windows\CurrentVersion\Run` 中的 `AxDeckBgeM3`），登录 Windows 时直接拉起 `llama-server`，参数与页面「启动」相同（模型路径取自 `services.json`），不需要先开 AxDeck；关闭开关会删除这个启动项，已经运行的服务不受影响。`llama-server.exe` 或模型路径缺失时开关不会生效，页面会说明缺哪一项。这个启动项与 AxDeck 自己的开机自启是两个独立的值，可以分别开关。
+
 ### 日志
 
-`llama-server` 的输出写入 `%LOCALAPPDATA%\AxDeck\logs\bge-m3.log`，「打开日志」用记事本打开它。启动失败时这个文件里会留下原因。
+`llama-server` 的输出写入 `%LOCALAPPDATA%\AxDeck\logs\bge-m3.log`，「查看日志」在面板里打开它，「打开日志」用记事本打开。文件可能被服务本身同时写入，AxDeck 以共享读写的方式打开，不会因此失败。启动失败时这个文件里会留下原因。
 
 ### 关于本机的 HTTP 代理
 

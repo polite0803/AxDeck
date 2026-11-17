@@ -5,6 +5,7 @@ using System.Windows.Controls.Primitives;
 using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Shapes;
 using AxDeck.Core;
 
 namespace AxDeck;
@@ -147,7 +148,7 @@ public partial class MainWindow
     // The screen's and the panel's scales are part of it, as the title rows are placed on the screen's pixels (TitlePlaces).
     private UsageBuild? _usageBuilt;
     private PanelHeader _usageHeaderBuilt = PanelHeader.For(36, 20);
-    private sealed record UsageBuild(string Form, object Snapshots, object Settings, int ApplicationPage, string QuotaPages, int Theme, string Language, long Minute, double Dpi, double Scale);
+    private sealed record UsageBuild(string Form, object Snapshots, object Settings, int ApplicationPage, string QuotaPages, int Theme, string Language, long Minute, double Dpi, double Scale, string Working);
 
     private UsageBuild? ColumnsBuild()
     {
@@ -157,7 +158,8 @@ public partial class MainWindow
         var fit = FitColumns(columns, ContentCanvas.Width, ContentCanvas.Height);
         return new UsageBuild($"{fit.Layout.Tier}|{fit.Layout.Footer}|{fit.Inline}|{fit.Wide}|{fit.Count}", Snapshots, Settings, _applicationPage,
             string.Join(",", _quotaPages.OrderBy(page => page.Key).Select(page => $"{page.Key:N}:{page.Value}")), PanelTheme.Generation, Loc.Language,
-            DateTime.Now.Ticks / TimeSpan.TicksPerMinute, VisualTreeHelper.GetDpi(this).DpiScaleY, _scale);
+            DateTime.Now.Ticks / TimeSpan.TicksPerMinute, VisualTreeHelper.GetDpi(this).DpiScaleY, _scale,
+            string.Join(",", _app.Working.Order()));
     }
 
     public void RenderUsage()
@@ -230,7 +232,9 @@ public partial class MainWindow
             return;
         }
         if (_details) { _usageForm = "details"; RenderModels(DashboardUsage.Statistics(Settings, Snapshots)); }
-        else RenderColumns(DashboardUsage.Columns(Settings, Snapshots));
+        // Only the page that draws the columns asks whether a tool is working, and only while it is on screen: a page built behind
+        // another one, or a collapsed panel, never walks anyone's session folders.
+        else { if (_expanded && !_preview) _app.AskActivity(); RenderColumns(DashboardUsage.Columns(Settings, Snapshots)); }
     }
 
     // A joined switch: one rounded strip, the selected segment filled. Buttons carry accessible names. With a glide key the fill
@@ -354,7 +358,7 @@ public partial class MainWindow
         // fill in where they will stay instead of the whole column changing when they arrive.
         bool awaiting = Awaiting(snapshot);
         int blocks = awaiting ? view.Slots : view.Quotas.Count;
-        FrameworkElement Block(int i) => awaiting ? SkeletonBlock(entry, layout, i) : QuotaBlock(entry, view.Quotas[i], layout, i, Settings.QuotaRingRemaining);
+        FrameworkElement Block(int i) => awaiting ? SkeletonBlock(entry, layout, i) : QuotaBlock(entry, view.Quotas[i], layout, i, Settings.QuotaRingRemaining, PaceTip(entry, view.Quotas[i]));
         bool off = blocks == 0;
         // Only this column changes: it comes up from faint while the others stay as they are.
         void NextQuotaPage() { _quotaPages[entry.InstanceId] = (view.Page + 1) % view.Pages; _flippedColumn = entry.InstanceId; RenderUsage(); }
@@ -363,11 +367,13 @@ public partial class MainWindow
         column.RowDefinitions.Add(new RowDefinition());
         column.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
 
-        // Title row: the plan sits right after the name, and the name gives way first.
+        // Title row: the plan sits right after the name, and the name gives way first. A small dot at the row's right end says
+        // whether the tool is writing its session records right now (SessionActivity).
         var head = new Grid();
         head.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         head.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         head.ColumnDefinitions.Add(new ColumnDefinition());
+        head.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         var (nameTop, chipTop, chipLift) = TitlePlaces(layout, VisualTreeHelper.GetDpi(this).DpiScaleY, _scale);
         var name = UI.Centered(entry.Name, layout.Name, off ? UI.Secondary : UI.Primary, FontWeights.SemiBold);
         name.HorizontalAlignment = HorizontalAlignment.Left;
@@ -381,6 +387,14 @@ public partial class MainWindow
             var chip = PlanChip(snapshot, layout, chipTop, chipLift);
             Grid.SetColumn(chip, 1); head.Children.Add(chip);
             chip.Measure(new Size(double.PositiveInfinity, layout.Head)); occupied += chip.DesiredSize.Width;
+        }
+        // The dot asks for no room of its own beyond a few DIP, and only when the row is wide enough to keep the name beside it.
+        if (ActivityDot(entry, layout, nameTop) is { } dot)
+        {
+            dot.Measure(new Size(double.PositiveInfinity, layout.Head));
+            double width = dot.DesiredSize.Width;
+            if (innerWidth - occupied - width >= layout.Name * 4)
+            { Grid.SetColumn(dot, 3); head.Children.Add(dot); occupied += width; }
         }
         name.MaxWidth = Math.Max(20, innerWidth - occupied);
         // The page stretches within its size step instead of being built again (RenderUsage), so the name gives way to the plan
@@ -527,6 +541,25 @@ public partial class MainWindow
         return (name, chip, lift);
     }
 
+    // top: where the name's line box starts in the title row, from TitlePlaces. A small dot at the row's right end while the tool is
+    // writing its session records (SessionActivity), in that application's color, with the tool's name in its tip: the panel is a
+    // glance, so the dot says only that something is running, and nothing about the conversation. Null when the tool is not
+    // writing, or keeps no records the panel can watch (SessionSources), so a quiet column has nothing extra in it.
+    private FrameworkElement? ActivityDot(AppEntry entry, Layout layout, double top)
+    {
+        if (!_app.Working.Contains(entry.QuotaSource)) return null;
+        double size = Math.Max(4, Math.Round(layout.Label * .5));
+        var dot = new Ellipse
+        {
+            Width = size, Height = size, Fill = UI.Brush(PanelTheme.AppTheme(entry)),
+            VerticalAlignment = VerticalAlignment.Top, HorizontalAlignment = HorizontalAlignment.Right,
+            Margin = new Thickness(4, Math.Round(top + (UI.LineBox(layout.Name) - size) / 2), 0, 0),
+            ToolTip = Loc.T($"{entry.Name} 正在工作", $"{entry.Name} is working")
+        };
+        AutomationProperties.SetName(dot, Loc.T("正在工作", "Working now"));
+        return dot;
+    }
+
     // top and lift: from TitlePlaces. The text sits right below the border: centered, it moved by a pixel where the rounded
     // border leaves the chip half a pixel short of or over the text.
     private static Border PlanChip(ProviderSnapshot snapshot, Layout layout, double top, double lift)
@@ -571,14 +604,17 @@ public partial class MainWindow
     // remaining (DeckSettings.QuotaRingRemaining): a quota with a share shows what is left: the bar's length, a percentage as the big
     // number ("58% 剩余") and the share at the label's right; an amount (a balance, an amount spent) keeps its figure. The colors
     // still follow the used share, so warning and critical mean the same either way.
-    private static Grid QuotaBlock(AppEntry entry, UsageMetric quota, Layout layout, int slot, bool remaining = false)
+    private Grid QuotaBlock(AppEntry entry, UsageMetric quota, Layout layout, int slot, bool remaining = false, string? pace = null)
     {
+        var curveHistory = Settings.QuotaHistory
+            ? _app.History($"{entry.InstanceId}:{entry.ConfigurationKey}:{quota.Id}", TimeSpan.FromDays(1))
+            : [];
         double used = Math.Clamp(quota.UsedPercent ?? 100, 0, 100);
         bool left = remaining && quota.UsedPercent is not null;
         bool share = quota.Kind is MetricKind.Percent or MetricKind.Count;
         string valueText = left && share ? $"{100 - used:0.#}%" : quota.ValueText, valueSuffix = left && share ? Loc.T("剩余", "left") : quota.ValueSuffix;
         string color = quota.UsedPercent is null ? PanelTheme.QuotaTheme(entry) : PanelTheme.QuotaColor(entry, used);
-        int level = quota.UsedPercent is null ? 0 : AppPresets.Level(used);
+        int level = quota.UsedPercent is null ? 0 : entry.At(used);
         var block = new Grid();
         foreach (double height in new[] { layout.LabelRow, layout.RowGap, layout.NumberRow, layout.RowGap, layout.Track })
             block.RowDefinitions.Add(new RowDefinition { Height = new GridLength(height) });
@@ -593,7 +629,8 @@ public partial class MainWindow
         // A custom item without a value leaves the row empty; the row keeps its height so blocks stay aligned.
         if (valueText.Length > 0) number.Inlines.Add(new Run(valueText) { FontSize = layout.Number, FontWeight = FontWeights.SemiBold, Foreground = UI.Brush(level > 0 ? color : UI.Primary) });
         if (layout.UsedWord && valueSuffix.Length > 0) number.Inlines.Add(new Run(" " + valueSuffix) { FontSize = 11, FontFamily = UI.PanelFont, Foreground = UI.Brush(UI.Tertiary) });
-        number.ToolTip = quota.Kind switch
+        // The estimate follows the tooltip the quota already has, on a line of its own, so it never replaces what the row says.
+        string? shown = quota.Kind switch
         {
             MetricKind.Balance => Loc.T("可用 " + quota.ValueText, quota.ValueText + " available")
                 + (quota.Total is { } total ? quota.TotalIsTarget
@@ -604,6 +641,7 @@ public partial class MainWindow
             MetricKind.Count => CountTooltip(quota),
             _ => MetricPercentTooltip(quota)
         };
+        number.ToolTip = pace is { Length: > 0 } ? (string.IsNullOrEmpty(shown) ? pace : shown + "\n" + pace) : shown;
         numbers.Children.Add(number);
         var resetText = UI.ShortReset(quota.ResetAt);
         var expiryText = quota.ExpiresAt is { } expiry ? (expiry <= DateTimeOffset.Now ? Loc.T("已到期", "Expired") : Loc.T(UI.ShortReset(expiry) + "到期", "expires " + UI.ShortReset(expiry))) : "";
@@ -641,6 +679,10 @@ public partial class MainWindow
             right.Margin = new Thickness(6, 0, 0, 1); Grid.SetColumn(right, 1); numbers.Children.Add(right);
         }
         block.Children.Add(numbers);
+        // The kept day's shares behind the track, so a quota that has climbed all day reads differently from one that only rose
+        // in the last few minutes. Drawn only when there are enough readings to say anything (QuotaCurve.Worth).
+        var curve = new QuotaCurve(curveHistory, color);
+        if (QuotaCurve.Worth(curveHistory)) { Grid.SetRow(curve, 4); block.Children.Add(curve); }
         var track = new QuotaBar($"{entry.InstanceId:N}:{slot}", (left ? 100 - used : used) / 100, color); Grid.SetRow(track, 4);
         block.Children.Add(track);
         return block;
@@ -665,6 +707,21 @@ public partial class MainWindow
 
     private static string? MetricPercentTooltip(UsageMetric metric) => metric.UsedPercent is { } percent
         ? Loc.T($"已用 {Math.Max(0, percent):0.#}% · 剩余 {Math.Max(0, 100 - percent):0.#}%", $"{Math.Max(0, percent):0.#}% used · {Math.Max(0, 100 - percent):0.#}% left") : null;
+
+    // When this quota would reach the row's critical level at the pace it has been rising, as a second line for the quota's
+    // tooltip. Nothing is said without a pace the readings support (UsagePace): the panel does not guess, and an estimate
+    // from two readings minutes apart would be a guess.
+    private string? PaceTip(AppEntry entry, UsageMetric quota)
+    {
+        if (quota.UsedPercent is null) return null;
+        var key = $"{entry.InstanceId}:{entry.ConfigurationKey}:{quota.Id}";
+        if (_pace.Peek(key, entry.CriticalAt, quota.ResetAt, DateTimeOffset.Now) is not { } pace) return null;
+        // The share counts towards the row's critical level, which is what the panel warns about; short times are given in
+        // minutes so "in 3 minutes" does not read as "in 0 hours".
+        string when = UI.ShortReset(pace.ReachAt);
+        if (when.Length == 0) return null;
+        return Loc.T($"按当前速度，约 {when}达到 {entry.CriticalAt:0}%", $"At this pace, {entry.CriticalAt:0}% around {when}");
+    }
 
     private static string? QuotaTooltip(ProviderSnapshot snapshot)
     {

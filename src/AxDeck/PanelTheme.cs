@@ -206,8 +206,8 @@ internal static class PanelTheme
     // At the warning and critical levels, an off-peak color chosen for that level replaces the usual one.
     public static string QuotaColor(AppEntry entry, double usedPercent)
     {
-        if (usedPercent < AppPresets.WarningPercent) return QuotaTheme(entry);
-        bool critical = usedPercent >= AppPresets.CriticalPercent;
+        if (usedPercent < entry.WarningAt) return QuotaTheme(entry);
+        bool critical = usedPercent >= entry.CriticalAt;
         string offPeak = critical ? entry.OffPeakCriticalColor : entry.OffPeakWarningColor;
         if (offPeak.Length > 0 && !HighContrast && entry.IsOffPeak(DateTime.Now)) return Readable(offPeak, PanelThemes.LevelContrast);
         return critical ? AppCritical(entry) : AppWarning(entry);

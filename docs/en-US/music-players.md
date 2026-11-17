@@ -39,6 +39,18 @@ Full control needs NetEase Cloud Music to open a local debugging port, which car
 
 Full control makes KuGou open a local debugging port. Read [Data and privacy](privacy.md#kugou-music-full-control) before you turn it on.
 
+## Lyric translations
+
+With "Show lyric translations" on (Settings › Style › When expanded), lyrics show as two lines: the original above, the translation below.
+
+- A translation shows only when the source provides one: the lyrics from NetEase Cloud Music and QQ Music carry translations; Apple Music's TTML lyrics are not read for a translation yet, even where they hold one, and KuGou provides none.
+- When there is no room for the translation, it takes the place of the neighbouring lyric line rather than crowding out or cutting the original.
+- Turning the switch off returns the lyrics to a single line.
+
+## Output devices
+
+The output button on the music page lists the machine's playback devices and marks the one in use; choosing a device moves the system's sound to it without opening Windows' audio settings. The list and the switch are made through Windows' audio service; AxDeck reads the device names and changes no audio setting.
+
 ## Several players and ignored apps
 
 - When several players are playing or paused, switch between them or pin one in the source menu at the top right of the music page.

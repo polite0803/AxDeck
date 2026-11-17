@@ -93,6 +93,7 @@ public sealed partial class SettingsWindow
         var detail = new StackPanel { Margin = new Thickness(0, 0, 0, 12) }; Grid.SetIsSharedSizeScope(detail, true);
         Grid.SetRow(detail, 1); Grid.SetColumnSpan(detail, 9);
         if (SourceDetails(entry) is { } source) { source.Margin = new Thickness(0); detail.Children.Add(source); }
+        detail.Children.Add(LevelDetails(entry));
         detail.Children.Add(RingDetails(entry));
         detail.Children.Add(OffPeakDetails(entry));
         bool open = _expandedSource == entry.InstanceId;
@@ -457,6 +458,89 @@ public sealed partial class SettingsWindow
     // This row's collapsed quota ring (QuotaRing.For): which quotas it shows in the style chosen above the applications, one line
     // per ring under the same label column as the target balance and the off-peak time. The style, what the arcs show and the
     // letters' switch are shared by every row and set above the applications (QuotaRingSection); the letter is the display name's.
+    // This row's own warning and critical levels, for a source whose quota runs on a different scale from the rest. Left empty
+    // each keeps the panel's global level, so a row that never touches them behaves exactly as before.
+    private FrameworkElement LevelDetails(AppEntry entry)
+    {
+        var grid = AppColumns();
+        Guid id = entry.InstanceId;
+        void Line(string label, Func<string>? help, FrameworkElement control)
+        {
+            var line = new Grid();
+            line.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto, SharedSizeGroup = "SourceLabel" });
+            line.ColumnDefinitions.Add(new ColumnDefinition());
+            var caption = TextLine(label, 12, TextSecondary);
+            FrameworkElement heading = help is null ? caption : new HelpHeading(caption, SmallHelp(label, help));
+            heading.Margin = new Thickness(16, 0, 16, 0); heading.MinWidth = 52; heading.VerticalAlignment = VerticalAlignment.Center;
+            line.Children.Add(heading);
+            Grid.SetColumn(control, 1); line.Children.Add(control);
+            line.Margin = new Thickness(0, 5, 0, 5);
+            grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            Grid.SetRow(line, grid.RowDefinitions.Count - 1); Grid.SetColumn(line, 1); Grid.SetColumnSpan(line, 6); grid.Children.Add(line);
+        }
+        // A share entered as a number, shown with the "%" it stands for. Clearing the field goes back to the global level.
+        FrameworkElement Field(string name, Func<double> read, double fallback, Action<double> apply)
+        {
+            var input = new TextBox { Style = (Style)FindResource("SettingsNumber"), TextAlignment = TextAlignment.Left, FontSize = 12.5, MaxLength = 5,
+                VerticalAlignment = VerticalAlignment.Center, Text = read() > 0 ? read().ToString("0.#", CultureInfo.InvariantCulture) : "" };
+            AutomationProperties.SetName(input, entry.Name + " " + name);
+            var hint = TextLine(Loc.T($"{fallback:0}%（默认）", $"{fallback:0}% (default)"), 12.5, TextTertiary);
+            hint.VerticalAlignment = VerticalAlignment.Center; hint.IsHitTestVisible = false; hint.Margin = new Thickness(5, 0, 0, 0);
+            var percent = TextLine("%", 12, TextSecondary); percent.VerticalAlignment = VerticalAlignment.Center; percent.Margin = new Thickness(4, 0, 0, 0);
+            var content = new Grid();
+            content.ColumnDefinitions.Add(new ColumnDefinition()); content.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            content.Children.Add(hint); content.Children.Add(input); Grid.SetColumn(percent, 1); content.Children.Add(percent);
+            var field = new Border { Child = content, Width = 96, Height = 34, HorizontalAlignment = HorizontalAlignment.Left, CornerRadius = new CornerRadius(6),
+                Padding = new Thickness(10, 0, 10, 0), Background = UI.Brush(_palette.Input), BorderBrush = UI.Brush(_palette.InputBorder),
+                BorderThickness = new Thickness(1), VerticalAlignment = VerticalAlignment.Center };
+            FieldFocus(field, field, () => UI.Brush(_palette.InputBorder));
+            field.MouseLeftButtonDown += (_, e) => { input.Focus(); e.Handled = true; };
+            void Hint() => hint.Visibility = input.Text.Trim().Length == 0 ? Visibility.Visible : Visibility.Collapsed;
+            void Commit()
+            {
+                if (S.Entry(id) is null) return;
+                var text = input.Text.Trim().TrimEnd('%', '％');
+                double value = 0;
+                if (text.Length > 0 && (!double.TryParse(text, NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture, out value) || value is < 1 or > 100))
+                {
+                    SaveStatus(Loc.T("阈值必须是 1 到 100 之间的百分比，例如 75。留空使用默认值。", "A level must be a share from 1 to 100, such as 75. Left empty, the default is used."), true);
+                    input.Text = Show(read()); Hint();
+                    return;
+                }
+                if (value != 0) value = Math.Round(value, 1);
+                if (value == read()) { input.Text = Show(value); Hint(); return; }
+                apply(value);
+                RefreshAppRow(id);
+            }
+            input.TextChanged += (_, _) => Hint();
+            input.LostKeyboardFocus += (_, _) => Commit();
+            input.KeyDown += (_, e) =>
+            {
+                if (e.Key == Key.Enter) { Commit(); e.Handled = true; }
+                else if (e.Key == Key.Escape) { input.Text = Show(read()); Hint(); e.Handled = true; }
+            };
+            Hint();
+            return field;
+        }
+        // An unchosen level reads as an empty field, and the hint names the default it then uses.
+        static string Show(double value) => value > 0 ? value.ToString("0.#", CultureInfo.InvariantCulture) : "";
+        var list = new StackPanel { Orientation = Orientation.Horizontal };
+        // Both fields sit on one line, each under its own caption, the way the row's colors do.
+        void Pair(string label, Func<double> read, double fallback, Action<double> apply)
+        {
+            var caption = TextLine(label, 12, TextSecondary); caption.VerticalAlignment = VerticalAlignment.Center;
+            caption.Margin = new Thickness(list.Children.Count == 0 ? 0 : 20, 0, 8, 0);
+            list.Children.Add(caption); list.Children.Add(Field(label, read, fallback, apply));
+        }
+        Pair(Loc.T("预警", "Warning"), () => S.Entry(id)?.WarningLevel ?? 0, AppPresets.WarningPercent, value => Change(s => s.Entry(id)!.WarningLevel = value));
+        Pair(Loc.T("告警", "Critical"), () => S.Entry(id)?.CriticalLevel ?? 0, AppPresets.CriticalPercent, value => Change(s => s.Entry(id)!.CriticalLevel = value));
+        Line(Loc.T("阈值", "Levels"), () => Loc.T("这一行达到多少已用比例算预警和告警：面板里配额的配色、收起的提醒与系统通知都按它。留空时用面板的默认值（预警 " +
+            $"{AppPresets.WarningPercent:0}%、告警 {AppPresets.CriticalPercent:0}%），适合用量比别的工具轻或重的应用各自设置。告警必须高于预警。",
+            "The used share at which this row counts as at its warning and critical levels: the quota's colors in the panel, the collapsed notice and the system notification all follow it. " +
+            $"Left empty, the panel's defaults ({AppPresets.WarningPercent:0}% and {AppPresets.CriticalPercent:0}%) apply, which suits a tool used more or less heavily than the rest. The critical level must be above the warning one."), list);
+        return grid;
+    }
+
     private FrameworkElement RingDetails(AppEntry entry)
     {
         var grid = AppColumns();

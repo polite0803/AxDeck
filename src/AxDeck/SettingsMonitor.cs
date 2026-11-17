@@ -86,6 +86,11 @@ public sealed partial class SettingsWindow
                 Loc.T("在网速下方显示前台程序的帧率、程序名称和所在显示器的刷新率；前台程序不在绘制时，显示最近一个在绘制的程序。只在面板展开到系统监控页时读取。首次开启时需要授权。",
                     "Shows the frame rate of the program in front under the network rates, with its name and its display's refresh rate; while it draws nothing, the last program that did. Read only while the panel is open on the system monitor page. Needs permission the first time."),
                 keepPreview: true), () => S.MonitorFrames && !Reading(S, CompactMonitorItems.Frames).Visible),
+            Toggle(Loc.T("显示今日流量", "Show today's traffic"), S.MonitorTraffic, v => Resize(s => s.MonitorTraffic = v, DeckPage.Monitor),
+                help:
+                Loc.T("在硬盘下方显示今日累计的磁盘读写与网络收发。计数在后台进行，面板关闭时也照常累计，数据只存在本机。",
+                    "Shows today's disk reads and writes and network traffic under the drives. Counted in the background, so the totals keep up while the panel is closed; the counts stay on this PC."),
+                keepPreview: true),
             WithSensorStops(Toggle(Loc.T("显示温度", "Show temperatures"), S.MonitorTemperatures, v => Resize(s => s.MonitorTemperatures = v, DeckPage.Monitor),
                 help:
                 Loc.T("读不到的温度不显示。CPU 温度由主板固件提供，许多电脑没有这项数据；有的电脑读到的是主板的温度，不是 CPU 本身的温度。",

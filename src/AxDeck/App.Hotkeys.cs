@@ -194,6 +194,7 @@ public partial class App
             case HotkeyKind.Refresh: Deck.SyncNow(); break;
             case HotkeyKind.CycleStyle: CycleCompactStyle(); break;
             case HotkeyKind.LineStyle: ToggleLineStyle(); break;
+            case HotkeyKind.Palette: DeckUnderPointer().PaletteOpen(); break;
         }
     }
 }

@@ -74,6 +74,9 @@ public partial class MainWindow : Window
     // Threshold levels seen per quota; a rise after the first reading briefly widens the compact island.
     private readonly Dictionary<string, int> _levels = new();
     private bool _levelsSeeded;
+    // Readings kept to estimate when a quota will reach its critical level (UsagePace). In memory only, and read by the
+    // quota rows' tooltips; the estimate is dropped when the readings no longer support one.
+    private readonly UsagePace _pace = new();
     private CompactAlertInfo? _alert;
     private DeckSettings Settings => _app.Settings;
     public bool IsExpanded => _expanded;
@@ -126,8 +129,10 @@ public partial class MainWindow : Window
         _handover = new PageHandover(LeavingContent);
         InitializeMusic();
         InitializeMonitor();
+        InitializeAudioOutput();
         InitializeShelf();
         InitializeDevices();
+        InitializeFocus();
         InitializeResize();
         InitializeScale();
         InitializeShadow();
@@ -564,6 +569,7 @@ public partial class MainWindow : Window
         System.Windows.Automation.AutomationProperties.SetName(DevicesPageButton, Loc.T("设备电量", "Device batteries"));
         System.Windows.Automation.AutomationProperties.SetName(MusicPageButton, Loc.T("音乐", "Music"));
         System.Windows.Automation.AutomationProperties.SetName(SettingsButton, Loc.T("设置", "Settings"));
+        System.Windows.Automation.AutomationProperties.SetName(PaletteButton, Loc.T("命令面板", "Command palette"));
     }
     public void Preview(bool enabled, bool expanded = true)
     { _preview = enabled; _previewExpanded = enabled && expanded; if (enabled) _pageSwitchHold.Stop(); ApplySettings(); SetExpanded(enabled && expanded, true); }
@@ -613,6 +619,9 @@ public partial class MainWindow : Window
     private void DetectThresholds()
     {
         CompactAlertInfo? risen = null;
+        List<string> live = [];
+        List<(string Key, double Used)> readings = [];
+        var now = DateTimeOffset.Now;
         foreach (var entry in Settings.EnabledApps)
         {
             var snapshot = DashboardUsage.Quota(entry, Snapshots);
@@ -621,13 +630,22 @@ public partial class MainWindow : Window
             {
                 if (quota.UsedPercent is not { } used) continue;
                 var key = $"{entry.InstanceId}:{entry.ConfigurationKey}:{quota.Id}";
-                int level = AppPresets.Level(used);
+                int level = entry.At(used);
                 bool rose = _levelsSeeded && _levels.TryGetValue(key, out var previous) && level > previous;
                 _levels[key] = level;
                 if (rose && level > 0 && (risen is null || used > risen.Used))
                     risen = new CompactAlertInfo(entry, entry.Name, MetricLabel(quota) + " ", Math.Clamp(used, 0, 100), quota.ResetAt);
+                // The pace is recorded for every quota that has a share, whether or not it notifies: the tooltip is where it
+                // is shown, and a quota below its levels is exactly the one whose estimate is worth having.
+                live.Add(key);
+                _pace.Record(key, used, now, entry.CriticalAt, quota.ResetAt, entry.IsOffPeak(now.LocalDateTime));
+                readings.Add((key, Math.Clamp(used, 0, 100)));
             }
         }
+        // A quota that has left the panel takes its readings with it, so a row readded later starts over.
+        _pace.Forget(live);
+        // The kept curve comes from the main panel alone, as the system notification does: every panel reads its own here.
+        if (readings.Count > 0 && this == _app.Deck && Settings.QuotaHistory) _app.RecordHistory(readings);
         _levelsSeeded = true;
         // Levels are still tracked while notices are off, so switching them back on does not replay an earlier rise.
         if (risen is not null && Settings.QuotaAlerts && !IsSuppressed) ShowAlert(risen);
@@ -642,7 +660,7 @@ public partial class MainWindow : Window
             string text = left ? Loc.T($"{risen.Label}剩余 {share:0}%", $"{risen.Label}{share:0}% left") : Loc.T($"{risen.Label}已用 {risen.Used:0}%", $"{risen.Label}{risen.Used:0}% used");
             string shortReset = UI.ShortReset(risen.ResetAt);
             if (shortReset.Length > 0) text += " " + Loc.T(shortReset + "重置", shortReset.StartsWith("in ", StringComparison.Ordinal) ? "resets " + shortReset : shortReset);
-            _app.SystemNotice(risen.Name, text, risen.Used >= AppPresets.CriticalPercent ? 2 : 1);
+            _app.SystemNotice(risen.Name, text, risen.Entry.At(risen.Used) >= 2 ? 2 : 1);
         }
     }
 

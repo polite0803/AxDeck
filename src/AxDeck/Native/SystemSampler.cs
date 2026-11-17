@@ -675,6 +675,10 @@ internal sealed class NetworkProvider : IDisposable
         if (current.Count == 0) { _previous = []; _time = null; return Reading<NetworkSample>.Unavailable(Why.NoAdapter); }
         var previous = _previous; var then = _time;
         _previous = current; _time = now;
+        // The day's traffic counts from the adapters' own counters, which the pause does not end.
+        long inbound = 0, outbound = 0;
+        foreach (var (luid, (received, sent)) in current) { inbound += (long)received; outbound += (long)sent; }
+        lock (_totalsGate) { _totals = (inbound, outbound); _totalsKnown = true; }
         if (then is not { } start || now - start <= 0) return Reading<NetworkSample>.Unavailable(Why.Waiting);
         double seconds = now - start, down = 0, up = 0;
         foreach (var (luid, (received, sent)) in current)
@@ -685,6 +689,20 @@ internal sealed class NetworkProvider : IDisposable
         }
         return new NetworkSample(down, up);
     }
+
+    // The adapters' counters as they stand, since the machine started: the bytes received over the network and the bytes sent,
+    // summed over the physical adapters. The day's traffic is counted from these (TrafficToday). Kept apart from _previous, which
+    // the sampler's pause clears, as the day's totals are not the pause's to end.
+    public (long Received, long Sent)? Totals()
+    {
+        lock (_totalsGate)
+        {
+            return _totalsKnown ? _totals : null;
+        }
+    }
+    private readonly object _totalsGate = new();
+    private (long Received, long Sent) _totals;
+    private bool _totalsKnown;
 
     // Every interface, keeping the physical adapters and their counters.
     private Dictionary<ulong, (ulong, ulong)>? List()
@@ -721,12 +739,12 @@ internal sealed class NetworkProvider : IDisposable
     }
 
     // HardwareInterface is bit 0 of the flags, FilterInterface bit 1; type 24 is the software loopback.
-    private static bool Physical(IntPtr row)
+    internal static bool Physical(IntPtr row)
     {
         byte flags = Marshal.ReadByte(row, 1152);
         return (flags & 1) != 0 && (flags & 2) == 0 && Marshal.ReadInt32(row, 1128) != 24;
     }
-    private static (ulong, ulong) Counters(IntPtr row) => ((ulong)Marshal.ReadInt64(row, 1208), (ulong)Marshal.ReadInt64(row, 1280));
+    internal static (ulong, ulong) Counters(IntPtr row) => ((ulong)Marshal.ReadInt64(row, 1208), (ulong)Marshal.ReadInt64(row, 1280));
 
     public void Dispose() => Marshal.FreeHGlobal(_row);
 

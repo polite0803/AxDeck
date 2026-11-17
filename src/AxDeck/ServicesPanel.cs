@@ -328,6 +328,73 @@ public partial class MainWindow
         catch (System.Exception ex) { _servicesView?.SetStatus(Loc.T("打开失败：", "Open failed: ") + ex.Message); }
     }
 
+    // The log in a window of its own, read out of the file the server writes. The file is read off the UI thread: a long
+    // log takes a moment, and the panel must not stall while it is read.
+    internal void ServicesShowBgeLog()
+    {
+        Task.Run(() =>
+        {
+            var lines = BgeM3Service.ReadLogTail(ServiceLog.DefaultLines);
+            OnUi(() =>
+            {
+                var window = new ServiceLogWindow(Settings.Theme, Loc.T("BGE-M3 日志", "BGE-M3 log"), lines, BgeM3Service.LogPath) { Owner = this };
+                window.Show();
+            });
+        });
+    }
+
+    // The emulator's log, in a window of its own, the same way as the embedding server's.
+    internal void ServicesShowAxTvLog()
+    {
+        Task.Run(() =>
+        {
+            var lines = AxTvEmulator.ReadLogTail(ServiceLog.DefaultLines);
+            OnUi(() =>
+            {
+                var window = new ServiceLogWindow(Settings.Theme, Loc.T("AxTV 日志", "AxTV log"), lines, AxTvEmulator.LogPath) { Owner = this };
+                window.Show();
+            });
+        });
+    }
+
+    // Whether the embedding server starts with Windows on its own. The command line is written into the Run key, next to
+    // AxDeck's own entry but under its own name, so the two can be turned off separately.
+    internal bool ServicesBgeAutostartEnabled()
+    {
+        try { return StartupRegistration.IsBgeEnabled(); }
+        catch (System.Exception ex) when (ex is System.IO.IOException or UnauthorizedAccessException or System.Security.SecurityException) { return false; }
+    }
+
+    internal void ServicesSetBgeAutostart(bool enabled)
+    {
+        try
+        {
+            if (enabled)
+            {
+                var server = BgeM3Service.ResolveServerPath();
+                if (BgeAutostart.Refusal(server, _bge.ModelPath) is { } refusal)
+                {
+                    _servicesView?.SetStatus(refusal, true);
+                    _servicesView?.SetBgeAutostart(false);
+                    return;
+                }
+                StartupRegistration.SetBgeEnabled(true, BgeAutostart.Command(server!, _bge.ModelPath));
+                _servicesView?.SetStatus(Loc.T("已设置 BGE-M3 开机自启", "BGE-M3 now starts with Windows"));
+            }
+            else
+            {
+                StartupRegistration.SetBgeEnabled(false, "");
+                _servicesView?.SetStatus(Loc.T("已取消 BGE-M3 开机自启", "BGE-M3 no longer starts with Windows"));
+            }
+            _servicesView?.SetBgeAutostart(enabled);
+        }
+        catch (System.Exception ex) when (ex is System.IO.IOException or UnauthorizedAccessException or System.Security.SecurityException)
+        {
+            _servicesView?.SetStatus(Loc.T("无法设置开机自启：", "Could not change the startup setting: ") + ex.Message, true);
+            _servicesView?.SetBgeAutostart(ServicesBgeAutostartEnabled());
+        }
+    }
+
     // ----------------------------------------------------------------------
     // The Android emulator (the old "AxTV 模拟器管理器", ported to native C#)
     // ----------------------------------------------------------------------

@@ -66,12 +66,13 @@ public enum EqualizerMode { Flow = 0, Spectrum = 1 }
 public enum QuotaRingStyle { Nested = 0, Single = 1 }
 // The parts of the collapsed notch and capsule that are put in order, left to right. The cover stays at the left; Music places
 // only the title or lyric. Saved as numbers, so new members go at the end.
-public enum CompactPart { Rings, Music, Monitor, Equalizer, Clock, Transfer, Devices }
+public enum CompactPart { Rings, Music, Monitor, Equalizer, Clock, Transfer, Devices, Focus }
 public static class CompactParts
 {
     // A file saved before the equalizer and the clock were put in order adds them after its parts, the clock last, where they stood.
     // The devices' batteries (1.3.0) join last.
-    public static IReadOnlyList<CompactPart> Default { get; } = [CompactPart.Rings, CompactPart.Music, CompactPart.Monitor, CompactPart.Equalizer, CompactPart.Clock, CompactPart.Transfer, CompactPart.Devices];
+    // The focus timer's countdown (1.4.0) joins last too.
+    public static IReadOnlyList<CompactPart> Default { get; } = [CompactPart.Rings, CompactPart.Music, CompactPart.Monitor, CompactPart.Equalizer, CompactPart.Clock, CompactPart.Transfer, CompactPart.Devices, CompactPart.Focus];
     // Each known part once, in the saved order; a part missing from the file takes its default place after the others.
     public static List<CompactPart> Normalize(IEnumerable<CompactPart>? order) => [.. (order ?? []).Where(part => Enum.IsDefined(part)).Concat(Default).Distinct()];
 }
@@ -165,6 +166,15 @@ public sealed class AppEntry
     public string SingleRingQuota { get; set; } = "";
     public List<string> RingQuotas { get; set; } = [];
     public Dictionary<string, decimal> QuotaTargets { get; set; } = [];
+    // This row's own warning and critical levels, in used share, for rows whose quota runs on a different scale from the rest
+    // (a source used lightly beside one used heavily). 0 means the global AppPresets levels; the two are kept apart, the
+    // critical one always above the warning one (Normalize).
+    public double WarningLevel { get; set; }
+    public double CriticalLevel { get; set; }
+    [JsonIgnore] public double WarningAt => WarningLevel > 0 ? WarningLevel : AppPresets.WarningPercent;
+    [JsonIgnore] public double CriticalAt => CriticalLevel > 0 ? CriticalLevel : AppPresets.CriticalPercent;
+    // The level a used share sits at for this row: 0 below its warning level, 1 at it, 2 at its critical level.
+    public int At(double usedPercent) => usedPercent >= CriticalAt ? 2 : usedPercent >= WarningAt ? 1 : 0;
     public bool IsOffPeak(DateTime local) => OffPeak?.Any(period => period.Contains(local)) == true;
     // The next minute at which this row enters or leaves its off-peak time; null without periods, or when they cover the
     // whole day. A boundary inside another period changes nothing, so the first boundary that flips the state is taken.
@@ -206,6 +216,11 @@ public sealed class AppEntry
         SingleRingQuota = (SingleRingQuota ?? "").Trim();
         if (SingleRingQuota.Length > 500) SingleRingQuota = "";
         RingQuotas = QuotaRing.Slots(RingQuotas);
+        // Each level is either the global one (0, left unchosen) or a share from 1 to 100; the warning one is held below the
+        // critical one, so the two can never cross and a level is never both at once.
+        WarningLevel = AppPresets.NormalizeLevel(WarningLevel);
+        CriticalLevel = AppPresets.NormalizeLevel(CriticalLevel);
+        if (WarningAt >= CriticalAt) WarningLevel = AppPresets.LevelBelow(CriticalAt);
         AgentKey = (AgentKey ?? "").Trim();
         if (AgentKey.Length > 64) AgentKey = "";
         LocalDataPath = (LocalDataPath ?? "").Trim();
@@ -269,6 +284,12 @@ public static class AppPresets
     // Sources entered by hand share one purple by default.
     public const string ManualColor = "#CC9EED";
     public static int Level(double usedPercent) => usedPercent >= CriticalPercent ? 2 : usedPercent >= WarningPercent ? 1 : 0;
+    // A level left unchosen is 0, which each row reads as the global level (WarningAt, CriticalAt). Anything else must be a
+    // share from 1 to 100; a value outside that is not a level at all, so the row goes back to the global one rather than
+    // being clamped into a level the user never picked.
+    public static double NormalizeLevel(double value) => double.IsFinite(value) && value is >= 1 and <= 100 ? Math.Round(value, 1) : 0;
+    // The closest share below the given one, for a warning level that would otherwise stand at or above the critical one.
+    public static double LevelBelow(double level) => Math.Max(1, Math.Round(level - 1, 1));
     public static bool IsColor(string value) => Regex.IsMatch(value, "^#[0-9A-Fa-f]{6}$");
     public static string NormalizeColor(string? value)
     {
@@ -413,6 +434,7 @@ public sealed class DeckSettings
     public string RefreshHotkey { get; set; } = "";
     public string CycleStyleHotkey { get; set; } = "";
     public string LineStyleHotkey { get; set; } = "";
+    public string PaletteHotkey { get; set; } = "";
     public string Hotkey(HotkeyKind kind) => (kind switch
     {
         HotkeyKind.Hide => HideHotkey, HotkeyKind.Expand => ExpandHotkey, HotkeyKind.Resize => ResizeHotkey, HotkeyKind.Move => MoveHotkey,
@@ -420,7 +442,7 @@ public sealed class DeckSettings
         HotkeyKind.Page2 => Page2Hotkey, HotkeyKind.Page3 => Page3Hotkey, HotkeyKind.Page4 => Page4Hotkey,
         HotkeyKind.Page5 => Page5Hotkey, HotkeyKind.Page6 => Page6Hotkey, HotkeyKind.Page7 => Page7Hotkey, HotkeyKind.Page8 => Page8Hotkey,
         HotkeyKind.Page9 => Page9Hotkey, HotkeyKind.Page10 => Page10Hotkey, HotkeyKind.Refresh => RefreshHotkey,
-        HotkeyKind.CycleStyle => CycleStyleHotkey, HotkeyKind.LineStyle => LineStyleHotkey, _ => ""
+        HotkeyKind.CycleStyle => CycleStyleHotkey, HotkeyKind.LineStyle => LineStyleHotkey, HotkeyKind.Palette => PaletteHotkey, _ => ""
     }) ?? "";
     public void SetHotkey(HotkeyKind kind, string value)
     {
@@ -445,6 +467,7 @@ public sealed class DeckSettings
             case HotkeyKind.Refresh: RefreshHotkey = value; break;
             case HotkeyKind.CycleStyle: CycleStyleHotkey = value; break;
             case HotkeyKind.LineStyle: LineStyleHotkey = value; break;
+            case HotkeyKind.Palette: PaletteHotkey = value; break;
         }
     }
     // Mouse pass-through: hovering does not open the panel and every click goes to the window beneath; only the shortcuts open
@@ -502,6 +525,8 @@ public sealed class DeckSettings
     public bool MusicPageCover { get; set; } = true;
     public bool MusicIndicatorProgress { get; set; } = true;
     public bool LyricsEnabled { get; set; } = true;
+    // A provider's translated lyric (NetEase's tlyric, QQ's trans) under the current line, where the music page has the room.
+    public bool MusicLyricTranslation { get; set; } = true;
     // What dragging with the left button over the expanded music page does in each direction, and a two-finger touchpad swipe
     // to either side (MusicGestures). A number not listed does nothing.
     public MusicGestureAction MusicDragLeft { get => _musicDragLeft; set => _musicDragLeft = Gesture(value); }
@@ -666,10 +691,18 @@ public sealed class DeckSettings
     // The notch and the capsule each show the devices' batteries (CompactPart.Devices).
     public bool NotchDevices { get; set; }
     public bool CapsuleDevices { get; set; }
+    // The notch and the capsule each show the focus timer's countdown (CompactPart.Focus). The countdown shows while the
+    // timer runs, and while it stands paused or has run out; it is hidden while the timer was never started.
+    public bool NotchFocus { get; set; }
+    public bool CapsuleFocus { get; set; }
     // The expanded page shows a line under memory and network with the frame rate of the program in front, its name and its display's
     // refresh rate (FrameRates). Off by default; read only while the page is open, and only where the user may read Windows' frame
     // events (the Performance Log Users group, or AxDeck elevated).
     public bool MonitorFrames { get; set; }
+    // The expanded page shows a line with the day's traffic: the bytes read from and written to the disks, and the bytes received
+    // over and sent through the network, since the day began (TrafficToday). The counters are read in the background whether the
+    // page shows them or not, so the totals keep up while the panel is closed; off, the page shows no line for them.
+    public bool MonitorTraffic { get; set; }
     // The notch and the capsule each switch the system readings on; what they show is shared.
     public bool NotchMonitor { get; set; }
     public bool CapsuleMonitor { get; set; }
@@ -713,6 +746,10 @@ public sealed class DeckSettings
     // Sends a Windows notification when a device's charge crosses into the getting-low or low level. The readings are
     // taken while the devices are shown, as they always are, so the notices follow the same demand.
     public bool DeviceNotifications { get; set; }
+    // Keeps each quota's used share on disk for the last month, drawn faintly behind its track, so a quota climbing all day
+    // reads differently from one that only rose just now. On by default: it is what the curve is for, it holds nothing but a
+    // percentage, and it stays on this PC (usage-history.json). Off, nothing is written and no curve is drawn.
+    public bool QuotaHistory { get; set; } = true;
     // Also reads the Claude Code and Codex CLI session records inside WSL distributions. Off by default: it starts stopped distributions.
     public bool IncludeWsl { get; set; }
     // The ordered application list; the order is the column order of the expanded panel. Claude and Codex are shown
@@ -732,6 +769,8 @@ public sealed class DeckSettings
     // The indicator is too thin for readings, as for the clock.
     public bool ShowsMonitor(CompactStyle style) => style switch { CompactStyle.Notch => NotchMonitor, CompactStyle.Capsule => CapsuleMonitor, _ => false };
     public bool ShowsDevices(CompactStyle style) => style switch { CompactStyle.Notch => NotchDevices, CompactStyle.Capsule => CapsuleDevices, _ => false };
+    // The focus timer's countdown shows in the collapsed row only where its own switch is on.
+    public bool ShowsFocus(CompactStyle style) => style switch { CompactStyle.Notch => NotchFocus, CompactStyle.Capsule => CapsuleFocus, _ => false };
     // The file transfer's count needs the page: with the page off, nothing can be dropped there.
     public bool ShowsTransfer(CompactStyle style) => ClipboardPage && style switch { CompactStyle.Notch => NotchTransfer, CompactStyle.Capsule => CapsuleTransfer, _ => false };
     public IReadOnlyList<CompactPart> CompactOrder(CompactStyle style) => style == CompactStyle.Capsule ? CapsuleOrder : NotchOrder;

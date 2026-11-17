@@ -64,7 +64,7 @@ AxDeck sits at the top center of the screen and comes in three styles: Notch (de
 
   <img src="docs/en-US/images/compact-monitor.png" width="498" alt="System readings in the notch: core columns, CPU, memory, GPU and network speed beside the quota rings">
 
-- Notch and Capsule can show the batteries of wireless devices and the number of files in the file transfer.
+- Notch and Capsule can show the batteries of wireless devices, the number of files in the file transfer, and the minutes left on the focus timer; click the countdown to open the timer.
 
   <img src="docs/en-US/images/compact-devices.png" width="483" alt="Device batteries and the file transfer in the notch: the file count beside the quota rings, then battery rings for a mouse, a keyboard, headsets and a controller">
 
@@ -81,6 +81,8 @@ AxDeck sits at the top center of the screen and comes in three styles: Notch (de
 <img src="docs/en-US/images/details.png" width="100%" alt="Model details page: tokens and cost by app and model">
 
 - One column per tool shows the plan, quota usage and reset countdowns, for up to 7 tools at once.
+- A line behind each quota bar shows how it has moved through the day, so a quota that climbed slowly all day reads differently from one that just jumped. Hover over a quota and the panel estimates, at the pace of the readings, when it would reach the critical level — and says nothing when the readings do not support a pace.
+- When a tool is writing its own session records, a small dot lights up beside its column's name to show it is working. Only the records' modification times are read, never the conversation.
 - The bottom of each column totals tokens and estimated cost for today and the last 7 days.
 - Token and cost details are available for each model, filtered by tool and date range.
 
@@ -92,8 +94,10 @@ You can choose the quota providers and set the quota and usage source of each co
 
 - Shows song information, synced lyrics and playback progress, with playback controls, playback mode switching and seeking in supported players.
 - Works with several players at once; switch between them or pin one, and ignore apps you do not want shown.
+- Lyrics can show the original and a translation as two lines: when the source provides a translation (NetEase Cloud Music, QQ Music), it sits below the original, taking the place of the neighbouring line when room is short. It can be turned off in settings.
 - The equalizer can flow with the sound or show its pitch from low to high as a spectrum; its length and colors can be adjusted.
 - Drag with the mouse or swipe with two fingers on the music page to change the song, switch players or adjust the volume.
+- The output button on the music page lists the machine's playback devices; one click moves the sound to headphones, speakers or a virtual device without opening Windows' audio settings.
 
 Works with players that use Windows media controls, with extra support for NetEase Cloud Music, QQ Music, Apple Music and KuGou Music. See [Supported players](docs/en-US/music-players.md).
 
@@ -104,6 +108,7 @@ Works with players that use Windows media controls, with extra support for NetEa
 - Shows CPU, GPU and memory usage and network speed in real time, along with the usage of each core; with more than one graphics card, you choose which one shows.
 - Lists the busiest apps by CPU or memory; click an app for its details.
 - Shows the space in use on internal drives, the whole machine's power draw, and the battery of a laptop or tablet.
+- Optionally shows today's total disk reads and writes and network traffic: counting runs in the background, carries on while the panel is closed, starts over at midnight, and is kept on this PC only.
 - Optionally shows CPU, GPU and solid-state drive temperatures, and the frame rate of the program in front.
 - Colors follow the panel theme by default; several preset color schemes are offered, and you can make your own.
 
@@ -127,8 +132,10 @@ For the supported connections, brands and models, see [Supported devices](docs/e
 <img src="docs/en-US/images/clipboard.png" width="100%" alt="Clipboard and file transfer page: copied text, a link, code, a picture and a color on the left; held files with their sizes on the right">
 
 - **Clipboard**: Keeps the text and pictures you copy; click an entry to paste it into the window you are working in. Links, code and color values each show in their own style.
+- A picture's QR code and the text in it can be read with the recognizer Windows ships, and text can be turned into a QR code. Both happen on this PC, offline.
 - The history is stored encrypted on this PC and cleared when AxDeck exits; what is in Favorites or in a category set to be kept stays. You can choose apps that are not recorded.
 - **File transfer**: Drag files onto the notch, the capsule or the panel to hold them, then click to paste them into the current window or drag them to where you need them. Only each file's location is kept, never a copy.
+- The files held can be copied to the desktop or to a folder in one go; files you no longer need can be dropped from the list, with or without deleting the originals.
 - Both columns have categories with rules for what goes in by itself, and can be searched together.
 
 For how to use it and its settings, see [Clipboard and file transfer](docs/en-US/clipboard.md).
@@ -145,7 +152,7 @@ For what it reads and how the takeover works, see [Desktop page](docs/en-US/desk
 ### Services and tools
 
 - **Cloudflare tunnel**: the environment of your own tunnel (cloudflared, the SSH config, the ProxyCommand and the edge) and the site entries you list in `services.json` on this PC, each with the action that fits it. The sites can be probed, a local forwarder started or stopped, and the diagnostics copied to the clipboard. No host name, port or path ships with AxDeck.
-- **BGE-M3 embedding service**: starts and stops the local llama.cpp server that serves the bge-m3 model on `http://localhost:8091/v1/embeddings`, and shows whether it is running, how many slots are busy, and how many requests and tokens it has handled.
+- **BGE-M3 embedding service**: starts and stops the local llama.cpp server that serves the bge-m3 model on `http://localhost:8091/v1/embeddings`, and shows whether it is running, how many slots are busy, and how many requests and tokens it has handled. It can start with Windows, and the log the server writes can be read in the panel instead of hunting for the file.
 - **AxTV emulator**: starts, closes and restarts the Android Studio AVD, places its window (small, borderless full screen, back in place), switches between the landscape and portrait AVD, changes the screen orientation with a check that rolls back if the picture stays blank, installs the AxTV package and takes screenshots.
 - All three were standalone Python tools before. Their logic is now native C# inside AxDeck, which calls the same system programs directly, so the packaged `.exe` files are no longer needed.
 
@@ -159,9 +166,27 @@ For what each part shows and what it needs, see [Services and tools](docs/en-US/
 - On the Panel theme page in settings, you can change the background, foreground, accent and other colors and save them as a custom theme, or write a theme file by following the [theme guide](docs/en-US/themes.md).
 - The interface font can be any font installed on the PC, and the panel's background transparency can be adjusted (Settings › General › Appearance and language).
 
+### Focus timer
+
+- Pick a length (15, 25, 45 or 60 minutes) and start a countdown you can pause, resume or reset. It keeps running while the panel is closed and across a restart of AxDeck, and time the PC spent asleep is not counted.
+- The time left can sit in the notch or the capsule; click it to return to the timer. A Windows notification is sent when the countdown is up.
+- The countdown is kept on this PC only; nothing is sent anywhere.
+
+### Command palette
+
+- Select the command button in the expanded panel's toolbar (or press the shortcut you set for "Open the command palette") and a few words reach any page, or run an action: switch the collapsed style, refresh the quotas now, open settings, hide the panel, toggle mouse pass-through, start a focus countdown.
+- Chinese, English and keywords all match; the arrow keys move, Enter runs, Esc closes.
+
+### Links and the command line
+
+- AxDeck registers the `axdeck://` address, so a shortcut, a script or another program can open it at something specific: `axdeck://page/music` opens the music page, `axdeck://focus/25` starts a 25-minute countdown, `axdeck://settings` opens settings.
+- The command line takes the same words: `AxDeck.exe --page music`, `--focus 25`, `--search lyrics`, `--refresh`.
+- When an AxDeck is already running, a new start does not open a second panel; it hands its command to the one that is running.
+
 ### More settings
 
 - **Shortcuts**: Global shortcuts can expand or hide the panel, open a given page, switch the collapsed style, and move or resize the panel (Settings › Shortcuts).
+- **Back up and move**: export the settings to a `.json` file to read on another PC. Keys are not in the file, and the display, graphics adapter and device choices bound to this PC stay behind (Settings › General › Back up and move).
 - **Expand on**: Hover or click (Settings › General › Hover and animation).
 - **Mouse pass-through**: Hovering no longer opens the panel and clicks go through it to the window beneath; only shortcuts open it. This suits gaming (Settings › General › Compatibility).
 - **Scale**: The panel can be drawn at 100% or 150% for high-resolution displays.
@@ -202,6 +227,7 @@ To remove settings and data as well, also delete `%LOCALAPPDATA%\AxDeck`. If you
 - The clipboard history and the file transfer's list are stored only on this PC, encrypted by Windows, and never uploaded.
 - Goes online only to read quotas and usage, update model prices, fetch lyrics and covers, and check for updates. Conversations are never uploaded, and no usage data is collected.
 - The services and tools page works on this PC and with your own domains only; the BGE-M3 service it starts keeps its model and its log on this PC.
+- Quota curves, today's traffic and the focus timer are kept in `%LOCALAPPDATA%\AxDeck` on this PC; QR codes and text in pictures are read on this PC. The `axdeck://` address is registered for the current user only, and opens AxDeck itself.
 
 For the files AxDeck reads and the addresses it connects to, see [Data and privacy](docs/en-US/privacy.md).
 

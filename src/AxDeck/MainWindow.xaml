@@ -137,6 +137,14 @@
                                  Foreground="{Binding Foreground, ElementName=MediaSourceButton}" VerticalAlignment="Center" Visibility="Collapsed"/>
                     </Grid>
                   </Button>
+                  <Button x:Name="AudioOutputButton" Style="{StaticResource PanelIconButton}" Width="28" Height="24" Margin="2,0,0,0" Click="AudioOutput_Click" Visibility="Collapsed"
+                          AutomationProperties.Name="输出设备">
+                    <Viewbox Width="16" Height="16"><Canvas Width="24" Height="24">
+                      <Path Data="M 4,9.5 H 7.5 L 12,5.5 V 18.5 L 7.5,14.5 H 4 Z" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="1.65" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"/>
+                      <Path Data="M 15,9 A 4.5,4.5 0 0 1 15,15" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="1.5" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
+                      <Path Data="M 17.6,6.4 A 8,8 0 0 1 17.6,17.6" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="1.5" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
+                    </Canvas></Viewbox>
+                  </Button>
                   <Button x:Name="SyncButton" Style="{StaticResource PanelGlyphButton}" Margin="10,0,4,0" VerticalAlignment="Center" Click="Sync_Click">
                     <Grid Width="24" Height="24">
                     <!-- Countdown to the next automatic sync: a static ring filled once a second, 12 o'clock, counterclockwise. -->
@@ -154,6 +162,13 @@
                             StrokeThickness="1.9" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
                     </Grid></Viewbox>
                     </Grid>
+                  </Button>
+                  <!-- The command palette: a few words reach any page or action (MainWindow.Palette.cs). -->
+                  <Button x:Name="PaletteButton" Style="{StaticResource PanelGlyphButton}" Margin="4,0,4,0" VerticalAlignment="Center" Click="Palette_Click">
+                    <Viewbox Width="15" Height="15"><Canvas Width="24" Height="24">
+                      <Path Data="M 3,5.5 H 21 M 3,12 H 21 M 3,18.5 H 21" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="1.8" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
+                      <Path Data="M 7,2.5 V 8.5 M 15,9 V 15 M 10,15.5 V 21.5" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="1.8" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
+                    </Canvas></Viewbox>
                   </Button>
                   <Button x:Name="ShelfSearchButton" Style="{StaticResource PanelGlyphButton}" Margin="0,0,4,0" VerticalAlignment="Center" Click="ShelfSearch_Click" Visibility="Collapsed">
                     <Viewbox Width="15" Height="15"><Canvas Width="24" Height="24"><Path Data="M 10.5,3.5 A 7,7 0 1 1 10.5,17.5 A 7,7 0 1 1 10.5,3.5 Z M 15.6,15.6 L 21,21" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/></Canvas></Viewbox>

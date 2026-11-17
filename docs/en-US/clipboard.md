@@ -8,9 +8,15 @@ AxDeck keeps the text and pictures you copy, newest first.
 
 - **Display**: text shows its first line, with the number of further lines at the end; a link shows its domain and path in two colors, code in a monospaced font, a color value with a swatch, and a picture as a thumbnail with its size.
 - **Click**: pastes the entry into the window you are working in.
-- **Right-click**: Paste, Paste as plain text, Copy only, Details, Edit (text), Add to category, Add to favorites, Delete.
+- **Right-click**: Paste, Paste as plain text, Copy only, Details, Edit (text), Read the picture, Make a QR code, Add to category, Add to favorites, Delete.
 - **Details**: the whole panel shows the entry in full, with the app it came from, the time, and its length or size; a link can be opened in the browser.
 - **Drag out**: drag the entry into another app.
+
+### Reading a picture, and QR codes
+
+- Choosing "Read the picture…" on a picture entry has AxDeck read the text in it with the recognizer Windows ships and decode any QR code it holds with the decoder on this PC. Both happen on this PC, offline; neither the picture nor its text is uploaded.
+- A text entry can be made into a QR code from the right-click menu ("Make a QR code…"), which a phone camera can then open; text longer than 512 characters is refused because the code would be too dense to read.
+- Without a text recognizer on the system, only the QR code (if there is one) is shown, and the window says the text could not be read.
 
 ### How long entries are kept
 
@@ -38,7 +44,8 @@ The file transfer holds files you will need shortly. It keeps only where each fi
 - **Put in**: drag files or folders onto the notch, the capsule or the open panel. Dragged onto the collapsed panel, it opens on this page; move away without dropping and the panel goes back to how it was. You can also drop onto a category's name.
 - **Click**: pastes the file into the current window. It becomes an attachment in a chat window, and a copy in the current folder in File Explorer.
 - **Select several**: hold Ctrl or Shift and click to select several files, then paste, drag out or remove them together.
-- **Right-click**: Paste, Open, Show in folder, Copy path, Details, Add to category, Remove from the file transfer, Delete the original.
+- **Right-click**: Paste, Copy to desktop, Copy to folder…, Open, Show in folder, Copy path, Details, Add to category, Remove from the file transfer, Delete the original.
+- **Copying elsewhere**: the held files can be copied to the desktop or to a folder you pick; the originals stay where they are and the list is unchanged. A file of the same name already in the target folder is never replaced, and its row says "Not copied".
 - **Drag out**: drag a file to where you need it; a button in the column's title row drags out all files at once. Files are copied by default; with "Move" chosen under Settings › File transfer › Drag files out, files moved to a new place leave the list, while chat apps, browsers and other places that only take copies still get copies.
 - A file whose original has been moved or deleted is marked "Missing".
 - The notch and capsule can show how many files the file transfer holds.

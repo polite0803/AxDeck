@@ -43,6 +43,8 @@ public sealed class UsageService(IDesktopSources desktop, DataLocations? locatio
     private readonly LatestResponse _zcodeStart = new(), _zcodeMcp = new();
     private (string Account, ProviderResult Result, DateTimeOffset Time)? _zcodeCoding;
     private readonly DataLocations _locations = locations ?? DataLocations.Detect();
+    // The folders this service reads, so the panel can look at the same session records for the activity dot (SessionSources).
+    public DataLocations Locations => _locations;
     private readonly Func<DateTimeOffset> _clock = clock ?? (() => DateTimeOffset.Now);
     private readonly LogReader _logs = new();
     // WSL is read away from the refresh itself: its file system is reached over the network share, with synchronous calls that

@@ -2,7 +2,7 @@
 
 The system monitor page shows the CPU, GPU, memory, network, drives, temperatures, power, battery and frame rate. This page explains where each reading comes from and what its limits are. The settings are under Settings › Display and readings.
 
-Every reading is read and shown only on this PC, never saved or sent. Unless stated otherwise, reading needs no administrator rights and installs no driver.
+Every reading is read and shown only on this PC, never saved or sent; only with "Show today's traffic" on are the day's byte counts kept on this PC (see [Today's traffic](#todays-traffic)). Unless stated otherwise, reading needs no administrator rights and installs no driver.
 
 ## Readings at a glance
 
@@ -15,6 +15,7 @@ Every reading is read and shown only on this PC, never saved or sent. Unless sta
 | System power and this PC's battery | Shown | When expanded › Show power and battery | PCs without a battery show no battery |
 | Temperatures | Hidden | When expanded › Show temperatures | CPU, GPU and solid-state drives |
 | Frame rate | Hidden | When expanded › Show the frame rate | Needs permission the first time |
+| Today's traffic | Hidden | When expanded › Show today's traffic | The day's disk reads and writes and network traffic |
 
 The readings shown in the notch and capsule are chosen under "When collapsed".
 
@@ -75,6 +76,14 @@ This is the PC's own battery. For wireless mice, keyboards, headsets and other d
 With "Show the frame rate" on, the page shows the frame rate of the program in front under the network rates, with its name and its display's refresh rate; while that program draws nothing, it shows the last program that did.
 
 Reading frame rates needs the current user in Windows' Performance Log Users group. The first time you turn it on, Windows asks an administrator to confirm once, and it works from the next sign-in. The frame rate is read only while the system monitor page is open or the notch or capsule shows it.
+
+## Today's traffic
+
+With "Show today's traffic" on, the page shows today's total disk reads, disk writes, network downloads and network uploads under the drives.
+
+- The counting runs in the background: it carries on while the panel is collapsed or showing another page, and time AxDeck is not running is not counted. The counters Windows gives run since the machine started, so AxDeck remembers their reading at the start of the day and adds what they grow by; a restart carries the totals on instead of losing what was downloaded before it.
+- It counts all disks and all network adapters together, never per process or per site.
+- The totals start over at local midnight. The four byte counts are kept in `%LOCALAPPDATA%\AxDeck\traffic-today.json`, used on this PC only.
 
 ## Colors
 

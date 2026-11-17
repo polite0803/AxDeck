@@ -18,6 +18,7 @@ internal sealed class ServicesView : Grid
     private readonly StackPanel _envPanel = new() { Margin = new Thickness(0, 0, 0, 14) };
     private readonly StackPanel _sitesPanel = new();
     private readonly StackPanel _bgePanel = new();
+    private readonly StackPanel _bgeAutostartPanel = new();
     private readonly StackPanel _axtvPanel = new();
     private readonly TextBlock _status = UI.Text("", 12, UI.Tertiary);
     // The path of the package to install, and the name of the AVD to start. Both belong to the controller: the view
@@ -46,6 +47,8 @@ internal sealed class ServicesView : Grid
         content.Children.Add(_sitesPanel);
         content.Children.Add(Section(Loc.T("BGE-M3 向量服务", "BGE-M3 embedding service")));
         content.Children.Add(_bgePanel);
+        content.Children.Add(_bgeAutostartPanel);
+        BuildBgeAutostart();
         content.Children.Add(Section(Loc.T("AxTV 模拟器", "AxTV emulator")));
         content.Children.Add(_axtvPanel);
         BuildAxTv();
@@ -69,7 +72,32 @@ internal sealed class ServicesView : Grid
         Children.Add(bar);
     }
 
-    public void SetStatus(string text) => _status.Text = text;
+    public void SetStatus(string text) => SetStatus(text, false);
+
+    // A status that is a warning rather than a note.
+    public void SetStatus(string text, bool warning)
+    {
+        _status.Text = text;
+        _status.Foreground = UI.Brush(warning ? "#D29922" : UI.Tertiary);
+    }
+
+    // Whether the embedding server is set to start with Windows. The state is kept here, because the block is rebuilt
+    // every two seconds: reading the registry on every poll would be wasteful, and the switch would flicker.
+    private bool _bgeAutostart;
+
+    /// <summary>Shows whether the embedding server starts with Windows.</summary>
+    public void SetBgeAutostart(bool enabled)
+    {
+        _bgeAutostart = enabled;
+        if (_bgeAutostartButton is null) return;
+        _bgeAutostartButton.Content = UI.Fixed(AutostartLabel(enabled), 11.5, 18, UI.Secondary);
+    }
+
+    private static string AutostartLabel(bool enabled) => enabled
+        ? Loc.T("开机自启：已开启", "Start with Windows: on")
+        : Loc.T("开机自启：已关闭", "Start with Windows: off");
+
+    private Button? _bgeAutostartButton;
 
     // Filled by the controller from a fresh status snapshot; never blocks (it is called on the UI thread after a background read).
     public void Update(CloudflareTunnel.StatusSnapshot status, IReadOnlyList<CloudflareTunnel.SiteProbe>? probes)
@@ -138,8 +166,34 @@ internal sealed class ServicesView : Grid
         actions.Children.Add(ActionButton(Loc.T("启动", "Start"), () => _owner.ServicesStartBge(), small: true));
         actions.Children.Add(ActionButton(Loc.T("停止", "Stop"), () => _owner.ServicesStopBge(), small: true));
         actions.Children.Add(ActionButton(Loc.T("复制 API", "Copy API"), () => _owner.ServicesCopyBgeApi(), small: true));
+        actions.Children.Add(ActionButton(Loc.T("查看日志", "View log"), () => _owner.ServicesShowBgeLog(), small: true));
         actions.Children.Add(ActionButton(Loc.T("打开日志", "Open log"), () => _owner.ServicesOpenBgeLog(), small: true));
         _bgePanel.Children.Add(actions);
+    }
+
+    // The row that says whether the embedding server starts with Windows. The state comes from the Run key, which is
+    // read once when the page is built; the button asks the controller to write it.
+    private void BuildBgeAutostart()
+    {
+        _bgeAutostart = _owner.ServicesBgeAutostartEnabled();
+        var grid = new Grid { Margin = new Thickness(0, 6, 0, 2) };
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(96) });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        var label = UI.Fixed(Loc.T("开机自启", "Start with Windows"), 12.5, 18, UI.Secondary);
+        label.VerticalAlignment = VerticalAlignment.Center;
+        grid.Children.Add(label);
+        _bgeAutostartButton = ActionButton(AutostartLabel(_bgeAutostart), () => _owner.ServicesSetBgeAutostart(!_bgeAutostart), small: true);
+        _bgeAutostartButton.HorizontalAlignment = HorizontalAlignment.Left;
+        Grid.SetColumn(_bgeAutostartButton, 1);
+        grid.Children.Add(_bgeAutostartButton);
+        _bgeAutostartPanel.Children.Add(grid);
+        var hint = UI.Text(Loc.T(
+            "打开后，BGE-M3 服务会随 Windows 启动，不需要先开 AxDeck。它在后台运行，端口 8091，模型文件取自 services.json。",
+            "When on, the BGE-M3 service starts with Windows, without AxDeck running first. It runs in the background on port 8091, with the model file from services.json."), 11.5, UI.Tertiary);
+        hint.TextWrapping = TextWrapping.Wrap;
+        hint.Margin = new Thickness(0, 2, 0, 0);
+        _bgeAutostartPanel.Children.Add(hint);
     }
 
     // The Android emulator (the old "AxTV 模拟器管理器"): the AVD to run, the window's shape and the app on the
@@ -221,6 +275,7 @@ internal sealed class ServicesView : Grid
         app.Children.Add(ActionButton(Loc.T("停止应用", "Stop app"), () => _owner.ServicesAxTvStopApp(), small: true));
         app.Children.Add(ActionButton(Loc.T("卸载", "Uninstall"), () => _owner.ServicesAxTvUninstallApp(), small: true));
         app.Children.Add(ActionButton(Loc.T("截图", "Screenshot"), () => _owner.ServicesAxTvScreenshot(), small: true));
+        app.Children.Add(ActionButton(Loc.T("查看日志", "View log"), () => _owner.ServicesShowAxTvLog(), small: true));
         app.Children.Add(ActionButton(Loc.T("打开日志", "Open log"), () => _owner.ServicesAxTvOpenLog(), small: true));
         _axtvPanel.Children.Add(app);
     }

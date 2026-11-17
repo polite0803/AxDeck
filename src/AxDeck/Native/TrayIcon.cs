@@ -19,11 +19,12 @@ public sealed class TrayIcon : IDisposable
     private readonly Action? _toggleClickThrough;
     private readonly Func<bool>? _clickThrough;
     private readonly Func<MenuItem>? _boxes;
+    private readonly Func<MenuItem>? _focus;
     private NOTIFYICONDATA _data;
     private readonly uint _taskbarCreated = RegisterWindowMessage("TaskbarCreated");
-    public TrayIcon(Window owner, Action settings, Action exit, Action? toggleHidden = null, Func<bool>? hidden = null, Action? toggleClickThrough = null, Func<bool>? clickThrough = null, Func<MenuItem>? boxes = null)
+    public TrayIcon(Window owner, Action settings, Action exit, Action? toggleHidden = null, Func<bool>? hidden = null, Action? toggleClickThrough = null, Func<bool>? clickThrough = null, Func<MenuItem>? boxes = null, Func<MenuItem>? focus = null)
     {
-        _settings = settings; _exit = exit; _toggleHidden = toggleHidden; _hidden = hidden; _toggleClickThrough = toggleClickThrough; _clickThrough = clickThrough; _boxes = boxes;
+        _settings = settings; _exit = exit; _toggleHidden = toggleHidden; _hidden = hidden; _toggleClickThrough = toggleClickThrough; _clickThrough = clickThrough; _boxes = boxes; _focus = focus;
         var hwnd = new WindowInteropHelper(owner).Handle;
         _source = HwndSource.FromHwnd(hwnd); _source.AddHook(Hook);
         _data = new NOTIFYICONDATA { Size = Marshal.SizeOf<NOTIFYICONDATA>(), Window = hwnd, Id = 1, Flags = 1 | 2 | 4, CallbackMessage = Callback,
@@ -79,14 +80,14 @@ public sealed class TrayIcon : IDisposable
         if (mouseMessage == 0x205)
         {
             SetForegroundWindow(hwnd);
-            var menu = CreateMenu(_settings, _exit, _toggleHidden, _hidden?.Invoke() ?? false, _toggleClickThrough, _clickThrough?.Invoke() ?? false, _boxes);
+            var menu = CreateMenu(_settings, _exit, _toggleHidden, _hidden?.Invoke() ?? false, _toggleClickThrough, _clickThrough?.Invoke() ?? false, _boxes, _focus);
             menu.Placement = PlacementMode.MousePoint;
             menu.IsOpen = true;
         }
         return IntPtr.Zero;
     }
     // Shared with the UI smoke run, which renders the menu without a tray.
-    internal static ContextMenu CreateMenu(Action settings, Action exit, Action? toggleHidden = null, bool hidden = false, Action? toggleClickThrough = null, bool clickThrough = false, Func<MenuItem>? boxes = null)
+    internal static ContextMenu CreateMenu(Action settings, Action exit, Action? toggleHidden = null, bool hidden = false, Action? toggleClickThrough = null, bool clickThrough = false, Func<MenuItem>? boxes = null, Func<MenuItem>? focus = null)
     {
         var menu = new ContextMenu();
         // Tray menus belong to the shell, so they follow the system's app theme rather than the settings window's palette.
@@ -112,6 +113,8 @@ public sealed class TrayIcon : IDisposable
         if (toggleClickThrough is not null) { var through = new MenuItem { Header = clickThrough ? Loc.T("关闭鼠标穿透", "Turn off mouse pass-through") : Loc.T("开启鼠标穿透", "Turn on mouse pass-through") }; through.Click += (_, _) => toggleClickThrough(); menu.Items.Add(through); }
         // The desktop organizer: a place to open it from, wherever the panel is.
         if (boxes is not null) { var organize = boxes(); organize.Header = Loc.T("桌面页", "Desktop page"); menu.Items.Add(organize); }
+        // The focus timer: a place to open it from, wherever the panel is.
+        if (focus is not null) { var timer = focus(); timer.Header = Loc.T("专注计时", "Focus timer"); menu.Items.Add(timer); }
         var open = new MenuItem { Header = Loc.T("设置", "Settings") }; open.Click += (_, _) => settings(); menu.Items.Add(open);
         menu.Items.Add(new Separator());
         var quit = new MenuItem { Header = Loc.T("退出", "Exit") }; quit.Click += (_, _) => exit(); menu.Items.Add(quit);

@@ -57,6 +57,7 @@ internal sealed class MonitorView : Grid
     private readonly StorageBlock? _storage;
     private readonly PowerBlock? _power;
     private readonly FramesBlock? _frames;
+    private readonly TrafficBlock? _traffic;
     private readonly bool _temperatures;
     private readonly Grid _readings = new();
     // How far the readings stop above the page's foot, so their last line ends level with the list's last row (AlignFoot).
@@ -84,6 +85,7 @@ internal sealed class MonitorView : Grid
         var readings = _readings;
         readings.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         readings.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star), MinHeight = 16 });
+        readings.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         readings.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         readings.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         readings.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
@@ -163,6 +165,13 @@ internal sealed class MonitorView : Grid
             _power = new PowerBlock(colors, power, layout.Body, layout.Caption, layout.StorageRow)
             { Margin = new Thickness(0, layout.Metrics switch { MetricsMode.Line => 2, MetricsMode.Lines => 4, _ => 8 }, 0, 0) };
             SetRow(_power, 6); readings.Children.Add(_power);
+        }
+        if (layout.TrafficLine)
+        {
+            // Last, under the drives and the power lines: the day's traffic.
+            _traffic = new TrafficBlock(colors, layout.Body, layout.Caption)
+            { Margin = new Thickness(0, layout.Metrics switch { MetricsMode.Line => 2, MetricsMode.Lines => 4, _ => 8 }, 0, 0) };
+            SetRow(_traffic, 7); readings.Children.Add(_traffic);
         }
 
         if (layout.List == ListPlacement.None) Children.Add(readings);
@@ -304,6 +313,7 @@ internal sealed class MonitorView : Grid
         _storage?.Set(snapshot.Storage, motion);
         _power?.Set(snapshot, motion);
         _frames?.Set(snapshot);
+        _traffic?.Set(snapshot.Traffic);
         _list?.Set(snapshot.Processes, _cores, motion);
         _processes = snapshot.Processes.OrDefault;
         // An open card follows its app's readings; it closes when the app has left the list.

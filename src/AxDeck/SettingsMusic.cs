@@ -80,6 +80,8 @@ public sealed partial class SettingsWindow
                 Loc.T("显示文件中转里的文件数量，没有文件时不显示。单击直接展开到剪贴板与文件中转页。", "Shows how many files the file transfer holds, and nothing while it is empty. Clicking it opens the clipboard and file transfer page.")),
             CompactPart.Devices => (Loc.T("设备电量", "Device batteries"), S.ShowsDevices(style),
                 Loc.T("显示哪些设备、是否显示数字，在“设备电量”设置页中选择。", "Which devices show, and whether with figures, is chosen on the device batteries settings page.")),
+            CompactPart.Focus => (Loc.T("专注计时", "Focus timer"), S.ShowsFocus(style),
+                Loc.T("显示专注计时的剩余时间。单击它会打开计时器窗口。", "Shows how much is left of the focus countdown. Clicking it opens the timer.")),
             _ => (Loc.T("系统监控", "System monitor"), S.ShowsMonitor(style), null)
         };
         void Show(bool on) => Change(s =>
@@ -91,6 +93,7 @@ public sealed partial class SettingsWindow
                 case CompactPart.Equalizer: if (notch) s.NotchEqualizer = on; else s.CapsuleEqualizer = on; break;
                 case CompactPart.Transfer: if (notch) s.NotchTransfer = on; else s.CapsuleTransfer = on; break;
                 case CompactPart.Devices: if (notch) s.NotchDevices = on; else s.CapsuleDevices = on; break;
+                case CompactPart.Focus: if (notch) s.NotchFocus = on; else s.CapsuleFocus = on; break;
                 default: if (notch) s.NotchMonitor = on; else s.CapsuleMonitor = on; break;
             }
         });
@@ -250,7 +253,12 @@ public sealed partial class SettingsWindow
             (chosen, custom) => Change(s => { s.MusicLyricColor = chosen; s.MusicLyricCustomColor = custom; })));
         lyricColor.IsEnabled = S.MusicPage;
         Group(Toggle(Loc.T("显示封面", "Show cover"), S.MusicPageCover, v => Change(s => s.MusicPageCover = v), S.MusicPage),
-            Toggle(Loc.T("显示歌词", "Show lyrics"), S.LyricsEnabled, v => Change(s => s.LyricsEnabled = v), S.MusicPage), lyricColor);
+            Toggle(Loc.T("显示歌词", "Show lyrics"), S.LyricsEnabled, v => Change(s => s.LyricsEnabled = v), S.MusicPage),
+            // Only the providers that ship a translated lyric give one; a song without one keeps its other lines.
+            Toggle(Loc.T("显示歌词翻译", "Show lyric translations"), S.MusicLyricTranslation, v => Change(s => s.MusicLyricTranslation = v), S.LyricsEnabled,
+                Loc.T("在原文下方显示歌曲的翻译歌词；只有当来源提供译文（网易云音乐、QQ 音乐）时才显示，空间不够时代替相邻的一行。",
+                    "Shows the song's translated lyric under the original line. Only sources that provide one (NetEase Cloud Music, QQ Music) have it, and it takes the place of one neighbouring line when the room is short.")),
+            lyricColor);
     }
     // Operations only one player supports, grouped under that player's name.
     private void Players()

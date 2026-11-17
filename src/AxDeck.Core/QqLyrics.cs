@@ -86,7 +86,7 @@ public sealed partial class LyricsService
             try
             {
                 string text = Encoding.UTF8.GetString(Convert.FromBase64String(Str(content, "lyric")));
-                var parsed = ParseQq(text, track);
+                var parsed = ParseQq(text, track, QqTranslation(content));
                 if (parsed.Lines.Count > 0 || parsed.Instrumental) return parsed with { QqPreview = preview };
             }
             catch (FormatException) { }
@@ -94,7 +94,16 @@ public sealed partial class LyricsService
         // The legacy endpoint uses the same QQ song identity and catalog, never another provider.
         if (mid is null) return Lyrics.Empty;
         var legacy = await Get($"https://c.y.qq.com/lyric/fcgi-bin/fcg_query_lyric_new.fcg?songmid={mid}&format=json&nobase64=1", token);
-        return legacy is { } old && QqSucceeded(old) ? ParseQq(Str(old, "lyric"), track) with { QqPreview = preview } : Lyrics.Empty;
+        return legacy is { } old && QqSucceeded(old) ? ParseQq(Str(old, "lyric"), track, Str(old, "trans")) with { QqPreview = preview } : Lyrics.Empty;
+    }
+
+    // QQ's reply carries a translated lyric in "trans", base64 like the lyric itself; a song without one leaves it empty.
+    private static string QqTranslation(JsonElement content)
+    {
+        string encoded = Str(content, "trans");
+        if (encoded.Length == 0) return "";
+        try { return Encoding.UTF8.GetString(Convert.FromBase64String(encoded)); }
+        catch (FormatException) { return ""; }
     }
 
     private static bool IsQqPreview(JsonElement? response, MediaTrack track, string? mid, long? id)
@@ -116,9 +125,9 @@ public sealed partial class LyricsService
         return MatchesClip("b_30s", "e_30s") || MatchesClip("try_begin", "try_end");
     }
 
-    private static Lyrics ParseQq(string text, MediaTrack track)
+    private static Lyrics ParseQq(string text, MediaTrack track, string translation = "")
     {
-        var lyrics = Lyrics.Parse(WebUtility.HtmlDecode(text), null, track.Duration.TotalSeconds, "QQ 音乐");
+        var lyrics = Lyrics.Parse(WebUtility.HtmlDecode(text), null, track.Duration.TotalSeconds, "QQ 音乐", translation: WebUtility.HtmlDecode(translation));
         // Empty timestamp placeholders are not a usable lyric result and must not be cached.
         return lyrics.Instrumental || lyrics.Lines.Any(l => !string.IsNullOrWhiteSpace(l.Text)) ? lyrics : Lyrics.Empty;
     }

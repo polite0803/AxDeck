@@ -450,7 +450,7 @@ public sealed partial class SettingsWindow : Window, IKeepsAppFonts
             Row(Loc.T("界面字体", "Interface font"),font,help: () => Loc.T("选择界面文字使用的字体，立即生效。图标、等宽的脚本编辑器和时钟的自带字体样式不受影响；字体缺失时会回到默认字体。",
                 "Choose the font the interface text is drawn in; it applies at once. Icons, the monospaced script editor and the clock styles that ship their own fonts are not affected; a missing font falls back to the default one.")),
             Row(Loc.T("字体预览", "Font preview"),fontSample));
-        DisplayChoice(); Interaction(); WindowRules();
+        DisplayChoice(); Interaction(); WindowRules(); Backup();
     }
     // Either the primary display, or any set of displays, each with its own switch. A chosen display that is not
     // connected keeps its switch, marked, so that it can be removed. The last switch that is on cannot be turned off.
@@ -693,7 +693,7 @@ public sealed partial class SettingsWindow : Window, IKeepsAppFonts
                 case HotkeysPage:foreach(var kind in Enum.GetValues<HotkeyKind>())s.SetHotkey(kind,defaults.Hotkey(kind));break;
                 case 1:s.Style=defaults.Style;s.NotchSummary=defaults.NotchSummary;s.NotchMusic=defaults.NotchMusic;s.CapsuleSummary=defaults.CapsuleSummary;s.CapsuleMusic=defaults.CapsuleMusic;s.MusicIndicatorProgress=defaults.MusicIndicatorProgress;
                     s.NotchEqualizer=defaults.NotchEqualizer;s.CapsuleEqualizer=defaults.CapsuleEqualizer;s.NotchClock=defaults.NotchClock;s.CapsuleClock=defaults.CapsuleClock;s.ClockStyle=defaults.ClockStyle;s.ClockColor=defaults.ClockColor;s.ClockCustomColor=defaults.ClockCustomColor;s.ClockGradient=[.. PanelTheme.Current.ClockGradients[0].Stops];s.Clock24Hour=defaults.Clock24Hour;s.ClockSeconds=defaults.ClockSeconds;CopyCollapsedSize(s,defaults);s.GripDoubleClick=defaults.GripDoubleClick;
-                    s.NotchMonitor=defaults.NotchMonitor;s.CapsuleMonitor=defaults.CapsuleMonitor;s.NotchDevices=defaults.NotchDevices;s.CapsuleDevices=defaults.CapsuleDevices;s.NotchOrder=defaults.NotchOrder;s.CapsuleOrder=defaults.CapsuleOrder;s.NotchTransfer=defaults.NotchTransfer;s.CapsuleTransfer=defaults.CapsuleTransfer;
+                    s.NotchMonitor=defaults.NotchMonitor;s.CapsuleMonitor=defaults.CapsuleMonitor;s.NotchDevices=defaults.NotchDevices;s.CapsuleDevices=defaults.CapsuleDevices;s.NotchOrder=defaults.NotchOrder;s.CapsuleOrder=defaults.CapsuleOrder;s.NotchTransfer=defaults.NotchTransfer;s.CapsuleTransfer=defaults.CapsuleTransfer;s.NotchFocus=defaults.NotchFocus;s.CapsuleFocus=defaults.CapsuleFocus;
                     // The clock goes back to the one the panel theme suggests, as choosing the theme gives.
                     PanelThemes.ApplyClock(PanelTheme.Current,s);break;
                 case 2:s.UsagePage=true;s.MusicPage=defaults.MusicPage;s.DefaultPage=defaults.DefaultPage;s.RightClickSettings=defaults.RightClickSettings;s.Width=defaults.Width;s.Height=defaults.Height;s.QuickSize=null;s.MusicWidth=defaults.MusicWidth;s.MusicHeight=defaults.MusicHeight;s.MouseWheel=defaults.MouseWheel;s.ExpandAtPointer=defaults.ExpandAtPointer;
@@ -710,7 +710,7 @@ public sealed partial class SettingsWindow : Window, IKeepsAppFonts
                 // The categories and phrases are the user's own data, not settings; the other page has nothing to restore.
                 case ClipboardSettingsPage:s.ClipboardRecord=defaults.ClipboardRecord;s.ClipboardExcluded=[];break;
                 // The current theme's application colors go back to its own; the other themes keep what was saved for them.
-                case 3:{var previous=s.Apps;s.QuotaAlerts=defaults.QuotaAlerts;s.QuotaNotifications=defaults.QuotaNotifications;s.IncludeWsl=defaults.IncludeWsl;s.QuotaRingStyle=defaults.QuotaRingStyle;s.QuotaRingRemaining=defaults.QuotaRingRemaining;s.QuotaRingLetters=defaults.QuotaRingLetters;s.Apps=defaults.Apps;PanelThemes.CarryAppChoices(s,previous);break;}
+                case 3:{var previous=s.Apps;s.QuotaAlerts=defaults.QuotaAlerts;s.QuotaNotifications=defaults.QuotaNotifications;s.QuotaHistory=defaults.QuotaHistory;s.IncludeWsl=defaults.IncludeWsl;s.QuotaRingStyle=defaults.QuotaRingStyle;s.QuotaRingRemaining=defaults.QuotaRingRemaining;s.QuotaRingLetters=defaults.QuotaRingLetters;s.Apps=defaults.Apps;PanelThemes.CarryAppChoices(s,previous);break;}
                 case 5:s.EqualizerAlways=defaults.EqualizerAlways;s.EqualizerBars=defaults.EqualizerBars;s.EqualizerMode=defaults.EqualizerMode;s.EqualizerColor=defaults.EqualizerColor;s.EqualizerCustomColor=defaults.EqualizerCustomColor;
                     s.MusicText=defaults.MusicText;s.MusicEqualizerBars=defaults.MusicEqualizerBars;s.MusicTrackNotice=defaults.MusicTrackNotice;s.MusicPausedHide=defaults.MusicPausedHide;s.MusicInstrumentalTitle=defaults.MusicInstrumentalTitle;s.MusicCompactCover=defaults.MusicCompactCover;s.MusicPageCover=defaults.MusicPageCover;s.LyricsEnabled=defaults.LyricsEnabled;
                     s.MusicLyricColor=defaults.MusicLyricColor;s.MusicLyricCustomColor=defaults.MusicLyricCustomColor;break;
@@ -820,7 +820,10 @@ public sealed partial class SettingsWindow : Window, IKeepsAppFonts
                 $"When on, and an app's used share rises to the warning ({AppPresets.WarningPercent:0}%) or critical ({AppPresets.CriticalPercent:0}%) level, the collapsed notch or capsule briefly shows the app's name, used share and reset time, then returns after about 5 seconds.")),
             Toggle(Loc.T("系统通知", "Windows notifications"), S.QuotaNotifications, v => Change(s => s.QuotaNotifications = v), help:
             Loc.T($"同时发一条 Windows 系统通知（出现在通知中心），内容与上面的提示一致。通知从系统托盘图标发出，需要在“常规”中开启托盘图标；面板被隐藏或全屏免打扰时也会发送。",
-                $"Also sends a Windows notification, which lands in the notification centre, with the same content as the notice above. It is sent from the tray icon, which is switched on in “General”; it is sent even while the panel is hidden or kept off a full-screen app.")));
+                $"Also sends a Windows notification, which lands in the notification centre, with the same content as the notice above. It is sent from the tray icon, which is switched on in “General”; it is sent even while the panel is hidden or kept off a full-screen app.")),
+            Toggle(Loc.T("记录用量曲线", "Keep usage curves"), S.QuotaHistory, v => Change(s => s.QuotaHistory = v), help:
+            Loc.T("开启后，每个额度的已用比例每 10 分钟记一次，保留最近 30 天，并以淡色曲线画在进度条后面：一眼能看出是整天在涨，还是刚刚才涨上来。记录只在本机（usage-history.json），只保存百分比，不上传。关闭后不写入任何记录，也不显示曲线。",
+                "When on, each quota's used share is kept every 10 minutes for the last 30 days and drawn faintly behind its track, so a quota climbing all day reads differently from one that only rose just now. It is kept on this PC only (usage-history.json) and holds nothing but a percentage. Off, nothing is written and no curve is drawn.")));
         SectionTitle(Loc.T("数据来源", "Data sources"));
         Group(Toggle(Loc.T("同步 WSL 中的用量统计", "Include usage from WSL"), S.IncludeWsl, v => Change(s => s.IncludeWsl = v), help:
             Loc.T("开启后，会读取已安装的 WSL 子系统中 Claude Code 和 Codex CLI 的会话记录，并计入 Token 用量与费用统计。读取时会唤醒尚未运行的 WSL 子系统，默认关闭。",

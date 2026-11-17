@@ -148,6 +148,28 @@
       <Border Height="1" Background="{DynamicResource PanelPopupBorder}"/>
     </ControlTemplate></Setter.Value></Setter>
   </Style>
+  <!-- The output devices' list (MainWindow.AudioOutput.cs): a check column for the device in use, and a row that is
+       dimmed when the device is plugged out or disabled, so it is clear that it cannot take sound right now. -->
+  <Style x:Key="AudioOutputMenuItem" TargetType="MenuItem">
+    <Setter Property="OverridesDefaultStyle" Value="True"/><Setter Property="Cursor" Value="Hand"/>
+    <Setter Property="Height" Value="26"/><Setter Property="Padding" Value="6,0,10,0"/>
+    <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="MenuItem">
+      <Border x:Name="Chrome" Background="Transparent" CornerRadius="{DynamicResource PanelR5}" Height="{TemplateBinding Height}" Padding="{TemplateBinding Padding}">
+        <Grid>
+          <Grid.ColumnDefinitions><ColumnDefinition Width="16"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+          <Canvas x:Name="Checkmark" Width="10" Height="10" VerticalAlignment="Center">
+            <Path Data="M1.5,5.2 L4,7.7 L8.5,2.5" Stroke="{DynamicResource PanelPrimary}" StrokeThickness="1.6" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"/>
+          </Canvas>
+          <ContentPresenter Grid.Column="1" ContentSource="Header" VerticalAlignment="Center" HorizontalAlignment="Stretch"/>
+        </Grid>
+      </Border>
+      <ControlTemplate.Triggers>
+        <Trigger Property="IsHighlighted" Value="True"><Setter TargetName="Chrome" Property="Background" Value="{DynamicResource PanelHover}"/></Trigger>
+        <Trigger Property="IsChecked" Value="True"><Setter TargetName="Checkmark" Property="Visibility" Value="Visible"/></Trigger>
+        <Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value=".4"/></Trigger>
+      </ControlTemplate.Triggers>
+    </ControlTemplate></Setter.Value></Setter>
+  </Style>
   <Style x:Key="PanelTextButton" TargetType="Button" BasedOn="{StaticResource PanelIconButton}">
     <Setter Property="Width" Value="Auto"/><Setter Property="Height" Value="24"/><Setter Property="Padding" Value="8,2"/>
     <Setter Property="FontSize" Value="11"/><Setter Property="HorizontalAlignment" Value="Right"/><Setter Property="VerticalAlignment" Value="Center"/>

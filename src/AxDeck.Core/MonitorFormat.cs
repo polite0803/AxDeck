@@ -49,6 +49,15 @@ public static class MonitorFormat
     // Memory in binary gigabytes with one decimal: "12.4".
     public static string Gigabytes(ulong bytes) => Decimal(bytes / 1_073_741_824d);
 
+    // A day's traffic in decimal units, as the rates are shown: KB below a megabyte, MB below a gigabyte, GB from there.
+    public static Quantity Bytes(long bytes)
+    {
+        double value = double.IsFinite(bytes) ? Math.Max(0, bytes) : 0;
+        if (value >= 999_500_000) return new(Decimal(value / 1_000_000_000), "GB");
+        if (value >= 999_500) return new(Decimal(value / 1_000_000), "MB");
+        return new(((int)Math.Round(value / 1000)).ToString(CultureInfo.InvariantCulture), "KB");
+    }
+
     // Whole gigabytes when exact, otherwise one decimal: "32", "15.8".
     public static string GigabytesCompact(ulong bytes)
     {

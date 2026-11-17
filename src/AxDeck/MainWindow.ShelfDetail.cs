@@ -441,6 +441,8 @@ public partial class MainWindow
             var menu = NewMenu();
             menu.Items.Add(Item(Loc.T("只复制，不粘贴", "Copy only"), () => CopyClip(clip), MenuIcons.Copy));
             if (clip.Kind != ClipKind.Image) menu.Items.Add(Item(Loc.T("编辑…", "Edit…"), () => BeginEdit(clip.Id), MenuIcons.Edit));
+            // A picture can hold a code and text; both are read on this machine, and nothing is sent away.
+            if (clip.Kind == ClipKind.Image) menu.Items.Add(Item(Loc.T("读取图片内容…", "Read the picture…"), () => ReadPicture(clip), MenuIcons.Details));
             AddFiling(menu, clip);
             menu.Items.Add(Separator());
             menu.Items.Add(Item(Loc.T("删除", "Delete"), () => DeleteClips([clip]), MenuIcons.Delete, danger: true));
@@ -463,6 +465,7 @@ public partial class MainWindow
             var menu = NewMenu();
             menu.Items.Add(Item(Loc.T("粘贴", "Paste"), () => PasteFiles([file]), MenuIcons.Paste));
             menu.Items.Add(Item(Loc.T("复制路径", "Copy path"), () => CopyPath(file), MenuIcons.FilePath));
+            foreach (var place in CopyPlaces([file])) menu.Items.Add(place);
             if (FilingMenu(ShelfSide.Files, [file.Id]) is { } filing) { menu.Items.Add(Separator()); menu.Items.Add(filing); }
             menu.Items.Add(Separator());
             AddRemoval(menu, [file]);
@@ -514,11 +517,15 @@ public partial class MainWindow
         public const string PlainText = "M 3,3.5 H 13 M 8,3.5 V 13.5 M 6,13.5 H 10";
         public const string Copy = "M 6.5,5 H 12 A 1.5,1.5 0 0 1 13.5,6.5 V 12 A 1.5,1.5 0 0 1 12,13.5 H 6.5 A 1.5,1.5 0 0 1 5,12 V 6.5 A 1.5,1.5 0 0 1 6.5,5 Z M 11,5 V 3.5 A 1,1 0 0 0 10,2.5 H 3.5 A 1,1 0 0 0 2.5,3.5 V 10 A 1,1 0 0 0 3.5,11 H 5";
         public const string Details = "M 4.5,2.5 H 11.5 A 2,2 0 0 1 13.5,4.5 V 11.5 A 2,2 0 0 1 11.5,13.5 H 4.5 A 2,2 0 0 1 2.5,11.5 V 4.5 A 2,2 0 0 1 4.5,2.5 Z M 5.5,6 H 10.5 M 5.5,8.5 H 10.5 M 5.5,11 H 8.5";
+        // A QR code: three corner marks and a few modules.
+        public const string QrCode = "M 2.5,2.5 H 6.5 V 6.5 H 2.5 Z M 9.5,2.5 H 13.5 V 6.5 H 9.5 Z M 2.5,9.5 H 6.5 V 13.5 H 2.5 Z M 9.5,9.5 H 11.5 V 11.5 H 9.5 Z M 12,12.5 H 13.5 V 14 H 12 Z M 9,13 H 10.5 V 14.5 H 9 Z";
         public const string Edit = "M 10.5,2.5 L 13.5,5.5 L 6,13 H 3 V 10 Z";
         public const string Category = "M 2.5,2.5 H 7.7 L 13.7,8.5 L 8.5,13.7 L 2.5,7.7 Z M 4.3,5.3 A 1,1 0 1 1 6.3,5.3 A 1,1 0 1 1 4.3,5.3";
         public const string Delete = "M 2.5,4.5 H 13.5 M 6,4.5 V 3 H 10 V 4.5 M 4,4.5 L 4.7,13.5 H 11.3 L 12,4.5";
         public const string Open = "M 9,2.5 H 13.5 V 7 M 13.5,2.5 L 7.5,8.5 M 11.5,9.5 V 12.5 A 1,1 0 0 1 10.5,13.5 H 3.5 A 1,1 0 0 1 2.5,12.5 V 5.5 A 1,1 0 0 1 3.5,4.5 H 6.5";
         public const string Folder = "M 2,4.5 A 1,1 0 0 1 3,3.5 H 6.2 L 7.7,5 H 13 A 1,1 0 0 1 14,6 V 12 A 1,1 0 0 1 13,13 H 3 A 1,1 0 0 1 2,12 Z";
+        // A monitor's screen on a stand, for the desktop: the copy lands where the desktop's own files are.
+        public const string Desktop = "M 1.5,3 H 14.5 V 10.5 H 1.5 Z M 6,13.5 H 10 M 8,10.5 V 13.5";
         public const string FilePath = "M 6.5,9.5 L 9.5,6.5 M 7,4.5 L 8,3.5 A 2.8,2.8 0 0 1 12,7.5 L 11,8.5 M 9,11.5 L 8,12.5 A 2.8,2.8 0 0 1 4,8.5 L 5,7.5";
         public const string Remove = "M 2.5,8 A 5.5,5.5 0 1 1 13.5,8 A 5.5,5.5 0 1 1 2.5,8 Z M 5.5,8 H 10.5";
     }
@@ -597,6 +604,9 @@ public partial class MainWindow
         menu.Items.Add(Separator());
         menu.Items.Add(Item(Loc.T("查看详情", "Details"), () => OpenDetail(ShelfSide.Clipboard, clip.Id), MenuIcons.Details));
         if (textual) menu.Items.Add(Item(Loc.T("编辑…", "Edit…"), () => BeginEdit(clip.Id), MenuIcons.Edit));
+        // A picture can hold a code and text; a text can become a code a phone reads.
+        if (textual) menu.Items.Add(Item(Loc.T("生成二维码…", "Make a QR code…"), () => ShowQrCode(clip), MenuIcons.QrCode));
+        else menu.Items.Add(Item(Loc.T("读取图片内容…", "Read the picture…"), () => ReadPicture(clip), MenuIcons.Details));
         AddFiling(menu, clip);
         menu.Items.Add(Separator());
         menu.Items.Add(Item(Loc.T("删除", "Delete"), () => DeleteClips([clip]), MenuIcons.Delete, danger: true));
@@ -645,6 +655,12 @@ public partial class MainWindow
             menu.Items.Add(Item(Loc.T("打开", "Open"), () => OpenFile(file.Path), MenuIcons.Open));
             menu.Items.Add(Item(Loc.T("在文件夹中显示", "Show in folder"), () => ShowInFolder(file.Path), MenuIcons.Folder));
             menu.Items.Add(Item(Loc.T("复制路径", "Copy path"), () => CopyPath(file), MenuIcons.FilePath));
+        }
+        // A copy lands beside the original; the files stay on the page either way.
+        var places = CopyPlaces(files).ToList();
+        if (places.Count > 0) { menu.Items.Add(Separator()); foreach (var place in places) menu.Items.Add(place); }
+        if (!many)
+        {
             menu.Items.Add(Separator());
             menu.Items.Add(Item(Loc.T("查看详情", "Details"), () => OpenDetail(ShelfSide.Files, file.Id), MenuIcons.Details));
         }

@@ -5,12 +5,15 @@ using System.Text.RegularExpressions;
 
 namespace AxDeck.Core;
 
-public sealed record LyricLine(double Seconds, string Text);
-// The lines shown around the one being sung: Before ends with the line just sung, After starts with the next one.
+// A line of the lyric, and its translation when the provider gave one (empty otherwise).
+public sealed record LyricLine(double Seconds, string Text, string Translation = "");
+// The lines shown around the one being sung: Before ends with the line just sung, After starts with the next one. Translation is
+// the current line's, empty for a song whose provider gave none.
 public sealed record LyricWindow(IReadOnlyList<string> Before, string Current, IReadOnlyList<string> After)
 {
     public static LyricWindow Empty { get; } = new([], "", []);
     public static LyricWindow Only(string current) => new([], current, []);
+    public string Translation { get; init; } = "";
 }
 public sealed record Lyrics(IReadOnlyList<LyricLine> Lines, bool Synced, string Source, bool Instrumental = false)
 {
@@ -58,34 +61,66 @@ public sealed record Lyrics(IReadOnlyList<LyricLine> Lines, bool Synced, string 
         // Only an explicit blank line marks a gap before the next timestamp.
         string text = string.IsNullOrWhiteSpace(Lines[index].Text) ? "♪" : Lines[index].Text;
         int first = Math.Max(0, index - before);
-        return new(Texts(first, index - first), text, Texts(index + 1, after));
+        // A blank line is a gap, and has no translation of its own.
+        return new(Texts(first, index - first), text, Texts(index + 1, after)) { Translation = text == "♪" ? "" : Lines[index].Translation };
     }
-    public static Lyrics Parse(string? lrc, string? plain, double duration, string source, bool instrumental = false)
+    public static Lyrics Parse(string? lrc, string? plain, double duration, string source, bool instrumental = false, string? translation = null)
     {
-        var result = new List<LyricLine>();
         double offset = 0;
         var offsetMatch = Regex.Match(lrc ?? "", @"\[offset:([+-]?\d+)\]", RegexOptions.IgnoreCase);
         if (offsetMatch.Success && double.TryParse(offsetMatch.Groups[1].Value, CultureInfo.InvariantCulture, out var ms)) offset = ms / 1000;
-        foreach (var row in (lrc ?? "").Split('\n'))
+        var result = ReadLrc(lrc ?? "", offset);
+        if (result.Count > 0)
+        {
+            if (InstrumentalNotice(result.Select(l => l.Text))) return new([], true, source, true);
+            var lines = result.OrderBy(l => l.Seconds).Distinct().ToList();
+            if (!string.IsNullOrWhiteSpace(translation)) lines = AttachTranslations(lines, translation, offset);
+            return new(lines, true, source, instrumental);
+        }
+        var untimed = (plain ?? "").Split('\n').Select(l => l.Trim()).Where(l => l.Length > 0).ToArray();
+        if (untimed.Length == 0) return new([], true, source, instrumental);
+        if (InstrumentalNotice(untimed)) return new([], true, source, true);
+        // Plain lyrics have no timing information; retain their order for manual scrolling.
+        return new(untimed.Select(line => new LyricLine(0, line)).ToArray(), false, source, instrumental);
+    }
+    // The timed lines of an LRC text, the song's offset added to each. Word-timed LRC puts a <mm:ss.xx> tag before each word; the
+    // panel shows whole lines, so the tags are dropped.
+    private static List<LyricLine> ReadLrc(string lrc, double offset)
+    {
+        var lines = new List<LyricLine>();
+        foreach (var row in lrc.Split('\n'))
         {
             var stamps = Regex.Matches(row, @"\[(\d{1,3}):(\d{2})(?:[.:](\d{1,3}))?\]");
             if (stamps.Count == 0) continue;
-            // Word-timed LRC puts a <mm:ss.xx> tag before each word; the panel shows whole lines, so the tags are dropped.
             string text = Regex.Replace(row[(stamps[^1].Index + stamps[^1].Length)..], @"<\d{1,3}:\d{2}(?:[.:]\d{1,3})?>", "").Trim();
             foreach (Match stamp in stamps)
             {
                 double time = int.Parse(stamp.Groups[1].Value) * 60 + int.Parse(stamp.Groups[2].Value);
                 if (stamp.Groups[3].Success) time += double.Parse("0." + stamp.Groups[3].Value, CultureInfo.InvariantCulture);
-                result.Add(new(Math.Max(0, time + offset), text));
+                lines.Add(new(Math.Max(0, time + offset), text));
             }
         }
-        if (result.Count > 0)
-            return InstrumentalNotice(result.Select(l => l.Text)) ? new([], true, source, true) : new(result.OrderBy(l => l.Seconds).Distinct().ToList(), true, source, instrumental);
-        var lines = (plain ?? "").Split('\n').Select(l => l.Trim()).Where(l => l.Length > 0).ToArray();
-        if (lines.Length == 0) return new([], true, source, instrumental);
-        if (InstrumentalNotice(lines)) return new([], true, source, true);
-        // Plain lyrics have no timing information; retain their order for manual scrolling.
-        return new(lines.Select(line => new LyricLine(0, line)).ToArray(), false, source, instrumental);
+        return lines;
+    }
+    // A translation comes as a second LRC whose timestamps are the sung line's. A line is matched by its timestamp — the providers
+    // time both texts the same way — and a translation of another line, or a line the translation has no text for, is left empty
+    // rather than put above the wrong words. Two lines within the same half second are told apart by their order.
+    private static List<LyricLine> AttachTranslations(List<LyricLine> lines, string translation, double offset)
+    {
+        var translated = ReadLrc(translation, offset).Where(line => line.Text.Length > 0).OrderBy(line => line.Seconds).ToList();
+        if (translated.Count == 0) return lines;
+        var result = new List<LyricLine>(lines.Count);
+        int next = 0;
+        foreach (var line in lines)
+        {
+            string text = "";
+            // The translation's line nearest this one's timestamp, when it is close enough to be the same line.
+            int index = -1;
+            for (int i = Math.Max(0, next); i < translated.Count && translated[i].Seconds <= line.Seconds + .5; i++) index = i;
+            if (index >= 0 && Math.Abs(translated[index].Seconds - line.Seconds) <= .5) { text = translated[index].Text; next = index + 1; }
+            result.Add(line with { Translation = text });
+        }
+        return result;
     }
     // QQ Music, NetEase and KuGou give a song without words a lyric of only credits ("作曲 : Yiruma") and a notice such as
     // "纯音乐，请欣赏" or "此歌曲为没有填词的纯音乐，请您欣赏"; such a lyric is the song's mark as instrumental. A notice worded
@@ -235,7 +270,9 @@ public sealed partial class LyricsService : IDisposable
         if (data is not { ValueKind: JsonValueKind.Object } value) return Lyrics.Empty;
         // NetEase marks a song without words; its lyric then holds only credits and a notice.
         if (value.TryGetProperty("pureMusic", out var pure) && pure.ValueKind == JsonValueKind.True) return new([], true, "网易云音乐", true);
-        return value.TryGetProperty("lrc", out var lrc) ? Lyrics.Parse(Str(lrc, "lyric"), null, duration, "网易云音乐") : Lyrics.Empty;
+        // "tlyric" is NetEase's translated lyric, timed like the original; a song without one leaves it empty.
+        string translation = value.TryGetProperty("tlyric", out var translated) && translated.ValueKind == JsonValueKind.Object ? Str(translated, "lyric") : "";
+        return value.TryGetProperty("lrc", out var lrc) ? Lyrics.Parse(Str(lrc, "lyric"), null, duration, "网易云音乐", translation: translation) : Lyrics.Empty;
     }
     private async Task<Lyrics> FindLrclib(MediaTrack track, CancellationToken token)
     {

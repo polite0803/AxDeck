@@ -283,6 +283,9 @@ public sealed record MonitorSnapshot(DateTimeOffset Time, int LogicalProcessors,
     public PowerTrack GpuPower { get; init; } = PowerTrack.None;
     // The frame rate of the program in front, read only while something shows it (SystemSampler.SetExtras).
     public Reading<FrameSample> Frames { get; init; } = Reading<FrameSample>.Unavailable(Loc.T("正在读取", "Reading"));
+    // The day's traffic: the bytes read from and written to the disks, and the bytes received over and sent through the network,
+    // since the day began (TrafficToday). Null while it is not known yet.
+    public TrafficTotals? Traffic { get; init; }
     public static MonitorSnapshot Empty(int logicalProcessors, string reason) => new(DateTimeOffset.Now, logicalProcessors,
         Reading<CpuSample>.Unavailable(reason), Reading<MemorySample>.Unavailable(reason), Reading<NetworkSample>.Unavailable(reason),
         Reading<GpuSample>.Unavailable(reason), Reading<ProcessList>.Unavailable(reason));

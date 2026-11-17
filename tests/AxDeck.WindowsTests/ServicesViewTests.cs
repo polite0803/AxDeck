@@ -25,6 +25,10 @@ public partial class MainWindow
     internal void ServicesStopBge() { }
     internal void ServicesCopyBgeApi() { }
     internal void ServicesOpenBgeLog() { }
+    internal void ServicesShowBgeLog() { }
+    internal void ServicesShowAxTvLog() { }
+    internal bool ServicesBgeAutostartEnabled() => false;
+    internal void ServicesSetBgeAutostart(bool enabled) { }
     internal void ServicesBrowseApk() { }
     internal void ServicesInstallApk() { }
     internal void ServicesAxTvStart() { }

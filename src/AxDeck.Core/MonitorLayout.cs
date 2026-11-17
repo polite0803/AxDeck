@@ -206,6 +206,9 @@ public sealed record MonitorLayout(double Figure, double Body, double Caption, M
     // which give up room for it, and after the first power line; a page without room for it has none, and a page that asks for no
     // frame rates is laid out exactly as before.
     public bool FrameLine { get; init; }
+    // The line under the drives for the day's traffic (TrafficBlock): after the power lines, where the page has room for it; a
+    // page without room for it has none, and a page that asks for no traffic is laid out exactly as before.
+    public bool TrafficLine { get; init; }
     public static int PowerRoom(double readings, MetricsMode metrics, double figure, double body, int storageLines)
     {
         var (head, margins, rest, storageMargin) = Fixed(metrics, figure, body);
@@ -230,17 +233,20 @@ public sealed record MonitorLayout(double Figure, double Body, double Caption, M
 
     // The readings' parts in a column this tall (foot: the room left under them, FootAlignment): the main gauge's line, the graph,
     // memory and network together, the drives' lines, the power lines, and last the frame rate's line, which sits between memory and
-    // network and the drives; each (Top, Height), as MonitorView lays them out.
+    // network and the drives; each (Top, Height), as MonitorView lays them out. The day's traffic's line comes last, after the
+    // power lines.
     public IReadOnlyList<(double Top, double Height)> Parts(double readings, double foot = 0)
     {
         var (head, margins, metrics, storageMargin) = Fixed(Metrics, Figure, Body);
         double frames = FrameLine ? storageMargin + StorageRow : 0;
         double storage = StorageLines > 0 ? storageMargin + StorageLines * StorageRow : 0;
         double power = PowerLines > 0 ? storageMargin + PowerLines * StorageRow : 0;
-        double graph = Math.Max(16, readings - foot - head - margins - metrics - frames - storage - power);
+        double traffic = TrafficLine ? storageMargin + StorageRow : 0;
+        double graph = Math.Max(16, readings - foot - head - margins - metrics - frames - storage - power - traffic);
         double graphTop = head + (Metrics == MetricsMode.Line ? 4 : 6);
         double metricsTop = head + margins + graph, framesTop = metricsTop + metrics;
-        return [(0, head), (graphTop, graph), (metricsTop, metrics), (framesTop + frames, storage), (framesTop + frames + storage, power), (framesTop, frames)];
+        return [(0, head), (graphTop, graph), (metricsTop, metrics), (framesTop + frames, storage), (framesTop + frames + storage, power), (framesTop, frames),
+            (framesTop + frames + storage + power, traffic)];
     }
 
     // How far past a step a resize must go before the page takes the next step, so a size held at a step does not flip back and
@@ -248,19 +254,19 @@ public sealed record MonitorLayout(double Figure, double Body, double Caption, M
     public const double Hysteresis = 12;
 
     // The layout for this size, keeping previous (the step the page shows) while the size is within Hysteresis of it.
-    public static MonitorLayout For(double width, double height, bool processes, int storage, MonitorLayout? previous, int power = 0, bool frames = false)
+    public static MonitorLayout For(double width, double height, bool processes, int storage, MonitorLayout? previous, int power = 0, bool frames = false, bool traffic = false)
     {
-        var next = For(width, height, processes, storage, power, frames);
+        var next = For(width, height, processes, storage, power, frames, traffic);
         if (previous is null || next == previous) return next;
         foreach (double dw in new[] { 0, -Hysteresis, Hysteresis })
             foreach (double dh in new[] { 0, -Hysteresis, Hysteresis })
-                if (For(width + dw, height + dh, processes, storage, power, frames) == previous) return previous;
+                if (For(width + dw, height + dh, processes, storage, power, frames, traffic) == previous) return previous;
         return next;
     }
 
     // storage: the volumes the page would show an entry each. power: the lines the page would show for power (0 to 2). frames:
-    // whether the page shows the frame rate's line.
-    public static MonitorLayout For(double width, double height, bool processes, int storage = 0, int power = 0, bool frames = false)
+    // whether the page shows the frame rate's line. traffic: whether the page shows the day's traffic's line.
+    public static MonitorLayout For(double width, double height, bool processes, int storage = 0, int power = 0, bool frames = false, bool traffic = false)
     {
         width = double.IsFinite(width) ? Math.Max(0, width) : 0;
         height = double.IsFinite(height) ? Math.Max(0, height) : 0;
@@ -288,7 +294,9 @@ public sealed record MonitorLayout(double Figure, double Body, double Caption, M
         int columns = storage <= 0 ? 0 : readingsWidth >= StorageTwoColumns ? Math.Min(storage, MaximumStorageColumns) : 1;
         int lines = storage <= 0 ? 0 : Math.Min((storage + columns - 1) / columns, StorageRoom(readings - reserve - frameRoom, metrics, figure, body));
         int powerLines = power <= 0 ? 0 : Math.Min(Math.Min(power, 2), Math.Max(PowerRoom(readings - frameRoom, metrics, figure, body, lines), firstLine ? 1 : 0));
-        return new(figure, body, caption, metrics, list, row) { StorageLines = lines, StorageColumns = lines > 0 ? columns : 0, PowerLines = powerLines, FrameLine = frameLine };
+        // The day's traffic's line comes after the power lines, where the page has room for one.
+        bool trafficLine = traffic && PowerRoom(readings - frameRoom - (powerLines > 0 ? line : 0), metrics, figure, body, lines) >= 1;
+        return new(figure, body, caption, metrics, list, row) { StorageLines = lines, StorageColumns = lines > 0 ? columns : 0, PowerLines = powerLines, FrameLine = frameLine, TrafficLine = trafficLine };
     }
 
     // The rows and columns a list of this size shows.

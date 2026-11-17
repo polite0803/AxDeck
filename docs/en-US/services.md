@@ -94,9 +94,13 @@ When either is missing the page says so ("llama-server.exe not found" or "model 
 
 The page reads the state every two seconds while it is open, and stops reading as soon as another page takes over.
 
+### Starting with Windows
+
+With "Start with Windows" on, AxDeck writes a startup entry for the current user (`AxDeckBgeM3` under `HKCU\Software\Microsoft\Windows\CurrentVersion\Run`) that starts `llama-server` at sign-in with the same arguments the page's "Start" uses — the model path comes from `services.json` — so AxDeck does not have to be running first. Turning it off deletes the entry and leaves a server that is already running alone. It cannot be turned on without `llama-server.exe` and a model path; the page says which is missing. The entry is separate from AxDeck's own start with Windows, so the two switch independently.
+
 ### The log
 
-The output of `llama-server` is written to `%LOCALAPPDATA%\AxDeck\logs\bge-m3.log`, which "Open log" opens in Notepad. When a start fails, the reason is left in that file.
+The output of `llama-server` is written to `%LOCALAPPDATA%\AxDeck\logs\bge-m3.log`: "View log" shows it inside the panel, and "Open log" opens it in Notepad. The server may be writing to the same file, so AxDeck opens it for shared reading and never fails on that account. When a start fails, the reason is left in that file.
 
 ### The HTTP proxy on this PC
 
