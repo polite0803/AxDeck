@@ -146,16 +146,22 @@ internal sealed class ShellDesktopIconPositions : IDesktopIconPositions
 
     // 一项在资源管理器里可能显示成哪些名字。
     // 系统项的名字随系统语言，而 AxDeck 的界面语言未必跟系统一致，所以中英两种都拿出来比；
-    // 用户文件夹更特殊：桌面上写的是账户名，只有从它的路径才认得出来。
+    // 用户文件夹更特殊：桌面上写的是账户的显示名，只有从它的路径才认得出来。
     private static IReadOnlyList<string> Names(DesktopItems.Item item)
     {
         if (item.Kind != DesktopItems.Kind.Shell) return [item.Name];
         // FromPath 而不是 FromParsingName：用户文件夹在这一页上的路径是账户的 Profile 目录，不是解析名。
         if (BoxShellItems.FromPath(item.Path) is { } id && BoxShellItems.Find(id) is { } known)
         {
-            // 用户文件夹：桌面上画的是这个账户自己的名字（Profile 目录名）。
-            if (id == BoxShellItems.UserFolder && Path.GetFileName(item.Path) is { Length: > 0 } account)
-                return [item.Name, known.Chinese, known.English, account];
+            // 用户文件夹：桌面上画的是账户的显示名（「刘小平」），而 Profile 目录叫 polit——两者不一定相同，
+            // 所以名字问 shell 要。目录名一并留着，显示名取不到时还能按老办法比一次。
+            if (id == BoxShellItems.UserFolder)
+            {
+                var names = new List<string> { item.Name, known.Chinese, known.English };
+                if (ShellKnownFolder.UserFolderName() is { Length: > 0 } display) names.Add(display);
+                if (Path.GetFileName(item.Path) is { Length: > 0 } account) names.Add(account);
+                return names;
+            }
             return [item.Name, known.Chinese, known.English];
         }
         return [item.Name];
