@@ -1,4 +1,4 @@
-using System.Windows;
+﻿using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Interop;
 using System.Windows.Shell;
@@ -27,6 +27,7 @@ internal static class Program
             if (args is ["--only", "bge"]) { BgeM3Checks.Run(Check); return Finish(); }
             if (args is ["--only", "axtv"]) { AxTvChecks.Run(Check); return Finish(); }
             if (args is ["--only", "services"]) { AxDeck.ServicesViewTests.Run(Check); return Finish(); }
+            if (args is ["--only", "pages"]) { AxDeck.PageContentShowingTests.Run(Check); return Finish(); }
             if (args is ["--only", "desktop"]) { AxDeck.DesktopChecks.Run(Check); return Finish(); }
             // 桌面页的图标收不收得到点击：搭起真实的 DesktopIconsView，用命中测试问一句。
             if (args is ["--only", "desktophit"]) { AxDeck.DesktopHitTests.Run(Check); return Finish(); }
@@ -61,6 +62,8 @@ internal static class Program
             SettingsFocusTests.Run(Check);
             AxDeck.MainWindow.CheckPageCapsule(Check);
             AxDeck.MainWindow.CheckPageCapsuleFit(Check);
+            // 换页后旧页面的内容不能留在新页面上（从服务页切到设备页时曾经留下过一整排按钮）。
+            AxDeck.PageContentShowingTests.Run(Check);
             AxDeck.MainWindow.CheckShadowLifetime();
             if (hosted) Console.WriteLine("EXCLUDED on a hosted runner: GPU, display, frame rate, temperature, device battery and power readings, and the application identity the shell resolves (they read this machine or its shell).");
             else

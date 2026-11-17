@@ -159,8 +159,7 @@ public partial class MainWindow
     private void RenderShelf(bool lazy = false)
     {
         RefreshStatus();
-        UsageContent.Visibility = Visibility.Collapsed; MusicContent.Visibility = Visibility.Collapsed; MonitorContent.Visibility = Visibility.Collapsed; DevicesContent.Visibility = Visibility.Collapsed;
-        ShelfContent.Visibility = Visibility.Visible;
+        ShowPageContent(ShelfContent);
         ModelToolbar.Visibility = Visibility.Collapsed; ApplicationPages.Visibility = Visibility.Collapsed;
         double width = ContentCanvas.Width, height = ContentCanvas.Height;
         if (!double.IsFinite(width) || !double.IsFinite(height)) return;

@@ -144,6 +144,10 @@ public partial class MainWindow
         _handover.Send(picture, place, PageContent(page), back ? Handover.Back : Handover.Forward);
     }
     private FrameworkElement PageContent(DeckPage page) => page switch { DeckPage.Music => MusicContent, DeckPage.Monitor => MonitorContent, DeckPage.Clipboard => ShelfContent, DeckPage.Devices => DevicesContent, DeckPage.Services => ServicesContent, DeckPage.Desktop => DesktopContent, _ => UsageContent };
+    // 展开的面板只显示一个页面。每个页面的渲染都从这里过，而不是各自手写一串 Visibility = Collapsed：
+    // 那样每加一页就要改六处，漏一处旧页面的内容就留在新页面上（PageContentShowing）。
+    private void ShowPageContent(Grid page) =>
+        PageContentShowing.ShowOnly(page, [UsageContent, MusicContent, MonitorContent, ShelfContent, DevicesContent, ServicesContent, DesktopContent]);
     private void ShowPage(DeckPage page, bool animatePage)
     {
         // The music page keeps what it built while another page shows (RenderMusic's key), so switching back does not build it again.
@@ -440,7 +444,7 @@ public partial class MainWindow
         // Only a page that was on screen hands over; one that arrives by the page switch or with the panel opening comes in whole.
         bool shown = MusicContent.IsVisible && _expanded && !_preview;
         RefreshStatus();
-        UsageContent.Visibility = Visibility.Collapsed; MonitorContent.Visibility = Visibility.Collapsed; ShelfContent.Visibility = Visibility.Collapsed; DevicesContent.Visibility = Visibility.Collapsed; DesktopContent.Visibility = Visibility.Collapsed; MusicContent.Visibility = Visibility.Visible;
+        ShowPageContent(MusicContent);
         ModelToolbar.Visibility = Visibility.Collapsed; ApplicationPages.Visibility = Visibility.Collapsed; ClockLabel.Visibility = Visibility.Visible;
         double h = ContentCanvas.Height, w = ContentCanvas.Width;
         var track = _mediaTrack;

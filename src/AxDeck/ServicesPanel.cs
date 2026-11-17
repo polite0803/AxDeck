@@ -44,7 +44,7 @@ public partial class MainWindow
         bool shown = ServicesContent.Visibility == Visibility.Visible && _servicesView is not null && ServicesContent.Children.Contains(_servicesView);
         ServicesReloadConfig();
         RefreshStatus();
-        UsageContent.Visibility = Visibility.Collapsed; MusicContent.Visibility = Visibility.Collapsed; ShelfContent.Visibility = Visibility.Collapsed; DevicesContent.Visibility = Visibility.Collapsed; MonitorContent.Visibility = Visibility.Collapsed; DesktopContent.Visibility = Visibility.Collapsed; ServicesContent.Visibility = Visibility.Visible;
+        ShowPageContent(ServicesContent);
         ModelToolbar.Visibility = Visibility.Collapsed; ApplicationPages.Visibility = Visibility.Collapsed; ClockLabel.Visibility = Visibility.Visible;
         double width = ContentCanvas.Width, height = ContentCanvas.Height;
         if (!double.IsFinite(width) || !double.IsFinite(height)) return;

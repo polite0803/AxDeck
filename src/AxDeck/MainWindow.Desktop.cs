@@ -21,9 +21,7 @@ public partial class MainWindow
     {
         bool shown = DesktopContent.Visibility == Visibility.Visible && _desktopView is not null && DesktopContent.Children.Contains(_desktopView);
         RefreshStatus();
-        UsageContent.Visibility = Visibility.Collapsed; MusicContent.Visibility = Visibility.Collapsed; ShelfContent.Visibility = Visibility.Collapsed;
-        DevicesContent.Visibility = Visibility.Collapsed; MonitorContent.Visibility = Visibility.Collapsed; ServicesContent.Visibility = Visibility.Collapsed;
-        DesktopContent.Visibility = Visibility.Visible;
+        ShowPageContent(DesktopContent);
         ModelToolbar.Visibility = Visibility.Collapsed; ApplicationPages.Visibility = Visibility.Collapsed; ClockLabel.Visibility = Visibility.Visible;
         double width = ContentCanvas.Width, height = ContentCanvas.Height;
         if (!double.IsFinite(width) || !double.IsFinite(height)) return;
