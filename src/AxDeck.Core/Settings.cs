@@ -707,6 +707,12 @@ public sealed class DeckSettings
     public bool SettingsWindowMaximized { get; set; }
     // Shows the compact notice when a quota rises into the warning or critical level.
     public bool QuotaAlerts { get; set; } = true;
+    // Also sends a Windows notification (through the tray icon) at the same moment. Off by default, so existing
+    // installations keep their behavior; the tray icon is where the notification is sent from.
+    public bool QuotaNotifications { get; set; }
+    // Sends a Windows notification when a device's charge crosses into the getting-low or low level. The readings are
+    // taken while the devices are shown, as they always are, so the notices follow the same demand.
+    public bool DeviceNotifications { get; set; }
     // Also reads the Claude Code and Codex CLI session records inside WSL distributions. Off by default: it starts stopped distributions.
     public bool IncludeWsl { get; set; }
     // The ordered application list; the order is the column order of the expanded panel. Claude and Codex are shown

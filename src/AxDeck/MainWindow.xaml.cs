@@ -631,6 +631,19 @@ public partial class MainWindow : Window
         _levelsSeeded = true;
         // Levels are still tracked while notices are off, so switching them back on does not replay an earlier rise.
         if (risen is not null && Settings.QuotaAlerts && !IsSuppressed) ShowAlert(risen);
+        // The system notification comes from the main panel only (every panel detects here on its own), and runs whether
+        // or not the in-panel notice is on or the panel is suppressed: a hidden panel is exactly when a notification is
+        // worth having; while a full-screen app hides the system's own notices too, that is Windows' to decide. The text
+        // follows the in-panel notice's wording (CompactAlertLayout), including the shown direction (remaining or used).
+        if (risen is not null && Settings.QuotaNotifications && this == _app.Deck)
+        {
+            bool left = Settings.QuotaRingRemaining;
+            double share = left ? 100 - risen.Used : risen.Used;
+            string text = left ? Loc.T($"{risen.Label}剩余 {share:0}%", $"{risen.Label}{share:0}% left") : Loc.T($"{risen.Label}已用 {risen.Used:0}%", $"{risen.Label}{risen.Used:0}% used");
+            string shortReset = UI.ShortReset(risen.ResetAt);
+            if (shortReset.Length > 0) text += " " + Loc.T(shortReset + "重置", shortReset.StartsWith("in ", StringComparison.Ordinal) ? "resets " + shortReset : shortReset);
+            _app.SystemNotice(risen.Name, text, risen.Used >= AppPresets.CriticalPercent ? 2 : 1);
+        }
     }
 
     internal void ShowAlert(AppEntry entry, string label, double used, DateTimeOffset? resetAt)

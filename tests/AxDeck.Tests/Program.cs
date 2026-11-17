@@ -49,6 +49,7 @@ try
     SensorStopTests.Run(Check);
     StripAdmissionTests.Run(Check);
     DevicesTests.Run(Check);
+    DeviceNoticesTests.Run(Check);
     DeviceProtocolTests.Run(Check);
     DeviceSafetyTests.Run(Check);
     PowerTests.Run(Check);

@@ -74,6 +74,11 @@ public partial class SettingsWindow
         Group(Row(Loc.T("预警阈值", "Warning threshold"), warning, help: () => Loc.T("电量不高于此值时显示为偏低，使用预警颜色。", "At or under this level a battery shows as getting low, in its warning color.")),
             Row(Loc.T("告警阈值", "Critical threshold"), low, help: () => Loc.T("电量不高于此值时显示为低电量，使用告警颜色。", "At or under this level a battery shows as low, in its critical color.")));
 
+        SectionTitle(Loc.T("低电量通知", "Low-battery notices"));
+        Group(Toggle(Loc.T("系统通知", "Windows notifications"), S.DeviceNotifications, value => Change(s => s.DeviceNotifications = value), help: Loc.T(
+            "设备的电量降到预警或告警阈值以下时，发一条 Windows 系统通知（出现在通知中心）。通知从系统托盘图标发出，需要在“常规”中开启托盘图标；充电中的设备不发。",
+            "When a device's charge crosses into the getting-low or low level, a Windows notification is sent, which lands in the notification centre. It is sent from the tray icon, which is switched on in “General”; devices that are charging do not send one.")));
+
         SectionTitle(Loc.T("设备", "Devices"), help: () => Loc.T(
             "支持：Windows 读取的蓝牙电量（蓝牙耳机、低功耗蓝牙键鼠与笔，与 Windows 设置中显示的一致）；罗技 Unifying、Bolt、Lightspeed 接收器与有线设备；雷蛇无线鼠标；赛睿 Arctis 与 HyperX Cloud 无线耳机；ATK、VXE、VGN、迈从、Endgame Gear、VAXEE、英菲克的 2.4G 鼠标与键盘；Xbox 与 PlayStation 手柄；AirPods 与 Beats（左右耳与充电盒）；以及带标准 HID 电量的设备。其他品牌的 2.4G 接收器协议未公开，切到蓝牙模式即可显示。",
             "Supported: the Bluetooth battery Windows reads (Bluetooth headphones and Bluetooth LE keyboards, mice and pens, as Windows Settings shows it); Logitech Unifying, Bolt and Lightspeed receivers and cabled devices; Razer wireless mice; SteelSeries Arctis and HyperX Cloud wireless headsets; 2.4 GHz mice and keyboards by ATK, VXE, VGN, MCHOSE, Endgame Gear, VAXEE and Inphic; Xbox and PlayStation controllers; AirPods and Beats (each bud and the case); and devices with the standard HID battery usages. Other brands' 2.4 GHz receivers do not publish their protocol; in Bluetooth mode they show."));
