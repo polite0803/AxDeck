@@ -48,6 +48,11 @@ public partial class MainWindow
     internal bool ShelfHidesSwitch => _shelfDetail is not null;
     // The panel stays open while a menu of the page is open, while the user types in it, and while files are dragged over it.
     internal bool ShelfHolds => _shelfMenu?.IsOpen == true || _shelfEdit is not null || _dropping || _draggingOut || _searchBox?.IsKeyboardFocusWithin == true;
+
+    // 桌面页往外拖图标时也置这一位：ShelfDragEnter 认出是面板自己的拖动，就不会在拖动途中
+    // 切到剪贴板页，把两页的图标与内容叠在一起。
+    internal void SetDraggingOut(bool dragging) => _draggingOut = dragging;
+
     private ShelfData ShelfData => _app.Shelf.Data;
 
     private void InitializeShelf()
@@ -1059,6 +1064,8 @@ public partial class MainWindow
     // ---- Files dragged in ----
     // Into the collapsed island the panel opens on this page; into the panel on another page it turns to this page. The file transfer
     // column lights up; over a file category, that category does too. Taken away without dropping, the panel goes back.
+    // 面板自己起的拖动（桌面页往外拖图标）在这里直接放行：这一串是 Preview 事件，
+    // 一旦设了 Handled，桌面页自己的 DragOver/Drop 就收不到，拖动排序也没了。
     private void ShelfDragEnter(object sender, DragEventArgs e)
     {
         _dropLeave?.Stop();

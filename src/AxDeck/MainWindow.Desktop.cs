@@ -34,7 +34,8 @@ public partial class MainWindow
         // 桌面上的东西随时会变（别处删了、新存了文件），所以每次回到这一页都重画一遍。
         // 内容没变时 Refresh 自己会跳过，重画不贵。
         var old = shown ? _desktopView : null;
-        _desktopView ??= new DesktopIconsView(this);
+        // 真实桌面图标的位置读写只在这里注入：设置窗口之外的测试搭视图都拿不到它，CI 也就碰不到用户的桌面。
+        _desktopView ??= new DesktopIconsView(this, new ShellDesktopIconPositions());
         if (old is not null) MonitorCrossfade.Swap(DesktopContent, _desktopView, old, Soft.Enabled);
         else { DesktopContent.Children.Clear(); DesktopContent.Children.Add(_desktopView); }
         _desktopView.Refresh();

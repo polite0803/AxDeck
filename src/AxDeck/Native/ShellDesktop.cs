@@ -168,6 +168,7 @@ internal static class ShellDesktop
 
     // 桌面上的图标列表。类名 SysListView32；标题是 FolderView，但某些 Shell 扩展改的桌面没有标题，所以先按标题找，
     // 再退回只按类名找。
+    internal static IntPtr IconListHandle() => FindIconList();
     private static IntPtr FindIconList()
     {
         var desktop = FindDesktopWindow();

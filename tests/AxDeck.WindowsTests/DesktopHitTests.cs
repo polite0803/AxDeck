@@ -220,4 +220,7 @@ public partial class MainWindow
     internal void BoxesOpenPage() { }
     // 菜单和拖动结束后视图会来问一次「指针还在不在面板里」；测试窗口不接收起流程，空着就好。
     internal void MenuClosed() { }
+    // 拖动开始和结束时视图会通知面板，防止剪贴板页把面板自己的拖动当成外部文件。
+    // 桩里不记账：这一位的效果在真实面板的 ShelfDragEnter 里，测试窗口没有那套流程。
+    internal void SetDraggingOut(bool dragging) { }
 }

@@ -76,6 +76,10 @@
     <Compile Include="..\..\src\AxDeck\BoxReport.cs" Link="BoxReport.cs" />
     <!-- The desktop page: the crossfade of a page swap is checked on its own (the crash where the same element was added twice). -->
     <Compile Include="..\..\src\AxDeck\DesktopIconsView.cs" Link="DesktopIconsView.cs" />
+    <!-- The drag data an icon leaves the page with: the private format that sorts, and the file list that copies out. -->
+    <Compile Include="..\..\src\AxDeck\DesktopDrag.cs" Link="DesktopDrag.cs" />
+    <!-- 真实的桌面图标位置适配器 ShellDesktopIconPositions 故意不链接：它借 explorer 的内存读写真实桌面，
+         测试项目一旦编译进它就多了一条能被误调到、真去改用户桌面的路。 -->
     <Compile Include="..\..\src\AxDeck\PromptTimer.cs" Link="PromptTimer.cs" />
     <Compile Include="..\..\src\AxDeck\MonitorCrossfade.cs" Link="MonitorCrossfade.cs" />
     <Compile Include="..\..\src\AxDeck\Motion.cs" Link="Motion.cs" />

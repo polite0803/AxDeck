@@ -138,6 +138,7 @@ For how to use it and its settings, see [Clipboard and file transfer](docs/en-US
 - Brings the Windows desktop into the panel: the files, folders and shortcuts of your desktop and the shared desktop, plus the system entries (This PC, the Recycle Bin and the rest), laid out as the desktop lays them out.
 - While AxDeck runs it can take over the desktop: Windows' own icons are hidden and the panel's page shows the same things in their place, with the icons brought back as they were when AxDeck exits.
 - Select, open, drag in and out, and use Explorer's own right-click menus, the clipboard (Ctrl+C/X/V), and the keyboard the desktop takes — arrows, F2, Delete, Alt+Enter, the menu key.
+- Drag an icon onto another to reorder: the order is the real position of the desktop icons, written back to the desktop so both sides agree.
 
 For what it reads and how the takeover works, see [Desktop page](docs/en-US/desktop.md).
 

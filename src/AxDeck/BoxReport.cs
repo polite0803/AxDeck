@@ -12,7 +12,14 @@ internal static class BoxReport
 {
     // 一句说明：这个做不了的事，为什么做不了。
     public static void Error(string message)
-        => Say(null, Loc.T("桌面", "Desktop"), message, Loc.T("知道了", "Got it"), danger: true);
+    {
+        // 测试里没有用户可看：这里接住消息，免得 ShowDialog 把测试挂在那里。
+        if (ErrorOverride is { } over) { over(message); return; }
+        Say(null, Loc.T("桌面", "Desktop"), message, Loc.T("知道了", "Got it"), danger: true);
+    }
+
+    // 测试缝：接住说明文字，不弹窗。跟 DesktopIconsView 的 OpenOverride 一样是一个函数。
+    internal static Action<string>? ErrorOverride { get; set; }
 
     // 一句说明：做完一件事之后告诉用户结果。
     public static void Notice(string title, string message)

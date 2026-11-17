@@ -56,6 +56,10 @@ internal sealed class DesktopIconsView : Grid
     private string? _pressPath;
     private Point _pressAt;
     private bool _dragging;
+    // 自动排列那一条提示说过没有：拖动时指针每动一下就进一次 MouseMove，不记着就会反复弹窗。
+    private bool _autoArrangeWarned;
+    // 拖到本页图标上时算出来的落点，松手或离开时清掉。拖动期间靠它画竖线。
+    private DesktopIconInsertion _insertion = DesktopIconInsertion.None;
     // 这一下是连着点的第几下。
     //
     // 双击的数只有「按下」那一下带：WPF 在 MouseLeftButtonDown 里给 ClickCount=2，而随后的
@@ -69,10 +73,17 @@ internal sealed class DesktopIconsView : Grid
     // 页面自己那份右键菜单开着时的引用：收掉它（Esc）和挂关闭回调都要用它。
     private ContextMenu? _pageMenu;
 
-    public DesktopIconsView(MainWindow owner)
+    // 桌面上图标的位置：手动排好的顺序就存在那里，和资源管理器画的是同一份。
+    // 不注入时用 NullDesktopIconPositions：它一个 Win32 都不碰，测试搭多少份视图都动不到真实桌面。
+    private readonly IDesktopIconPositions _positions;
+    // 上一次读到的位置快照。拖动提交时拿它分配槽位，免得写之前又读一遍。
+    private DesktopIconSnapshot _snapshot = DesktopIconSnapshot.Unavailable();
+
+    public DesktopIconsView(MainWindow owner, IDesktopIconPositions? positions = null)
     {
         _owner = owner;
         _dispatcher = owner.Dispatcher;
+        _positions = positions ?? new NullDesktopIconPositions();
         // 背景必须有，而且不能是全透明：没有背景的面板不参与命中测试，全透明的像素又会被分层窗口放过去
         // （见 Surface）。两件事同时满足，空白处的点击和拖放才到得了这一页。
         Background = Surface;
@@ -250,12 +261,23 @@ internal sealed class DesktopIconsView : Grid
     // 重画一遍。force 为真时不管内容有没有变都重画（改了外观、改了名字显示方式）。
     public void Refresh(bool force = false)
     {
-        var items = ShellDesktop.Items();
+        // 测试塞确定的一组项；正常运行去问真实桌面。
+        var items = ItemsOverride?.Invoke() ?? ShellDesktop.Items();
+        // 桌面上图标摆在哪儿是手动排好的顺序的唯一真相：Explorer 给出的位置比名字序更该信。
+        // 读不到（Explorer 没在跑、开了自动排列）就退回名字序，不编一个看着像的顺序出来。
+        _snapshot = _positions.Read();
+        if (_snapshot.Status == DesktopIconPositionStatus.Ok)
+        {
+            // 在“要画的项”里按位置排；快照里可能还有这一页不画的项，它们不参与。
+            items = DesktopIconOrdering.OrderByPositions(items, item => item.Path, _snapshot);
+        }
         var look = Look;
         var key = string.Join("\n", items.Select(item => item.Path + "|" + item.Name))
             + "\n" + look.IconSize + "|" + look.LabelTextSize + "|" + look.IconGapX + "|" + look.IconGapY
             + "|" + look.ShowItemLabels + "|" + look.ShowShortcutArrow + "|" + look.NameDisplayMode
-            + "|" + look.CornerRadius + "|" + PanelTheme.Generation;
+            + "|" + look.CornerRadius + "|" + PanelTheme.Generation
+            // 顺序也算进重画的依据：拖动提交后内容没变、只是先后变了，不带上它就跳过重画，页面上还是旧排法。
+            + "|" + string.Join(",", items.Select(item => item.Path));
         if (!force && key == _key && _icons.Children.Count > 0) return;
         _key = key;
         _items = items;
@@ -275,6 +297,9 @@ internal sealed class DesktopIconsView : Grid
 
     // 图标的大小、间距、名字怎么写：在设置窗口的「桌面页」里调，这一页照着画。
     private DesktopLookSettings Look => _owner.Boxes.Settings;
+
+    // 测试缝：塞一组确定的项，免得测试去读真实桌面。跟 OpenOverride 一样是一个函数，不是接口。
+    internal static Func<IReadOnlyList<DesktopItems.Item>>? ItemsOverride { get; set; }
 
     // 一项的图标和名字。
     private FrameworkElement ItemView(DesktopItems.Item item, DesktopLookSettings look)
@@ -433,7 +458,10 @@ internal sealed class DesktopIconsView : Grid
         _dragging = false;
     }
 
-    // 按住往外拖：移动超过系统认的那点距离，就把选中的文件交给系统去拖，可以拖进资源管理器、别的程序里。
+    // 按住往拖：移动超过系统认的那点距离，就把选中的这些项交给系统去拖。
+    //
+    // 一次拖动兼两用：落在这一页的图标上是排序（写回真实桌面的图标位置），落到页面外面是交给别的程序。
+    // 数据的两种格式与落点怎么区分，见 DesktopDrag。
     private void Icons_MouseMove(object sender, MouseEventArgs e)
     {
         if (e.LeftButton != MouseButtonState.Pressed || _pressPath is not { } path) return;
@@ -441,20 +469,55 @@ internal sealed class DesktopIconsView : Grid
         if (Math.Abs(point.X - _pressAt.X) < SystemParameters.MinimumHorizontalDragDistance &&
             Math.Abs(point.Y - _pressAt.Y) < SystemParameters.MinimumVerticalDragDistance) return;
 
-        // 系统项（此电脑、回收站）没有自己的文件，拖不出去。
-        var files = _selected.Where(p => ItemAt(p) is { Kind: not DesktopItems.Kind.Shell }).ToArray();
-        _pressPath = null;
-        if (files.Length == 0) return;
+        // 按下的那一项若不在选区里（比如按住图标后先松开修饰键），这一下拖动的是它自己。
+        var keys = _selected.Contains(path)
+            ? _items.Where(item => _selected.Contains(item.Path)).Select(item => item.Path).ToList()
+            : new List<string> { path };
+        // 系统项（此电脑、回收站）没有自己的文件，拖不出去；但它们在桌面上有位置，照样能参与排序。
+        var files = keys.Where(p => ItemAt(p) is { Kind: not DesktopItems.Kind.Shell }).ToArray();
+        // 位置在「现在」重读一次，不用页面刷新时留下的那份：那份可能是几分钟前的，
+        // 也可能因为当时 Explorer 还没就绪而是空的。排序只认此刻读得到的位置。
+        _snapshot = _positions.Read();
+        bool sortableNow = _snapshot.Status == DesktopIconPositionStatus.Ok;
+        if (!sortableNow)
+        {
+            // 自动排列会把写进去的位置当场改回去，排序在这里没有意义：得说出来，否则拖完毫无反应，
+            // 看着就像功能坏了。位只提示一次，不然指针每动一下都会再进来、反复弹窗。
+            if (_snapshot.Status == DesktopIconPositionStatus.AutoArrange && !_autoArrangeWarned)
+            {
+                _autoArrangeWarned = true;
+                BoxReport.Error(Loc.T("资源管理器开着「自动排列图标」，桌面图标的顺序改不了。在桌面空白处右键 → 查看 → 取消「自动排列图标」之后就能拖了。",
+                    "Explorer has Auto arrange icons on, so the icons cannot be reordered. Turn it off under View on the desktop's right-click menu, and dragging will work."));
+            }
+            // 没有文件可拖出去、位置又读不到：这一下什么也做不成。清掉记号，免得反复进来。
+            if (files.Length == 0) { _pressPath = null; return; }
+        }
 
+        _pressPath = null;
         _dragging = true;
+        _insertion = DesktopIconInsertion.None;
+        var dragged = new HashSet<string>(keys, StringComparer.OrdinalIgnoreCase);
+        // 能按位置排时，选中的这些项都带进拖动数据里：落回本页就是给它们换位置。
+        var sortable = sortableNow ? keys : new List<string>();
+        // 在 DoDragDrop 之前标记：它带自己的消息循环，Shelf 的 DragEnter 会在调用返回之前就到。
+        _owner.SetDraggingOut(true);
+        var result = DragDropEffects.None;
+        // Esc 取消一次拖动：拖动中的落点与竖线一起清掉，DoDragDrop 返回 None，顺序自然不动。
+        void Query(object origin, QueryContinueDragEventArgs cancel)
+        {
+            if (cancel.EscapePressed) { _insertion = DesktopIconInsertion.None; _dropMark.Visibility = Visibility.Collapsed; }
+        }
+        // QueryContinueDrag 是附加事件，UIElement 上没有同名的 CLR 事件，只能这样挂。
+        DragDrop.AddQueryContinueDragHandler(this, Query);
         try
         {
-            var data = new DataObject(DataFormats.FileDrop, files);
-            var collection = new StringCollection();
-            collection.AddRange(files);
-            data.SetFileDropList(collection);
-            // 只给复制：文件还在桌面上，这一页只是把它交出去，不是从这里搬走。
-            DragDrop.DoDragDrop(this, data, DragDropEffects.Copy);
+            var data = DesktopDrag.Build(sortable, files);
+            // 有文件时给复制：文件还在桌面上，这一页只是把它交出去，不是从这里搬走。
+            // 能排序时再把移动打开：落在本页图标上会以 Move 交回来（见 Area_Drop）。
+            var allowed = sortable.Count > 0 && files.Length > 0
+                ? DragDropEffects.Copy | DragDropEffects.Move
+                : files.Length > 0 ? DragDropEffects.Copy : DragDropEffects.Move;
+            result = DragDrop.DoDragDrop(this, data, allowed);
         }
         catch (Exception ex)
         {
@@ -462,10 +525,63 @@ internal sealed class DesktopIconsView : Grid
         }
         finally
         {
+            DragDrop.RemoveQueryContinueDragHandler(this, Query);
             _dragging = false;
+            _dropMark.Visibility = Visibility.Collapsed;
+            // 告诉面板拖动结束：从桌面页往外拖时，面板的剪贴板页会收到 DragEnter，
+            // 不标出这是面板自己的拖动，它就会在拖动途中切页，把两页的内容叠在一起。
+            _owner.SetDraggingOut(false);
             // 拖出去的这一阵指针多半在面板外面（DoDragDrop 是阻塞的，期间收起被挡住），告诉面板再查一次离开。
             _owner.MenuClosed();
         }
+        // 落在本页图标上：只在这里提交排序，拖出去（Copy）和取消（None）都不动顺序。
+        // 提交放在 DoDragDrop 返回之后：拖动期间改 Children 会把正在拖的那个元素从树上摘掉。
+        if (result == DragDropEffects.Move)
+            CommitOrder(_insertion, dragged);
+        _insertion = DesktopIconInsertion.None;
+    }
+
+    // ---- 排序 ----
+
+    // 拖动提交：按落点算出新顺序，把它写成真实桌面上图标的位置，再按真实位置重画。
+    // 写不成功就重读一遍位置、照着原样画回去并说明原因——绝不让页面上留一个其实没存下来的顺序。
+    private void CommitOrder(DesktopIconInsertion insertion, IReadOnlySet<string> dragged)
+    {
+        if (!insertion.IsValid || dragged.Count == 0) return;
+        // 分配槽位用的是「现在」的位置，不是上一次重画时读的那份：拖动这几秒里，别处可能刚动过桌面。
+        // 读不到就什么都不写，页面上什么都不改——绝不能拿一份不知道对不对的顺序去覆盖真实桌面。
+        _snapshot = _positions.Read();
+        if (_snapshot.Status == DesktopIconPositionStatus.AutoArrange)
+        {
+            BoxReport.Error(Loc.T("资源管理器开着「自动排列图标」，桌面图标的顺序改不了。",
+                "Explorer has Auto arrange icons on, so the icons cannot be reordered."));
+            return;
+        }
+        if (_snapshot.Status != DesktopIconPositionStatus.Ok)
+        {
+            // 读不到图标位置：写不了，也不能假装写成了。说清为什么，让用户知道这不是「拖了没用」。
+            BoxReport.Error(Loc.T("读不到桌面图标的位置，顺序没能保存。",
+                "The desktop icons' positions could not be read, so the order was not saved."));
+            return;
+        }
+
+        var order = DesktopIconOrdering.ApplyInsertion([.. _items.Select(item => item.Path)], dragged, insertion);
+        var placements = DesktopIconOrdering.PlanPlacements(order, _snapshot);
+        if (placements.Count == 0)
+        {
+            // 要挪的项在真实桌面上一个都认不出来：写不出去，同样要说明。
+            BoxReport.Error(Loc.T("桌面图标的位置没能对应上，顺序没有保存。",
+                "The page's icons could not be matched to the desktop's, so the order was not saved."));
+            return;
+        }
+
+        var result = _positions.Write(placements);
+        // 不管写成没写成，都按真实位置重读一遍重画：写成时页面照着新位置排（间距、对齐也一致），
+        // 没写成时回到原来的顺序——页面上不该留一个没存下来的排法。
+        _key = "";
+        Refresh(force: true);
+        if (!result.Ok)
+            BoxReport.Error(Loc.T("桌面图标的顺序没能保存。", "The icons' order could not be saved."));
     }
 
     private void Icons_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
@@ -954,6 +1070,30 @@ internal sealed class DesktopIconsView : Grid
 
     private void Area_DragOver(object sender, DragEventArgs e)
     {
+        // 本页自己起的拖动：落在页内就是排序。
+        if (DesktopDrag.IsInternal(e.Data))
+        {
+            var keys = DesktopDrag.Keys(e.Data);
+            if (keys.Length > 0 && _snapshot.Status == DesktopIconPositionStatus.Ok)
+            {
+                _insertion = ResolveDrop(e.GetPosition(_icons), keys);
+                e.Effects = _insertion.IsValid ? DragDropEffects.Move : DragDropEffects.None;
+                ShowDropMark(_insertion);
+                e.Handled = true;
+                return;
+            }
+            // 排不了（开了自动排列、读不到位置）：不要因此拒绝这一整次拖动，否则页面上哪里都放不下，
+            // 看着就是「图标拖不动」。有文件就照原来的规矩走下面那条复制出去的路。
+            _insertion = DesktopIconInsertion.None;
+            _dropMark.Visibility = Visibility.Collapsed;
+            if (!e.Data.GetDataPresent(DataFormats.FileDrop))
+            {
+                // 只拖着系统项（此电脑这类没有文件的）：本来也交不出去，收下这个拖动只会白忙。
+                e.Effects = DragDropEffects.None;
+                e.Handled = true;
+                return;
+            }
+        }
         if (!e.Data.GetDataPresent(DataFormats.FileDrop)) { e.Effects = DragDropEffects.None; e.Handled = true; return; }
         e.Effects = DragDropEffects.Copy;
         // 落点那条竖线：贴在被指着的那一格左边；指在最后面时贴在最后一格右边。
@@ -966,6 +1106,36 @@ internal sealed class DesktopIconsView : Grid
             row * BoxLayout.RowStride(look), 0, 0);
         _dropMark.Visibility = Visibility.Visible;
         e.Handled = true;
+    }
+
+    // 拖动中的落点：把画着的每个图标换算成矩形交给 Core，由它按上下分行、行内按中线定前后。
+    // 被拖的那几项不参与：它们跟着指针走，留在原处只会让落点跳来跳去。
+    private DesktopIconInsertion ResolveDrop(Point at, IEnumerable<string> dragged)
+    {
+        List<DesktopIconOrdering.Rect> rects = [];
+        foreach (var child in _icons.Children.OfType<Border>())
+        {
+            if (child.Tag is not string key) continue;
+            var corner = child.TransformToAncestor(_icons).Transform(new Point(0, 0));
+            rects.Add(new DesktopIconOrdering.Rect(key, corner.X, corner.Y, child.ActualWidth, child.ActualHeight));
+        }
+        return DesktopIconOrdering.ResolveInsertion(rects, at.X, at.Y,
+            new HashSet<string>(dragged, StringComparer.OrdinalIgnoreCase), BoxLayout.RowGap(Look));
+    }
+
+    // 落点那条竖线：画在被指着的那一项的左边缘（落在它之后时画右边缘）。
+    private void ShowDropMark(DesktopIconInsertion insertion)
+    {
+        if (!insertion.IsValid || FindBorder(insertion.TargetKey!) is not { } host)
+        {
+            _dropMark.Visibility = Visibility.Collapsed;
+            return;
+        }
+        var corner = host.TransformToAncestor(_icons).Transform(new Point(0, 0));
+        double x = insertion.After ? corner.X + host.ActualWidth : corner.X;
+        _dropMark.Height = host.ActualHeight;
+        _dropMark.Margin = new Thickness(x, corner.Y, 0, 0);
+        _dropMark.Visibility = Visibility.Visible;
     }
 
     // 一行摆得下几格。图标区按可用宽度撑开，所以用它的实际宽度算，跟 BoxIconGrid 摆图标用的是同一个式子。
@@ -988,7 +1158,24 @@ internal sealed class DesktopIconsView : Grid
     private void Area_Drop(object sender, DragEventArgs e)
     {
         _dropMark.Visibility = Visibility.Collapsed;
-        if (e.Data.GetData(DataFormats.FileDrop) is not string[] paths || paths.Length == 0) return;
+        // 本页自己起的拖动落在页内：这是排序，不落盘。交出 Move，DoDragDrop 返回后按落点提交（见 Icons_MouseMove）。
+        if (DesktopDrag.IsInternal(e.Data))
+        {
+            var keys = DesktopDrag.Keys(e.Data);
+            _insertion = keys.Length > 0 && _snapshot.Status == DesktopIconPositionStatus.Ok ? ResolveDrop(e.GetPosition(_icons), keys) : DesktopIconInsertion.None;
+            e.Effects = _insertion.IsValid ? DragDropEffects.Move : DragDropEffects.None;
+            e.Handled = true;
+            return;
+        }
+        // Explorer 拖进来的是 string[]；面板自己发起的拖动（SetFileDropList）是 StringCollection。
+        // 两种都得认，否则从这一页拖出去再拖回来，文件一声不响就不落盘。
+        string[] paths = e.Data.GetData(DataFormats.FileDrop) switch
+        {
+            string[] array => array,
+            StringCollection list => [.. list.Cast<string>()],
+            _ => []
+        };
+        if (paths.Length == 0) return;
         var folder = ShellDesktop.FolderPath();
         if (folder.Length == 0)
         {

@@ -27,6 +27,15 @@ The "Desktop" page of the open panel brings the Windows desktop into the panel: 
 - A file of the same name is handled as "When a file of the same name is there" under Settings › Desktop page says: rename it, skip it, or replace the old one.
 - **Dragging out**: drag an item into File Explorer or another program and you get a copy (the file stays on the desktop). System entries have no file and cannot be dragged out.
 
+## Reordering by dragging
+
+- Drag an item (or the selected items) onto another and drop it to insert it before or after that one: the left half of an icon inserts before it, the right half after it. A bar shows where it will land, and the dragged icons follow the pointer.
+- The order drawn on this page is the real position of the desktop icons. A reorder is written back to the desktop through Windows' own icon list, so with "Take over the desktop while running" off the real desktop shows the same order; and icons arranged on the real desktop are drawn in that order here.
+- Only positions change, never which items are on the desktop: the icons swap the places they already had, so nothing is thrown outside the list and no item this page does not draw (one hidden by a system entry's switch, say) is moved.
+- Name order no longer decides what is drawn first: only when the desktop icon positions cannot be read (Explorer is not running, or "Auto arrange icons" is on) does the page fall back to sorting by name.
+- Reordering cannot take effect while Explorer has "Auto arrange icons" on, because that mode puts written positions back at once. The panel says so as soon as a drag starts; right-click an empty spot on the desktop, open "View" and turn "Auto arrange icons" off, then come back to this page and dragging works. Until then, dragging still works for dragging items out.
+- Dragging outside the page (into File Explorer or another program) still copies out, as before.
+
 ## The clipboard
 
 - **Ctrl + C** copies the selected items, **Ctrl + X** cuts them, and **Ctrl + V** pastes the files on the clipboard onto the desktop: copied files are copied in, cut files are moved in (through the system shell, so Explorer sees it at once and deletions go to the recycle bin).
