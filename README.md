@@ -56,7 +56,7 @@ AxDeck sits at the top center of the screen and comes in three styles: Notch (de
 
   <img src="docs/en-US/images/compact-clock.png" width="513" alt="Clock in the notch: Simple, Seven segment and Serif styles beside the quota rings, and the clock shown alone, centered">
 
-- When a tool's quota usage rises to the warning (70%) or critical (90%) level, the collapsed view shows a notice for 5 seconds. You can turn this off in settings.
+- When a tool's quota usage rises to the warning (70%) or critical (90%) level, the collapsed view shows a notice for 5 seconds. A Windows notification can be sent at the same time. Both can be turned off in settings.
 
   <img src="docs/en-US/images/compact-alert.png" width="390" alt="Quota notice: Claude 5-hour 91% used">
 
@@ -116,7 +116,7 @@ The page is adapted from [ftop](https://github.com/Nongfsq/ftop) by Nongfsq (MIT
 <img src="docs/en-US/images/devices.png" width="100%" alt="Device batteries page: a battery ring each for a mouse, a keyboard, a headset, AirPods and a controller, with the charge, name and state under it">
 
 - Shows the battery of the connected wireless mice, keyboards, headsets, controllers and pens; AirPods show each bud and the case.
-- A battery that is getting low takes the warning color and a low one the critical color; a charging one shows a bolt. Both thresholds can be adjusted.
+- A battery that is getting low takes the warning color and a low one the critical color; a charging one shows a bolt. Both thresholds can be adjusted. A Windows notification can be sent when the charge crosses into either level.
 - Rename devices, change their order and colors, and choose separately whether each shows on the page and when collapsed.
 - Batteries are only read: nothing on the devices or in Windows is changed.
 

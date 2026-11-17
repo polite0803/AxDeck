@@ -212,6 +212,9 @@ public partial class App : Application
         if (Settings.ShowTrayIcon && _tray is null) _tray = new TrayIcon(Deck, OpenSettings, ExitApplication, ToggleHidden, () => UserHidden, ToggleClickThrough, () => Settings.ClickThrough, BoxesMenu);
         else if (!Settings.ShowTrayIcon && _tray is not null) { _tray.Dispose(); _tray = null; }
     }
+    // A Windows notification, sent through the tray icon (TrayIcon.Notify); it goes nowhere when the tray icon is off,
+    // which the settings for notifications mention.
+    internal void SystemNotice(string title, string text, int severity = 0) => _tray?.Notify(title, text, severity);
     // The panel ends a collapsed preview when the pointer reaches it. The settings window clears its own preview state; the
     // panel is resumed either way, in case the two disagree (ResumeAfterPreview does nothing when no preview is on).
     internal void EndPreviewFromDeck()
@@ -446,7 +449,33 @@ public partial class App : Application
     // The settings' devices page lists what is connected, so it reads the devices while it is open.
     private bool _deviceSettings;
     internal void WatchDevicesForSettings(bool open) { _deviceSettings = open; UpdateDeviceDemand(); }
-    private void DeviceBatteriesChanged() => DevicesChanged?.Invoke();
+    private void DeviceBatteriesChanged()
+    {
+        CheckDeviceNotices();
+        DevicesChanged?.Invoke();
+    }
+    // Device notices are picked here, once for the whole application, instead of in every panel: a reading the panels
+    // share raises its notice once. Levels are tracked only while the setting is on, so turning it on starts fresh
+    // instead of replaying what already happened while it was off. The readings follow their own demand either way, so
+    // the check rides along at no extra cost.
+    private readonly Dictionary<string, int> _deviceNoticeLevels = [];
+    private bool _deviceNoticesSeeded;
+    private void CheckDeviceNotices()
+    {
+        if (Devices is null || !Settings.DeviceNotifications) return;
+        var notices = DeviceNotices.Pick(Devices.All, _deviceNoticeLevels, Settings.DeviceWarningPercent, Settings.DeviceLowPercent, _deviceNoticesSeeded);
+        _deviceNoticesSeeded = true;
+        foreach (var notice in notices)
+        {
+            // The name the user has given the device, where they have set one.
+            var choice = DeviceLists.Find(Settings.DeviceChoices, notice.Key);
+            var name = choice is { Label: { Length: > 0 } label } ? label : notice.Name;
+            string title = notice.Level == MemoryLevel.Critical
+                ? Loc.T($"{name} 电量低", $"{name} battery is low")
+                : Loc.T($"{name} 电量偏低", $"{name} battery is getting low");
+            SystemNotice(title, Loc.T($"剩 {notice.Percent:0}%，建议充电", $"{notice.Percent:0}% left, consider charging"), notice.Level == MemoryLevel.Critical ? 2 : 1);
+        }
+    }
     // Temperatures and drives are read for an open page with them on; also for a collapsed row showing them: the processor's and
     // the graphics adapter's temperatures for a ring showing its own, the drives for the drive reading, and their temperatures when
     // it shows those. The processor's and the adapter's temperatures also while the row is only hidden for now, as long as the sampler

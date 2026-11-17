@@ -55,6 +55,12 @@ Expand an app's row under Settings › Quotas and usage › Apps to set:
 - **Ring quotas**: choose which quotas this app's collapsed quota ring shows. With nested rings, choose the outer, middle and inner ring's quota; any ring can be set to None, and the others keep their places. A quota is never shown twice. By default the quotas fill the outer, middle and inner rings from the shortest period to the longest, with quotas without a period (such as tool calls) last: for GLM, 5 hours, the week and the tool calls. When one is missing, the ones after it move out. Each ring keeps its own quota, whichever is used more; Restore defaults goes back to this. Sources billed per API call can also show a gift balance, a key balance, today's spending and the like; the account balance comes first by default, and shares follow the targets above. With a single ring, a source with an account balance shows it by default, and other sources show their most used quota. While a quota has no data, its ring shows only its track. The ring style, whether to show what is used or what is left, and the letters are set in the Quota display section above the app list on the Quotas and usage page; with what is left chosen, the panel's bars and percentages and the quota notices show what is left too, while amounts such as balances and spending stay as they are.
 - **Off-peak time**: add up to 6 off-peak periods, with colors of their own. During an off-peak period, the column's quota ring and progress bar use the off-peak colors.
 
+## Quota notices and notifications
+
+When an app's used share rises to the warning (70%) or critical (90%) level, the collapsed notch or capsule briefly shows the app's name, share and reset time, then returns after about 5 seconds (Settings › Quotas and usage › Notifications). Whether it shows what is used or what is left follows the Quota display section.
+
+- **Windows notifications**: when on, a Windows notification is sent at the same moment and lands in the notification centre. It is sent from the tray icon, which is switched on in "General"; it is sent even while the panel is hidden or kept off a full-screen app. Each crossing into the warning or critical level notices once; when the share falls and rises again, it notices again.
+
 ## Usage in WSL
 
 When "Include usage from WSL" is turned on in Settings › Quotas and usage, AxDeck reads the Claude Code and Codex CLI session records inside installed WSL distributions and counts them in the tokens and cost of Claude and Codex. Only Claude and Codex support WSL at present.

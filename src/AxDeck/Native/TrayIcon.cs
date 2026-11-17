@@ -30,6 +30,20 @@ public sealed class TrayIcon : IDisposable
             Icon = LoadTrayIcon(out _ownsIcon), Tip = "AxDeck", Info = "", InfoTitle = "" };
         Shell_NotifyIcon(0, ref _data);
     }
+    // A Windows notification, sent from the tray icon: on Windows 10 and 11 the balloon becomes a toast and lands in
+    // the notification centre. severity 2 shows the error icon, 1 the warning one, anything else none.
+    public void Notify(string title, string text, int severity = 0)
+    {
+        _data.Flags |= 0x10; // NIF_INFO
+        _data.InfoTitle = title.Length > 63 ? title[..63] : title;
+        _data.Info = text.Length > 255 ? text[..255] : text;
+        _data.InfoFlags = severity >= 2 ? 2u /* NIIF_ERROR */ : severity == 1 ? 1u /* NIIF_WARNING */ : 0u;
+        Shell_NotifyIcon(1 /* NIM_MODIFY */, ref _data);
+        // Cleared at once, so the next NIM_MODIFY (a DPI or display change reloading the icon) does not show the same
+        // balloon again. The rest of the flags — icon, callback message and tip — stay as they are.
+        _data.Flags &= ~0x10u;
+        _data.Info = ""; _data.InfoTitle = ""; _data.InfoFlags = 0;
+    }
     private bool _ownsIcon;
     private long _dpi;
     // The notification area shows the small icon size at the primary monitor's scale. The executable's icon group carries
