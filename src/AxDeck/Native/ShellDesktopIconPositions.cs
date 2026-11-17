@@ -130,63 +130,18 @@ internal sealed class ShellDesktopIconPositions : IDesktopIconPositions
         return rows;
     }
 
-    // 把读回来的行认回这一页要画的那些项：每项的位置，和它在列表里的第几格（写回时要用）。
-    //
-    // 认出多少用多少，不要求一项不落。要求「全都认得出」太脆：Explorer 显示的名字随时可能和这里的
-    // 名字对不上（扩展名显示与否、文件夹名里带点、本地化差异），只要一项对不上就整份作废，
-    // 排序在真实桌面上就几乎永远用不了。认不出的项不写进快照，它们保持原顺序、位置也不动。
-    private static (Dictionary<string, DesktopIconSlot> Slots, Dictionary<string, int> Indexes)? Map(List<Row> rows)
+    // 把读回来的行认回这一页要画的那些项。认名字、配位置的规则在 Core 的 DesktopIconMapping 里，
+    // 那里是纯计算、能被测试覆盖；这里只负责把真实桌面的项递过去。
+    private static (IReadOnlyDictionary<string, DesktopIconSlot> Slots, IReadOnlyDictionary<string, int> Indexes)? Map(List<Row> rows)
     {
         var items = ShellDesktop.Items();
         if (rows.Count == 0 || items.Count == 0) return null;
-        var free = rows.ToList();
-        var slots = new Dictionary<string, DesktopIconSlot>(StringComparer.OrdinalIgnoreCase);
-        var indexes = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-
-        // 先按名字原样认：系统项的名字随系统语言，这里把它认得的几种写法都比一遍
-        // （AxDeck 自己的界面语言未必跟系统一致，只认当前语言会在另一种语言下全部对不上）。
-        foreach (var item in items)
-        {
-            if (Take(free, Names(item)) is not { } row) continue;
-            slots[item.Path] = new DesktopIconSlot(row.X, row.Y);
-            indexes[item.Path] = row.Index;
-        }
-        // 再按去掉扩展名的名字认：Explorer 默认不显示已知类型的扩展名，「报告.docx」在桌面上写的是「报告」。
-        // 完整名字先认掉，剩下的才对短的，两者就不会抢同一个格子。
-        foreach (var item in items)
-        {
-            if (slots.ContainsKey(item.Path) || Stem(item.Name) is not { } stem) continue;
-            if (Take(free, new List<string> { stem }) is not { } row) continue;
-            slots[item.Path] = new DesktopIconSlot(row.X, row.Y);
-            indexes[item.Path] = row.Index;
-        }
-        // 认不出的项和剩下的行数量相同时，按「两边都是按名字序排的」依次配对。
-        // 这比随机挑一行可靠：Explorer 的列表和这一页的项本来就都按名字排。
-        if (free.Count > 0)
-        {
-            var unnamed = items.Where(item => !slots.ContainsKey(item.Path)).ToList();
-            if (unnamed.Count == free.Count)
-            {
-                var lines = free.OrderBy(row => row.Index).ToList();
-                for (int i = 0; i < unnamed.Count; i++)
-                {
-                    slots[unnamed[i].Path] = new DesktopIconSlot(lines[i].X, lines[i].Y);
-                    indexes[unnamed[i].Path] = lines[i].Index;
-                }
-            }
-        }
-        // 一项都没认出来：这不是「部分可用」，是根本没读到位置，交给调用方退回名字序。
-        return slots.Count > 0 ? (slots, indexes) : null;
-
-        // 名字撞上不止一行时不认：挑一行等于猜，猜错就是把一个图标的位置写到另一个上去。
-        // 认不出的项留在上面那条按次序配对的路上。
-        static Row? Take(List<Row> rows, IReadOnlyList<string> names)
-        {
-            var matches = rows.Where(row => names.Any(name => string.Equals(row.Name, name, StringComparison.OrdinalIgnoreCase))).ToList();
-            if (matches.Count != 1) return null;
-            rows.Remove(matches[0]);
-            return matches[0];
-        }
+        var byPath = new Dictionary<string, DesktopItems.Item>(StringComparer.OrdinalIgnoreCase);
+        foreach (var item in items) byPath[item.Path] = item;
+        return DesktopIconMapping.Map(
+            [.. rows.Select(row => new DesktopIconRow(row.Index, row.Name, row.X, row.Y))],
+            [.. items.Select(item => item.Path)],
+            key => byPath.TryGetValue(key, out var item) ? Names(item) : []);
     }
 
     // 一项在资源管理器里可能显示成哪些名字。
@@ -204,13 +159,6 @@ internal sealed class ShellDesktopIconPositions : IDesktopIconPositions
             return [item.Name, known.Chinese, known.English];
         }
         return [item.Name];
-    }
-
-    // 名字去掉扩展名的形式：Explorer 默认不显示已知类型的扩展名。
-    private static string? Stem(string name)
-    {
-        int dot = name.LastIndexOf('.');
-        return dot > 0 && dot < name.Length - 1 ? name[..dot] : null;
     }
 
     private static bool AutoArrange(IntPtr list) => (GetWindowLongPtr(list, IndexStyle).ToInt64() & StyleAutoArrange) != 0;

@@ -141,5 +141,40 @@ internal static class DesktopIconOrderingTests
         // 快照不可用时写不出任何位置。
         check("位置不可用时写不出位置",
             DesktopIconOrdering.PlanPlacements(["a"], DesktopIconSnapshot.Unavailable()).Count == 0);
+
+        // ---- DesktopIconMapping：把 Explorer 的行认回页面的项 ----
+        // 名字对得上就认位置，序号也一起记住（写回要用）。
+        var mapped = DesktopIconMapping.Map(
+            [new DesktopIconRow(0, "报告", 0, 0), new DesktopIconRow(1, "notes.txt", 0, 90)],
+            [@"C:\D\notes.txt", @"C:\D\报告.docx"],
+            key => key.EndsWith(".txt") ? [System.IO.Path.GetFileName(key)] : ["报告"]);
+        check("按名字认回位置与序号",
+            mapped is { } m && m.Slots[@"C:\D\notes.txt"] == slot(0, 90) && m.Indexes[@"C:\D\notes.txt"] == 1);
+        check("去掉扩展名的名字也认得出",
+            mapped is { } m2 && m2.Slots[@"C:\D\报告.docx"] == slot(0, 0));
+
+        // 重名：用户桌面和公共桌面各放了一份同名快捷方式，Explorer 的列表里就是两行，
+        // 而页面按名字去重只画一个。这时必须认第一行，不能因为「撞上了」就放弃——
+        // 放弃了这一项就拿不到位置，会被 OrderByPositions 甩到页面末尾，看起来是两个图标自己跑了。
+        var clash = DesktopIconMapping.Map(
+            [new DesktopIconRow(0, "Git Bash", 0, 0), new DesktopIconRow(13, "火绒", 0, 90), new DesktopIconRow(20, "Git Bash", 80, 0)],
+            [@"C:\Users\me\Desktop\Git Bash.lnk", @"C:\D\火绒.lnk"],
+            key => [System.IO.Path.GetFileName(key)]);
+        check("重名时认列表里的第一行",
+            clash is { } c && c.Slots[@"C:\Users\me\Desktop\Git Bash.lnk"] == slot(0, 0));
+        check("重名时记的是第一行的序号",
+            clash is { } c2 && c2.Indexes[@"C:\Users\me\Desktop\Git Bash.lnk"] == 0);
+
+        // 名字一个都对不上、但剩下的行数和项数相同：按「两边都是按名字序排的」依次配对，认下来。
+        // 这比随机挑一行可靠，也是曾经「名字普遍对不上」时仍能用的那条路。
+        check("名字对不上但数量相同时按序号配对",
+            DesktopIconMapping.Map([new DesktopIconRow(0, "别的", 5, 6)], [@"C:\D\x.txt"], _ => ["x"]) is { } paired
+            && paired.Slots[@"C:\D\x.txt"] == slot(5, 6));
+        // 行数比项数少、名字又都对不上：没法配对，交给调用方退回名字序。
+        check("对不上又数量不匹配时返回空",
+            DesktopIconMapping.Map([new DesktopIconRow(0, "别的", 0, 0), new DesktopIconRow(1, "另的", 0, 90)],
+                [@"C:\D\x.txt"], _ => ["x"]) is null);
+        check("没有行时返回空",
+            DesktopIconMapping.Map([], [@"C:\D\x.txt"], _ => ["x"]) is null);
     }
 }
