@@ -13,7 +13,7 @@
     <Setter Property="Background" Value="{DynamicResource SettingsInset}"/>
     <Setter Property="FocusVisualStyle" Value="{StaticResource ControlDialogKeyboardFocus}"/>
     <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button">
-      <Border x:Name="Chrome" CornerRadius="7" Background="{TemplateBinding Background}" Padding="{TemplateBinding Padding}">
+      <Border x:Name="Chrome" CornerRadius="6" Background="{TemplateBinding Background}" Padding="{TemplateBinding Padding}">
         <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
       </Border>
       <ControlTemplate.Triggers>
@@ -27,7 +27,7 @@
     <Setter Property="Foreground" Value="White"/><Setter Property="FontWeight" Value="SemiBold"/>
     <Setter Property="Background" Value="{DynamicResource SettingsAccentFill}"/>
     <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button">
-      <Border x:Name="Chrome" CornerRadius="7" Background="{TemplateBinding Background}" Padding="{TemplateBinding Padding}">
+      <Border x:Name="Chrome" CornerRadius="6" Background="{TemplateBinding Background}" Padding="{TemplateBinding Padding}">
         <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
       </Border>
       <ControlTemplate.Triggers>

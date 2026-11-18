@@ -46,12 +46,15 @@ public static partial class PanelThemes
         var writtenColors = new Dictionary<string, ThemeColor>(colors, StringComparer.Ordinal);
         var writtenApps = new Dictionary<string, ThemeColor>(apps, StringComparer.Ordinal);
         // The surface is drawn opaque, as a translucent one would let the desktop through behind the text. A tooltip is a window of
-        // its own and the seek bubble floats over lyrics and times, so both are drawn as they look over the surface.
+        // its own and the seek bubble floats over lyrics and times, so both are drawn as they look over the surface. The six
+        // structural surfaces are opaque too: they carry text and depth, and must not change meaning with the desktop behind them.
         var surface = colors["surface"] = colors["surface"].Over(ThemeColor.Black);
+        foreach (var key in StructuralSurfaces) colors[key] = colors[key].Over(surface);
         colors["tooltip"] = colors["tooltip"].Over(surface);
         colors["bubble"] = colors["bubble"].Over(surface);
         var values = EffectValues(effects);
-        List<ThemeColor> surfaces = [surface, .. values.SurfaceGradient.Select(stop => stop.Over(surface)), .. TextureStops(values, colors, surface), .. DecoratedStops(values, colors, surface)];
+        List<ThemeColor> surfaces = [surface, .. StructuralSurfaces.Select(key => colors[key]), .. values.SurfaceGradient.Select(stop => stop.Over(surface)),
+            .. TextureStops(values, colors, surface), .. DecoratedStops(values, colors, surface)];
 
         var adjustments = new List<PanelThemeAdjustment>();
         var popup = colors["popup"].Over(surface);
@@ -71,9 +74,9 @@ public static partial class PanelThemes
             // tooltips and the seek time bubble; the secondary text on the segment strip and on hover. Those need the body-text minimum.
             List<ThemeColor> fills = token.Key switch
             {
-                "textPrimary" => [colors["fillSelected"].Over(surface), colors["pressed"].Over(surface), colors["input"].Over(popup), colors["rangeFill"].Over(popup),
-                    colors["tooltip"], colors["bubble"]],
-                "textSecondary" => [colors["fill"].Over(surface), colors["hover"].Over(surface)],
+                "textPrimary" => [colors["fillSelected"].Over(colors["active"]), colors["pressed"].Over(colors["raised"]), colors["input"].Over(colors["raised"]),
+                    colors["rangeFill"].Over(popup), colors["tooltip"], colors["bubble"], colors["active"], colors["quota"]],
+                "textSecondary" => [colors["fill"].Over(colors["inset"]), colors["hover"].Over(colors["raised"]), colors["quotaHover"], colors["toolbar"]],
                 _ => []
             };
             needs.AddRange(fills.Select(fill => new ContrastNeed(fill, TextContrast)));
@@ -93,6 +96,9 @@ public static partial class PanelThemes
             .OfType<ThemeColor>().Take(12).ToList();
         return new PanelPalette(id, colors, apps, values, adjustments, clock, swatches, writtenColors, writtenApps) { IsNight = night };
     }
+
+    // The surfaces that are drawn as solid material in the panel. The two shoulder layers are decoration and stay translucent.
+    internal static readonly IReadOnlyList<string> StructuralSurfaces = ["raised", "toolbar", "inset", "active", "quota", "quotaHover"];
 
     // A texture's lightest and darkest squares (PanelTheme.Texture draws them in the primary text color and in black, at most the
     // texture's opacity), which text must read on as on the surface.

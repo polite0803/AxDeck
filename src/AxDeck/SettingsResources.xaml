@@ -187,7 +187,7 @@
       <!-- The chosen page carries an accent mark at its left edge, as Windows' own settings do: its fill alone stands too close to
            the sidebar (SW-07). -->
       <Grid>
-        <Border x:Name="Chrome" CornerRadius="7" Background="Transparent" BorderBrush="Transparent" BorderThickness="1" Padding="{TemplateBinding Padding}">
+        <Border x:Name="Chrome" CornerRadius="6" Background="Transparent" BorderBrush="Transparent" BorderThickness="1" Padding="{TemplateBinding Padding}">
           <ContentPresenter HorizontalAlignment="Stretch" VerticalAlignment="Center"/>
         </Border>
         <Border x:Name="Mark" Width="3" Height="16" CornerRadius="1.5" Background="{DynamicResource SettingsAccent}" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="2,0,0,0" Visibility="Collapsed"/>
@@ -215,8 +215,8 @@
         </Grid>
       </StackPanel>
       <ControlTemplate.Triggers>
-        <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Chrome" Property="BorderBrush" Value="#74747C"/><Setter Property="Foreground" Value="{DynamicResource SettingsTextPrimary}"/></Trigger>
-        <Trigger Property="IsChecked" Value="True"><Setter TargetName="Chrome" Property="BorderBrush" Value="#529DFF"/><Setter TargetName="Selection" Property="Visibility" Value="Visible"/><Setter Property="Foreground" Value="{DynamicResource SettingsTextPrimary}"/><Setter Property="FontWeight" Value="SemiBold"/></Trigger>
+        <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Chrome" Property="BorderBrush" Value="{DynamicResource SettingsInputBorder}"/><Setter Property="Foreground" Value="{DynamicResource SettingsTextPrimary}"/></Trigger>
+        <Trigger Property="IsChecked" Value="True"><Setter TargetName="Chrome" Property="BorderBrush" Value="{DynamicResource SettingsAccent}"/><Setter TargetName="Selection" Property="Visibility" Value="Visible"/><Setter Property="Foreground" Value="{DynamicResource SettingsTextPrimary}"/><Setter Property="FontWeight" Value="SemiBold"/></Trigger>
         <Trigger Property="IsPressed" Value="True"><Setter TargetName="Preview" Property="Opacity" Value="0.85"/></Trigger>
         <Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.4"/></Trigger>
       </ControlTemplate.Triggers>
@@ -240,7 +240,7 @@
         </Grid>
       </StackPanel>
       <ControlTemplate.Triggers>
-        <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Chrome" Property="BorderBrush" Value="#74747C"/><Setter Property="Foreground" Value="{DynamicResource SettingsTextPrimary}"/></Trigger>
+        <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Chrome" Property="BorderBrush" Value="{DynamicResource SettingsInputBorder}"/><Setter Property="Foreground" Value="{DynamicResource SettingsTextPrimary}"/></Trigger>
         <Trigger Property="IsPressed" Value="True"><Setter TargetName="Plus" Property="Opacity" Value="0.7"/></Trigger>
       </ControlTemplate.Triggers>
     </ControlTemplate></Setter.Value></Setter>
@@ -286,7 +286,7 @@
         </Grid>
       </Border>
       <ControlTemplate.Triggers>
-        <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Chrome" Property="BorderBrush" Value="#74747C"/></Trigger>
+        <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Chrome" Property="BorderBrush" Value="{DynamicResource SettingsInputBorder}"/></Trigger>
         <Trigger Property="IsChecked" Value="True"><Setter TargetName="Chrome" Property="BorderBrush" Value="{DynamicResource SettingsAccent}"/><Setter TargetName="Selection" Property="Visibility" Value="Visible"/></Trigger>
         <Trigger Property="IsPressed" Value="True"><Setter TargetName="Preview" Property="Opacity" Value="0.85"/></Trigger>
       </ControlTemplate.Triggers>
@@ -311,7 +311,7 @@
   <Style x:Key="SettingsNumber" TargetType="TextBox">
     <Setter Property="Foreground" Value="{DynamicResource SettingsTextPrimary}"/><Setter Property="Background" Value="Transparent"/>
     <Setter Property="CaretBrush" Value="{DynamicResource SettingsAccent}"/><Setter Property="BorderThickness" Value="0"/>
-    <Setter Property="SelectionBrush" Value="#0A84FF"/><Setter Property="FontSize" Value="12"/>
+    <Setter Property="SelectionBrush" Value="{DynamicResource SettingsAccent}"/><Setter Property="FontSize" Value="12"/>
     <Setter Property="TextAlignment" Value="Right"/><Setter Property="VerticalContentAlignment" Value="Center"/><Setter Property="Padding" Value="0"/>
     <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="TextBox">
       <ScrollViewer x:Name="PART_ContentHost" Background="Transparent" HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Hidden" Focusable="False"/>
@@ -355,7 +355,7 @@
           </Thumb></Track.Thumb>
           <Track.IncreaseRepeatButton><RepeatButton Style="{StaticResource SettingsTrack}" Background="Transparent" Command="Slider.IncreaseLarge"/></Track.IncreaseRepeatButton>
         </Track>
-        <Border x:Name="Focus" BorderThickness="1" BorderBrush="#800A84FF" CornerRadius="8" IsHitTestVisible="False" Visibility="Collapsed"/>
+        <Border x:Name="Focus" BorderThickness="1" BorderBrush="{DynamicResource SettingsAccent}" CornerRadius="8" Opacity="0.5" IsHitTestVisible="False" Visibility="Collapsed"/>
       </Grid>
       <ControlTemplate.Triggers>
         <Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.35"/></Trigger>
@@ -396,7 +396,7 @@
           </Thumb></Track.Thumb>
           <Track.IncreaseRepeatButton><RepeatButton Style="{StaticResource SettingsTrack}" Background="Transparent" Command="Slider.IncreaseLarge"/></Track.IncreaseRepeatButton>
         </Track>
-        <Border x:Name="Focus" BorderThickness="1" BorderBrush="#800A84FF" CornerRadius="8" IsHitTestVisible="False" Visibility="Collapsed"/>
+        <Border x:Name="Focus" BorderThickness="1" BorderBrush="{DynamicResource SettingsAccent}" CornerRadius="8" Opacity="0.5" IsHitTestVisible="False" Visibility="Collapsed"/>
       </Grid>
       <ControlTemplate.Triggers>
         <Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.35"/></Trigger>
@@ -523,13 +523,13 @@
         <ToggleButton Focusable="False" IsChecked="{Binding IsDropDownOpen, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}">
           <!-- The arrow is drawn, not a glyph: an icon font's glyph sits where that font puts it (and Windows 10 has another icon
                font), so it would not share the text's centre. -->
-          <ToggleButton.Template><ControlTemplate TargetType="ToggleButton"><Border x:Name="Chrome" Background="{DynamicResource SettingsInput}" BorderBrush="{DynamicResource SettingsInputBorder}" BorderThickness="1" CornerRadius="6"><Path Data="M0.5,0.5 L4.5,4.5 L8.5,0.5" Width="9" Height="5" Stroke="{DynamicResource SettingsTextSecondary}" StrokeThickness="1.25" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,11,0"><Path.RenderTransform><TranslateTransform Y="0.5"/></Path.RenderTransform></Path></Border></ControlTemplate></ToggleButton.Template>
+          <ToggleButton.Template><ControlTemplate TargetType="ToggleButton"><Border x:Name="Chrome" Background="{DynamicResource SettingsInput}" BorderBrush="{DynamicResource SettingsInputBorder}" BorderThickness="1" CornerRadius="8"><Path Data="M0.5,0.5 L4.5,4.5 L8.5,0.5" Width="9" Height="5" Stroke="{DynamicResource SettingsTextSecondary}" StrokeThickness="1.25" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,11,0"><Path.RenderTransform><TranslateTransform Y="0.5"/></Path.RenderTransform></Path></Border></ControlTemplate></ToggleButton.Template>
         </ToggleButton>
         <ContentPresenter x:Name="Selection" Content="{TemplateBinding SelectionBoxItem}" Margin="10,0,28,0" HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" VerticalAlignment="Center" IsHitTestVisible="False"/>
         <Popup x:Name="PART_Popup" IsOpen="{TemplateBinding IsDropDownOpen}" Placement="Bottom" AllowsTransparency="True" Focusable="False">
           <!-- Keep the scrollbar in its own column so it never covers a highlighted item. The column stays reserved while
                the pointer leaves the list, preventing the items from shifting when the scrollbar is hidden. -->
-          <Border MinWidth="{Binding ActualWidth, RelativeSource={RelativeSource TemplatedParent}}" Margin="0,4,0,0" Background="{DynamicResource SettingsInput}" BorderBrush="{DynamicResource SettingsBorder}" BorderThickness="1" CornerRadius="6" Padding="4">
+          <Border MinWidth="{Binding ActualWidth, RelativeSource={RelativeSource TemplatedParent}}" Margin="0,4,0,0" Background="{DynamicResource SettingsPopup}" BorderBrush="{DynamicResource SettingsBorder}" BorderThickness="1" CornerRadius="10" Padding="4">
             <ScrollViewer MaxHeight="{TemplateBinding MaxDropDownHeight}" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Focusable="False" PanningMode="VerticalOnly">
               <ScrollViewer.Template><ControlTemplate TargetType="ScrollViewer">
                 <Grid>
@@ -545,7 +545,7 @@
             </ScrollViewer>
           </Border>
         </Popup>
-        <Border x:Name="Focus" IsHitTestVisible="False" Visibility="Collapsed" BorderBrush="{DynamicResource SettingsAccent}" BorderThickness="1" CornerRadius="6"/>
+        <Border x:Name="Focus" IsHitTestVisible="False" Visibility="Collapsed" BorderBrush="{DynamicResource SettingsAccent}" BorderThickness="1" CornerRadius="8"/>
       </Grid>
       <ControlTemplate.Triggers>
         <!-- Keep the time horizontally centred; offset its natural line box to centre the visible digits vertically. -->
@@ -558,7 +558,7 @@
     <Setter Property="ItemContainerStyle"><Setter.Value><Style TargetType="ComboBoxItem">
       <Setter Property="Foreground" Value="{DynamicResource SettingsTextPrimary}"/><Setter Property="Padding" Value="9,6"/>
       <Setter Property="HorizontalContentAlignment" Value="{Binding HorizontalContentAlignment, RelativeSource={RelativeSource AncestorType=ItemsControl}}"/>
-      <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ComboBoxItem"><Border x:Name="Item" Background="Transparent" CornerRadius="4" Padding="{TemplateBinding Padding}"><ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"/></Border><ControlTemplate.Triggers><Trigger Property="IsHighlighted" Value="True"><Setter TargetName="Item" Property="Background" Value="{DynamicResource SettingsFillHover}"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter>
+      <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ComboBoxItem"><Border x:Name="Item" Background="Transparent" CornerRadius="6" Padding="{TemplateBinding Padding}"><ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"/></Border><ControlTemplate.Triggers><Trigger Property="IsHighlighted" Value="True"><Setter TargetName="Item" Property="Background" Value="{DynamicResource SettingsFillHover}"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter>
     </Style></Setter.Value></Setter>
   </Style>
   <Style x:Key="SettingsField" TargetType="TextBox">
@@ -567,7 +567,7 @@
     <Setter Property="Background" Value="{DynamicResource SettingsInput}"/><Setter Property="BorderBrush" Value="{DynamicResource SettingsInputBorder}"/><Setter Property="BorderThickness" Value="1"/>
     <Setter Property="FontSize" Value="13"/><Setter Property="Padding" Value="10,7"/><Setter Property="VerticalContentAlignment" Value="Center"/>
     <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="TextBox">
-      <Border x:Name="Chrome" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="6"><ScrollViewer x:Name="PART_ContentHost" Style="{x:Null}" Focusable="False" HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Hidden"/></Border>
+      <Border x:Name="Chrome" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="8"><ScrollViewer x:Name="PART_ContentHost" Style="{x:Null}" Focusable="False" HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Hidden"/></Border>
       <ControlTemplate.Triggers><Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="Chrome" Property="BorderBrush" Value="{DynamicResource SettingsAccent}"/></Trigger><Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.6"/></Trigger></ControlTemplate.Triggers>
     </ControlTemplate></Setter.Value></Setter>
   </Style>

@@ -43,7 +43,7 @@ internal static class PanelThemeTests
         // Built-in themes.
         check("A built-in theme's id is its file name", PanelThemes.BuiltIns.All(theme => PanelThemes.NormalizeId(theme.File.Id) == theme.Id));
         check("Every built-in theme names an open license", PanelThemes.BuiltIns.All(theme => theme.File.License is "MIT" or "Apache-2.0"));
-        bool allValid = true; var adjusted = new List<string>();
+        bool allValid = true; var adjusted = new List<string>(); var contrastFails = new List<string>();
         // A theme with a night look is held to the same rules in both looks.
         foreach (var (theme, palette) in PanelThemes.BuiltIns.SelectMany(theme => theme.File.Night is null
             ? new[] { (theme, PanelThemes.Resolve(theme)) } : [(theme, PanelThemes.Resolve(theme)), (theme, PanelThemes.Resolve(theme, true))]))
@@ -51,7 +51,11 @@ internal static class PanelThemeTests
             allValid &= palette.Colors.Count == PanelThemes.Tokens.Count;
             var popup = palette["popup"].Over(palette.Surface);
             foreach (var token in PanelThemes.Tokens.Where(token => token.Against is PanelThemeBackdrop.Surface or PanelThemeBackdrop.SurfaceAndPopup))
-                allValid &= palette[token.Key].MinimumContrast(token.Against == PanelThemeBackdrop.SurfaceAndPopup ? [.. palette.SurfaceStops, popup] : palette.SurfaceStops) >= token.Minimum - .001;
+            {
+                double ratio = palette[token.Key].MinimumContrast(token.Against == PanelThemeBackdrop.SurfaceAndPopup ? [.. palette.SurfaceStops, popup] : palette.SurfaceStops);
+                allValid &= ratio >= token.Minimum - .001;
+                if (ratio < token.Minimum - .001) contrastFails.Add($"{theme.Id}{(palette.IsNight ? " (night)" : "")}.{token.Key} {ratio:0.00}/{token.Minimum:0.0}");
+            }
             allValid &= palette["onAccent"].MinimumContrast([palette["accent"].Over(popup)]) >= PanelThemes.GraphicContrast - .001;
             allValid &= palette["indicatorProgress"].MinimumContrast([palette["indicator"].Over(ThemeColor.Black)]) >= PanelThemes.IndicatorContrast - .001;
             allValid &= palette["textPrimary"].MinimumContrast([palette["fillSelected"].Over(palette.Surface), palette["pressed"].Over(palette.Surface),
@@ -61,7 +65,7 @@ internal static class PanelThemeTests
             // The built-in themes are designed to pass as written; an adjustment would mean a mistake in the file.
             adjusted.AddRange(palette.Adjustments.Select(a => $"{theme.Id}{(palette.IsNight ? " (night)" : "")}.{a.Key} {a.Before}->{a.After} {a.Ratio:0.00}/{a.Minimum}"));
         }
-        check("Every built-in theme meets every contrast rule", allValid);
+        check("Every built-in theme meets every contrast rule " + string.Join("; ", contrastFails), allValid);
         check("Built-in themes pass without any adjustment " + string.Join("; ", adjusted), adjusted.Count == 0);
         var dark = BuiltIn("dark");
         check("The dark theme is the original look", dark.Surface == ThemeColor.Black && dark["textPrimary"].ToString() == "#F5F5F7"

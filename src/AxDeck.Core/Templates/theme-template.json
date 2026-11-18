@@ -36,9 +36,9 @@
     "hover": "#18FFFFFF",
     "pressed": "#24FFFFFF",
     "outline": "#24FFFFFF",         // The plan chip, date fields and other outlines.
-    "popup": "#1A1A1D",             // Menus, the date picker and the model details pop-up.
+    "popup": "#17171A",             // Menus, the date picker and the model details pop-up.
     "popupBorder": "#24FFFFFF",
-    "input": "#0F0F11",             // The date fields.
+    "input": "#131315",             // The date fields.
     "rangeFill": "#382B87FF",       // Days inside a chosen date range.
     "coverPlaceholder": "#0FFFFFFF",// Where a song has no cover.
     "coverOutline": "#14FFFFFF",
@@ -52,9 +52,9 @@
     "rowDivider": "#0DFFFFFF",      // Between rows of the model details.
     "rowHover": "#0AFFFFFF",        // A model details row under the pointer.
     "menuDetail": "#80EBEBF5",      // Song titles in the playback source menu. At least 3:1.
-    "tooltip": "#1F1F23",           // Tooltips on the panel.
+    "tooltip": "#1B1B1F",           // Tooltips on the panel.
     "tooltipBorder": "#38FFFFFF",
-    "bubble": "#2A2A2E",            // The time shown above the seek bar while it is hovered or dragged.
+    "bubble": "#232327",            // The time shown above the seek bar while it is hovered or dragged.
     "bubbleBorder": "#1AFFFFFF"
   },
 
@@ -92,9 +92,9 @@
     "surfaceGradient": [],          // Two or more colors over the surface, top to bottom, e.g. ["#0A0613", "#1C0B30"]
     "rimGradient": [],              // Two or more colors for the rim, left to right; replaces "rim"
     "rimWidth": 1,                  // 0 to 3 DIP
-    "shadowBlur": 14,               // 0 to 40
-    "shadowDepth": 4,               // 0 to 12; 0 spreads the shadow evenly around the surface
-    "shadowOpacity": 0.28,          // 0 to 1
+    "shadowBlur": 12,               // 0 to 40
+    "shadowDepth": 3,               // 0 to 12; 0 spreads the shadow evenly around the surface
+    "shadowOpacity": 0.22,          // 0 to 1
     "scanlines": 0,                 // 0 to 0.12: horizontal lines in the primary text color at this opacity
     "pixel": 0,                     // 0, or 1 to 4: pixel art. Corners become steps of this many DIP, text is drawn unsmoothed,
                                     // and with a rimGradient the rim is a bevel: its first color lights the edges facing up and

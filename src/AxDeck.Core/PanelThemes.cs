@@ -52,6 +52,14 @@ public static partial class PanelThemes
     public static readonly IReadOnlyList<PanelThemeToken> Tokens =
     [
         new("surface", "面板底色", "Panel surface"),
+        new("raised", "抬升表面（按钮与输入区）", "Raised surface (buttons and inputs)"),
+        new("toolbar", "工具栏表面", "Toolbar surface"),
+        new("inset", "内凹表面（分段控件与底槽）", "Inset surface (switches and wells)"),
+        new("active", "选中表面", "Active surface"),
+        new("quota", "额度仪表带", "Quota instrument band"),
+        new("quotaHover", "额度仪表带悬停", "Quota instrument hover"),
+        new("topLight", "顶部亮肩线", "Top shoulder light"),
+        new("bottomShade", "底部暗边", "Bottom edge shade"),
         new("textPrimary", "主要文字", "Primary text", StrongTextContrast, PanelThemeBackdrop.SurfaceAndPopup),
         new("textSecondary", "次要文字", "Secondary text", TextContrast, PanelThemeBackdrop.SurfaceAndPopup),
         // Tertiary text is small real text (the clock, "used", times, a notice's source), so it is held to the body-text minimum.

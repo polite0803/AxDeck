@@ -562,14 +562,24 @@ public partial class MainWindow : Window
     // The toolbar's fixed buttons are declared in XAML; their names follow the interface language.
     private void ApplyLanguage()
     {
-        System.Windows.Automation.AutomationProperties.SetName(AIUsageButton, Loc.T("AI 用量", "AI usage"));
-        System.Windows.Automation.AutomationProperties.SetName(MonitorPageButton, Loc.T("系统监控", "System monitor"));
-        System.Windows.Automation.AutomationProperties.SetName(ShelfPageButton, Loc.T("剪贴板与文件中转", "Clipboard and file transfer"));
-        System.Windows.Automation.AutomationProperties.SetName(ShelfSearchButton, Loc.T("搜索剪贴板与文件中转", "Search the clipboard and file transfer"));
-        System.Windows.Automation.AutomationProperties.SetName(DevicesPageButton, Loc.T("设备电量", "Device batteries"));
-        System.Windows.Automation.AutomationProperties.SetName(MusicPageButton, Loc.T("音乐", "Music"));
-        System.Windows.Automation.AutomationProperties.SetName(SettingsButton, Loc.T("设置", "Settings"));
-        System.Windows.Automation.AutomationProperties.SetName(PaletteButton, Loc.T("命令面板", "Command palette"));
+        void Label(Button button, string chinese, string english, bool tip = true)
+        {
+            string text = Loc.T(chinese, english);
+            System.Windows.Automation.AutomationProperties.SetName(button, text);
+            if (tip) button.ToolTip = text;
+        }
+        Label(AIUsageButton, "AI 用量", "AI usage");
+        Label(MonitorPageButton, "系统监控", "System monitor");
+        Label(ShelfPageButton, "剪贴板与文件中转", "Clipboard and file transfer");
+        Label(ShelfSearchButton, "搜索剪贴板与文件中转", "Search the clipboard and file transfer");
+        Label(DevicesPageButton, "设备电量", "Device batteries");
+        Label(MusicPageButton, "音乐", "Music");
+        Label(ServicesPageButton, "服务", "Services");
+        Label(DesktopPageButton, "桌面", "Desktop");
+        // The gear's tooltip belongs to the update notice, including its empty state (UsagePanel.RefreshStatus).
+        Label(SettingsButton, "设置", "Settings", tip: false);
+        Label(PaletteButton, "命令面板", "Command palette");
+        Label(AudioOutputButton, "切换输出设备", "Switch output device");
     }
     public void Preview(bool enabled, bool expanded = true)
     { _preview = enabled; _previewExpanded = enabled && expanded; if (enabled) _pageSwitchHold.Stop(); ApplySettings(); SetExpanded(enabled && expanded, true); }

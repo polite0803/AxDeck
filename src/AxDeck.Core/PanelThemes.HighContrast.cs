@@ -16,7 +16,9 @@ public static partial class PanelThemes
         string Line(byte alpha) => windowText.WithAlpha(alpha).ToString();
         var colors = new Dictionary<string, string>
         {
-            ["surface"] = W, ["popup"] = W, ["input"] = W, ["tooltip"] = W, ["bubble"] = W, ["shadow"] = W,
+            ["surface"] = W, ["raised"] = W, ["toolbar"] = W, ["inset"] = W, ["active"] = W, ["quota"] = W, ["quotaHover"] = W,
+            ["topLight"] = "#00000000", ["bottomShade"] = "#00000000",
+            ["popup"] = W, ["input"] = W, ["tooltip"] = W, ["bubble"] = W, ["shadow"] = W,
             ["textPrimary"] = T, ["textSecondary"] = T, ["textTertiary"] = G, ["menuDetail"] = T, ["clock"] = T, ["danger"] = T,
             ["accent"] = H, ["onAccent"] = HT, ["liked"] = H, ["equalizer"] = H, ["indicator"] = H, ["indicatorProgress"] = HT, ["rangeFill"] = highlight.WithAlpha(0x40).ToString(),
             ["rim"] = T, ["outline"] = T, ["popupBorder"] = T, ["tooltipBorder"] = T, ["bubbleBorder"] = T, ["coverOutline"] = T, ["scrollThumb"] = T,

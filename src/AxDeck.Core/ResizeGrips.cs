@@ -8,7 +8,7 @@ namespace AxDeck.Core;
 // - The collapsed surface resizes by its ends, across its height and a little above and below it (more for the thin line).
 public static class ResizeGrips
 {
-    public const double PanelInner = 10, PanelOuter = 12, PanelCorner = 24;
+    public const double PanelInner = 10, PanelOuter = 12, PanelCorner = PanelHeader.PanelRadius;
     public const double CompactInner = 14, CompactOuter = 14;
     // The room the window keeps around the panel or the surface for the grips outside them.
     public const double Room = 14;

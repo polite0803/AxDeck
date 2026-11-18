@@ -278,7 +278,7 @@ public sealed partial class SettingsWindow
     private Button OverwriteCard(PanelThemeInfo theme)
     {
         var card = SaveCard(Loc.T("覆盖当前主题", "Overwrite current theme"), OverwriteColor, OverwriteThemeDraft);
-        card.BorderBrush = UI.Brush("#529DFF");
+        card.SetResourceReference(Border.BorderBrushProperty, "SettingsAccent");
         card.ToolTip = Loc.T($"把未保存的修改写入“{theme.DisplayName}”的主题文件。", $"Writes the unsaved changes into the theme file of \"{theme.DisplayName}\".");
         AutomationProperties.SetName(card, Loc.T("覆盖当前主题 ", "Overwrite current theme ") + theme.DisplayName);
         return card;

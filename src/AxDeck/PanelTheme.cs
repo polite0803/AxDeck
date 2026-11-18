@@ -156,7 +156,7 @@ internal static class PanelTheme
     [
         ("PanelSurface", "surface"), ("PanelPrimary", "textPrimary"), ("PanelSecondary", "textSecondary"), ("PanelTertiary", "textTertiary"),
         ("PanelAccent", "accent"), ("PanelTrack", "track"), ("PanelRingTrack", "ringTrack"), ("PanelFill", "fill"), ("PanelFillSelected", "fillSelected"),
-        ("PanelHover", "hover"), ("PanelPressed", "pressed"), ("PanelPopup", "popup"), ("PanelPopupBorder", "popupBorder"), ("PanelScrollThumb", "scrollThumb"),
+        ("PanelHover", "hover"), ("PanelPressed", "pressed"), ("PanelPopup", "popup"), ("PanelPopupBorder", "popupBorder"), ("PanelInput", "input"), ("PanelScrollThumb", "scrollThumb"),
         ("PanelSwitchFill", "switchFill"), ("PanelSeekRail", "seekRail"), ("PanelToolTip", "tooltip"), ("PanelToolTipBorder", "tooltipBorder"),
         ("PanelBubble", "bubble"), ("PanelBubbleBorder", "bubbleBorder")
     ];
@@ -171,7 +171,7 @@ internal static class PanelTheme
         next["PanelScrollThumbRest"] = Current.ThumbRestOpacity;
         // Corners in the panel's XAML (App.xaml has the defaults): square in a pixel theme.
         for (int r = 1; r <= 16; r++) next["PanelR" + r] = new CornerRadius(Corner(r));
-        next["SegmentCorner"] = new CornerRadius(Corner(5));
+        next["SegmentCorner"] = new CornerRadius(Corner(6));
         var merged = resources.MergedDictionaries;
         int at = _published is not null ? merged.IndexOf(_published) : -1;
         if (at < 0) for (int i = 0; i < merged.Count && at < 0; i++) if (merged[i].Contains("PanelSurface")) at = i;

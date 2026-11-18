@@ -22,8 +22,13 @@ public static partial class PanelThemes
     // instead (negative: toward white).
     private static readonly (string Key, double Dark, double Light)[] BackgroundShades =
     [
+        ("raised", .12, -.55), ("toolbar", .075, -.42), ("inset", .035, .07), ("active", .19, -.72), ("quota", .09, -.52), ("quotaHover", .14, .055),
         ("popup", .10, -.8), ("input", .06, .045), ("tooltip", .12, -.8), ("bubble", .17, -.8), ("scrollThumb", .33, .30),
         ("indicator", .58, .34), ("indicatorProgress", .35, .85),
+    ];
+    private static readonly (string Key, byte Dark, byte Light)[] ShoulderLayers =
+    [
+        ("topLight", 0x18, 0xBF), ("bottomShade", 0x38, 0x16),
     ];
     private static readonly ThemeColor DarkForeground = ThemeColor.Parse("#F5F5F7"), LightForeground = ThemeColor.Parse("#1D1D1F");
 
@@ -55,6 +60,8 @@ public static partial class PanelThemes
                 double amount = dark ? onDark : onLight;
                 colors[key] = amount >= 0 ? ThemeColor.Mix(background, foreground, amount) : ThemeColor.Mix(background, ThemeColor.White, -amount);
             }
+            foreach (var (key, onDark, onLight) in ShoulderLayers)
+                colors[key] = dark ? ThemeColor.White.WithAlpha(onDark) : ThemeColor.Black.WithAlpha(onLight);
         }
         if (seed == AccentKey || flipped)
         {

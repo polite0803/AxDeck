@@ -206,7 +206,7 @@ public partial class MainWindow
         FitPageButtons(header);
         foreach (var button in new[] { AIUsageButton, MonitorPageButton, MusicPageButton, ShelfPageButton, DevicesPageButton, ServicesPageButton, DesktopPageButton })
         {
-            // A local corner for these two buttons only; PanelIconButton keeps its 5 DIP corner elsewhere.
+            // A local corner for these two buttons only; PanelIconButton keeps its 6 DIP corner elsewhere.
             button.ApplyTemplate();
             if (button.Template?.FindName("Chrome", button) is Border chrome) chrome.CornerRadius = new CornerRadius(PanelTheme.Corner(PanelHeader.ButtonRadius));
         }
@@ -218,7 +218,12 @@ public partial class MainWindow
     private void RenderPageSwitch()
     {
         SetValue(SuppressMusicToolTipsProperty, IsMusicPage);
-        foreach (var control in new FrameworkElement[] { AIUsageButton, MonitorPageButton, MusicPageButton, ShelfPageButton, DevicesPageButton, ServicesPageButton, DesktopPageButton, MediaSourceButton, ClockLabel })
+        foreach (var button in new FrameworkElement[] { AIUsageButton, MonitorPageButton, MusicPageButton, ShelfPageButton, DevicesPageButton, ServicesPageButton, DesktopPageButton, AudioOutputButton })
+        {
+            button.SetValue(SuppressMusicToolTipsProperty, false);
+            ToolTipService.SetIsEnabled(button, true);
+        }
+        foreach (var control in new FrameworkElement[] { MediaSourceButton, ClockLabel })
             ToolTipService.SetIsEnabled(control, !IsMusicPage);
         PageSwitch.Visibility = _details && IsUsagePage || IsShelfPage && ShelfHidesSwitch ? Visibility.Collapsed : Visibility.Visible;
         OrderPageButtons();
@@ -241,7 +246,6 @@ public partial class MainWindow
         AutomationProperties.SetName(MediaSourceButton, alone ? FullControlButtonLabel : Loc.T("切换播放来源", "Switch playback source"));
         // The output device's button belongs to the music page: it is where the sound is played.
         AudioOutputButton.Visibility = IsMusicPage ? Visibility.Visible : Visibility.Collapsed;
-        AutomationProperties.SetName(AudioOutputButton, Loc.T("切换输出设备", "Switch output device"));
         MediaSourceLabel.Text = _mediaTrack is { } playing ? Loc.Label(playing.Source) : alone ? FullControlButtonLabel : "";
         MediaSourcePin.Visibility = _pinnedMedia is not null && _pinnedMedia == _mediaTrack?.Id ? Visibility.Visible : Visibility.Collapsed;
         MediaSourceChevron.Visibility = _mediaTrack is not null && (_mediaTracks.Count > 1 || entry) ? Visibility.Visible : Visibility.Collapsed;

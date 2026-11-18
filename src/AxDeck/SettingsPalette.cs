@@ -5,7 +5,7 @@ using AxDeck.Core;
 
 namespace AxDeck;
 
-// Settings own their palette; the floating usage panel deliberately keeps its existing visual design.
+// Settings keep an independent Windows layout and behavior while sharing the panel's graphite visual semantics.
 internal sealed record SettingsPalette(bool Dark)
 {
     public string Surface => Dark ? "#141416" : "#FCFCFD";
@@ -16,9 +16,9 @@ internal sealed record SettingsPalette(bool Dark)
     public string Tertiary => Dark ? "#8E8E9A" : "#6B6B78";
     public string Divider => Dark ? "#2D2D33" : "#E0E0E6";
     public string RowDivider => Dark ? "#242429" : "#EDEDF1";
-    public string Inset => Dark ? "#25252B" : "#EFF0F4";
-    public string Input => Dark ? "#202026" : "#FFFFFF";
-    public string Popup => Dark ? "#222227" : "#FCFCFD";
+    public string Inset => Dark ? "#232327" : "#EFF0F4";
+    public string Input => Dark ? "#131315" : "#FFFFFF";
+    public string Popup => Dark ? "#17171A" : "#FCFCFD";
     public string Border => Dark ? "#42424B" : "#CED1DA";
     // The edge of what takes input (text and number fields, drop-downs, a switch's off track): at least 3:1 against the surface,
     // the inset and the input fill (WCAG 1.4.11, SW-07). Frames and dividers keep the lighter Border.
@@ -34,7 +34,7 @@ internal sealed record SettingsPalette(bool Dark)
     {
         void Brush(string key, string color) => resources[key] = UI.Brush(color);
         Brush("SettingsTextPrimary", Primary); Brush("SettingsTextSecondary", Secondary);
-        Brush("SettingsFillHover", Dark ? "#25252B" : "#E8E9EF");
+        Brush("SettingsFillHover", Dark ? "#232327" : "#E8E9EF");
         Brush("SettingsFillPressed", Dark ? "#363640" : "#DDDFE8");
         Brush("SettingsFillSelected", Dark ? "#41414A" : "#FFFFFF");
         Brush("SettingsNavSelected", Dark ? "#27272D" : "#FFFFFF");

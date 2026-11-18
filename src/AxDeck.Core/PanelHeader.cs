@@ -14,9 +14,9 @@ public sealed record PanelHeader(double Row, double Height, double Side, double 
     double RightMargin, double SettingsHeight)
 {
     // The open panel's corner radius. Its top corners are rounded whenever it does not start at the monitor's top edge.
-    public const double PanelRadius = 24;
-    // The switch's corners; the buttons inside it are concentric with them.
-    public const double SwitchRadius = 8, SwitchPadding = 2, ButtonRadius = SwitchRadius - SwitchPadding;
+    public const double PanelRadius = 20;
+    // The switch's corners; its 2 DIP inset leaves room for the buttons' shared control radius.
+    public const double SwitchRadius = 8, SwitchPadding = 2, ButtonRadius = 6;
     // From this inset on, the centre of the switch's corner lies beyond the centre of the panel's rounded corner, so that
     // corner comes no closer to the switch than the straight top edge does.
     public const double CornerClear = PanelRadius - SwitchRadius;

@@ -11,7 +11,7 @@
     <Setter Property="Foreground" Value="{DynamicResource PanelPrimary}"/><Setter Property="Background" Value="{DynamicResource PanelPopup}"/>
     <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ContextMenu">
       <Border Margin="12" Background="{TemplateBinding Background}" BorderBrush="{DynamicResource PanelPopupBorder}" BorderThickness="1" CornerRadius="{DynamicResource PanelR10}" Padding="{TemplateBinding Padding}">
-        <Border.Effect><DropShadowEffect Color="Black" BlurRadius="22" ShadowDepth="5" Direction="270" Opacity=".5"/></Border.Effect>
+        <Border.Effect><DropShadowEffect Color="Black" BlurRadius="12" ShadowDepth="3" Direction="270" Opacity=".22"/></Border.Effect>
         <ScrollViewer MaxHeight="400" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" CanContentScroll="True">
           <ItemsPresenter KeyboardNavigation.DirectionalNavigation="Cycle"/>
         </ScrollViewer>
@@ -36,7 +36,7 @@
              screen), so the offsets take only the menu's padding and outline. -->
         <Popup x:Name="PART_Popup" Placement="Right" HorizontalOffset="2" VerticalOffset="-5" IsOpen="{TemplateBinding IsSubmenuOpen}" AllowsTransparency="True" Focusable="False" PopupAnimation="None">
           <Border Margin="12" Background="{DynamicResource PanelPopup}" BorderBrush="{DynamicResource PanelPopupBorder}" BorderThickness="1" CornerRadius="{DynamicResource PanelR10}" Padding="4" MinWidth="128" MaxWidth="280">
-            <Border.Effect><DropShadowEffect Color="Black" BlurRadius="22" ShadowDepth="5" Direction="270" Opacity=".5"/></Border.Effect>
+            <Border.Effect><DropShadowEffect Color="Black" BlurRadius="12" ShadowDepth="3" Direction="270" Opacity=".22"/></Border.Effect>
             <StackPanel IsItemsHost="True" KeyboardNavigation.DirectionalNavigation="Cycle"/>
           </Border>
         </Popup>
@@ -54,7 +54,7 @@
       <Border Height="1" Margin="8,4" Background="{DynamicResource PanelPopupBorder}"/>
     </ControlTemplate></Setter.Value></Setter>
   </Style>
-  <!-- A text box on the panel: 7 % white with a 1 DIP outline inside, blue while it has the keyboard, as the design sets for input. -->
+  <!-- A text box on the panel: the input surface with a 1 DIP outline inside, blue while it has the keyboard. -->
   <Style x:Key="ShelfTextBox" TargetType="TextBox">
     <Setter Property="OverridesDefaultStyle" Value="True"/>
     <Setter Property="Foreground" Value="{DynamicResource PanelPrimary}"/><Setter Property="CaretBrush" Value="{DynamicResource PanelPrimary}"/>
@@ -64,7 +64,7 @@
       <!-- No Padding here: the text box gives its padding to its text itself (as the settings' fields rely on); passing it to the
            frame as well put the text twice as far in as the placeholder. -->
       <!-- The outline is blue only while the box has the keyboard; otherwise the popups' faint outline. -->
-      <Border x:Name="Frame" Background="#12FFFFFF" BorderBrush="{DynamicResource PanelPopupBorder}" BorderThickness="1" CornerRadius="{DynamicResource PanelR6}">
+      <Border x:Name="Frame" Background="{DynamicResource PanelInput}" BorderBrush="{DynamicResource PanelPopupBorder}" BorderThickness="1" CornerRadius="{DynamicResource PanelR8}">
         <ScrollViewer x:Name="PART_ContentHost" VerticalAlignment="{TemplateBinding VerticalContentAlignment}"/>
       </Border>
       <ControlTemplate.Triggers>

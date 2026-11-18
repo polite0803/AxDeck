@@ -6,8 +6,8 @@ namespace AxDeck;
 
 // Hover and press feedback that fades in and out as the system monitor's does (Soft.Hover on Soft.Follow) instead of
 // switching in one frame. A button style sets
-// Feedback.Fade; its template has a "HoverLayer" and may have a "PressLayer", both transparent at rest, beneath the content,
-// or, for a bare icon (PanelGlyphButton), a "Glyph" whose opacity carries the feedback instead.
+// Feedback.Fade; its template has a "HoverLayer" and may have a "PressLayer", both transparent at rest, beneath the content.
+// An icon may also be named "Glyph" so its opacity follows the same hover and press state.
 // The press layer lies over the hover layer, which stays lit while pressed, so the two never dip in between. The state is
 // read after the button's own handlers have run, so IsPressed is already current.
 internal static class Feedback
