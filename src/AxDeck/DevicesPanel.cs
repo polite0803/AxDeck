@@ -113,7 +113,7 @@ public partial class MainWindow
         bool shown = DevicesContent.Visibility == Visibility.Visible && _devicesView is not null && DevicesContent.Children.Contains(_devicesView);
         RefreshStatus();
         ShowPageContent(DevicesContent);
-        ModelToolbar.Visibility = Visibility.Collapsed; ApplicationPages.Visibility = Visibility.Collapsed; ClockLabel.Visibility = Visibility.Visible;
+        ModelToolbar.Visibility = Visibility.Collapsed; ApplicationPages.Visibility = Visibility.Collapsed; ShowClock(true);
         double width = ContentCanvas.Width, height = ContentCanvas.Height;
         if (!double.IsFinite(width) || !double.IsFinite(height)) return;
         // The header keeps the usage page's controls, as the monitor page does, so the switch does not move between pages.

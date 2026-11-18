@@ -496,8 +496,8 @@ public sealed partial class SettingsWindow : Window, IKeepsAppFonts
                     });
                     UpdateSwitches();
                 });
-                // The displays are items under "Show on", so their names are not set as headings.
-                if (row is Border { Child: CheckBox { Content: TextBlock text } box }) { text.FontWeight = FontWeights.Normal; switches.Add((box, id)); }
+                // The displays are items under "Show on", so their names are not set as headings (every row's label is plain now).
+                if (row is Border { Child: CheckBox { Content: TextBlock } box }) switches.Add((box, id));
                 rows.Add(row);
             }
             UpdateSwitches();
@@ -643,13 +643,8 @@ public sealed partial class SettingsWindow : Window, IKeepsAppFonts
         Target.Children.Add(new Border { Height = 1, Background = UI.Brush(_palette.RowDivider), Margin = new Thickness(0, 20, 0, 0) });
         Target.Children.Add(QuickRow(Loc.T("快捷尺寸", "Quick sizes"), sizes));
     }
-    // A row of quick choices, as "快捷尺寸": labels inside an open row are set lighter than the row's own title.
-    private Grid QuickRow(string title, UniformGrid choices)
-    {
-        var row = Row(title, SegmentBorder(choices));
-        if (row.Children[0] is StackPanel { Children: [TextBlock label, ..] }) label.FontWeight = FontWeights.Normal;
-        return row;
-    }
+    // A row of quick choices, as "快捷尺寸".
+    private Grid QuickRow(string title, UniformGrid choices) => Row(title, SegmentBorder(choices));
     private void UsageSizes()
     {
         var dimensions=new Grid { Margin=new Thickness(0,8,0,0) }; dimensions.ColumnDefinitions.Add(new()); dimensions.ColumnDefinitions.Add(new());
@@ -1261,9 +1256,11 @@ public sealed partial class SettingsWindow : Window, IKeepsAppFonts
 
     private void SectionTitle(string title, FrameworkElement? action = null, Func<string>? help = null)
     {
-        var row = new DockPanel { Margin = new Thickness(0, 0, 0, 8) };
+        var row = new DockPanel { Margin = new Thickness(0, 0, 0, 10) };
         if (action is not null) { DockPanel.SetDock(action, Dock.Right); action.VerticalAlignment = VerticalAlignment.Center; row.Children.Add(action); }
-        var label = TextLine(title, 11, TextSecondary); label.VerticalAlignment = VerticalAlignment.Center;
+        // A group heading sits one step above the rows in size and one below them in color, so it groups without competing with the
+        // page title; at 11 DIP in the secondary color it read as a caption for the row under it rather than for the group.
+        var label = TextLine(title, 12, TextSecondary, FontWeights.Medium); label.VerticalAlignment = VerticalAlignment.Center;
         if (help is null) row.Children.Add(label);
         else
         {
@@ -1313,7 +1310,8 @@ public sealed partial class SettingsWindow : Window, IKeepsAppFonts
     // keepPreview marks the switch alone as a preview control, so a press on the rest of the row still ends the preview.
     private FrameworkElement Toggle(string title, bool value, Action<bool> changed, bool enabled = true, string? help = null, bool keepPreview = false)
     {
-        var toggle = new CheckBox { Content = TextLine(title, 13, TextPrimary, FontWeights.SemiBold), Style = (Style)FindResource("SettingsToggle"), IsChecked = value, IsEnabled = enabled, VerticalAlignment = VerticalAlignment.Center };
+        // Regular weight, as every other row's label: a switch row and a choice row sit in the same list and have to read alike.
+        var toggle = new CheckBox { Content = TextLine(title, 13, TextPrimary), Style = (Style)FindResource("SettingsToggle"), IsChecked = value, IsEnabled = enabled, VerticalAlignment = VerticalAlignment.Center };
         if (keepPreview) KeepPreview(toggle);
         AutomationProperties.SetName(toggle, title); toggle.Checked += (_, _) => changed(true); toggle.Unchecked += (_, _) => changed(false);
         if (help is not null)

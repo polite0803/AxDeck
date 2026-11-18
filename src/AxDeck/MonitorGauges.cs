@@ -340,18 +340,22 @@ internal sealed class ColumnGraph : FrameworkElement
         if (xs.Length == 0 || h <= 4) return;
         double radius = Math.Min(column / 2, 5);
         drawing.DrawDrawing(_fixed.Get((_labelsVersion, w, ActualHeight, ppd), context => Fixed(context, xs, column, h, radius, ppd)));
-        var tick = new Pen(UI.Brush(PanelTheme.Current["textPrimary"].WithAlpha(0xB3).ToString()), Math.Max(1, Math.Min(1.6, column / 6)));
+        // The core's frequency, a short faint dash across the middle of the column. A line from edge to edge cuts the rounded
+        // column in two, which reads as a broken bar rather than as a second figure on it; kept to the middle of the width and
+        // faint, it reads as a mark on the column, whether it lies over the fill or over the empty track above it. White rather
+        // than the text color, which over the fill turned grey and looked like a seam (BlockGauge below does the same). The
+        // figure itself is in the tooltip.
+        var tick = new Pen(UI.Brush("#59FFFFFF"), 1);
         tick.Freeze();
         for (int i = 0; i < xs.Length; i++)
         {
             var c = _columns[i];
             double fill = Math.Max(Rest, Math.Clamp(_values[i].At(now), 0, 1) * h);
             drawing.DrawRoundedRectangle(UI.Brush(c.Color), null, new Rect(xs[i], h - fill, column, fill), radius, radius);
-            if (_hasTick[i] && column >= 6)
-            {
-                double y = Math.Round((1 - Math.Clamp(_ticks[i].At(now), 0, 1)) * (h - 2)) + 1, inset = column * .2;
-                drawing.DrawLine(tick, new Point(xs[i] + inset, y), new Point(xs[i] + column - inset, y));
-            }
+            if (!_hasTick[i] || column < 8) continue;
+            double y = Math.Round((1 - Math.Clamp(_ticks[i].At(now), 0, 1)) * (h - 2)) + 1;
+            double half = Math.Min(column * .3, 8);
+            drawing.DrawLine(tick, new Point(xs[i] + column / 2 - half, y), new Point(xs[i] + column / 2 + half, y));
         }
     }
 
@@ -430,9 +434,13 @@ internal sealed class BlockGauge : FrameworkElement
         double fill = Math.Max(3, Math.Clamp(_value.At(now), 0, 1) * h);
         drawing.DrawRoundedRectangle(UI.Brush(_color), null, new Rect(0, h - fill, w, fill), radius, radius);
         if (!_hasTick || w < 10) return;
-        var pen = new Pen(UI.Brush(PanelTheme.Current["textPrimary"].WithAlpha(0xB3).ToString()), 1.6); pen.Freeze();
+        // The memory in use, a faint line across the block. White rather than the theme's text color: over the block's empty
+        // track both read as a faint hairline, but over the fill the text color turned grey and looked like a seam through it,
+        // while a white line only lightens the bar under it. Kept thin and inset from the rounded ends, which it cannot follow.
+        var pen = new Pen(UI.Brush("#40FFFFFF"), 1); pen.Freeze();
         double y = Math.Round((1 - Math.Clamp(_tick.At(now), 0, 1)) * (h - 2)) + 1;
-        drawing.DrawLine(pen, new Point(w * .2, y), new Point(w * .8, y));
+        double inset = Math.Max(radius, w * .12);
+        if (inset * 2 + 4 <= w) drawing.DrawLine(pen, new Point(inset, y), new Point(w - inset, y));
     }
     protected override void OnMouseEnter(MouseEventArgs e) { base.OnMouseEnter(e); Hover(true); }
     protected override void OnMouseLeave(MouseEventArgs e) { base.OnMouseLeave(e); Hover(false); }

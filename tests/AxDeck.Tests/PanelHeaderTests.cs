@@ -21,7 +21,7 @@ internal static class PanelHeaderTests
 
         // Usage tiers: toolbar 40/36/36/32/28, content EdgeInset 6 + ColumnPad 20/14/10/10/8.
         var usage = new (double Row, double Side, double Header, double Switch, double Top, double Right, double Settings)[]
-        { (40, 26, 26, 28, 6, 20, 24), (36, 20, 20, 28, 4, 14, 24), (36, 16, 16, 28, 4, 10, 24), (32, 16, 16, 24, 4, 10, 24), (28, 14, 14, 24, 2, 10, 20) };
+        { (40, 26, 26, 28, 6, 20, 24), (36, 20, 20, 28, 4, 14, 24), (36, 16, 16, 28, 4, 10, 24), (32, 16, 16, 24, 4, 10, 24), (28, 14, 14, 24, 2, 8, 20) };
         foreach (var e in usage)
         {
             var h = PanelHeader.For(e.Row, e.Side);

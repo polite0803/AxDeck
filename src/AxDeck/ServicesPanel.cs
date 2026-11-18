@@ -45,7 +45,7 @@ public partial class MainWindow
         ServicesReloadConfig();
         RefreshStatus();
         ShowPageContent(ServicesContent);
-        ModelToolbar.Visibility = Visibility.Collapsed; ApplicationPages.Visibility = Visibility.Collapsed; ClockLabel.Visibility = Visibility.Visible;
+        ModelToolbar.Visibility = Visibility.Collapsed; ApplicationPages.Visibility = Visibility.Collapsed; ShowClock(true);
         double width = ContentCanvas.Width, height = ContentCanvas.Height;
         if (!double.IsFinite(width) || !double.IsFinite(height)) return;
         // The header keeps the usage page's controls, as the music and monitor pages do, so the switch does not move between pages.

@@ -64,13 +64,24 @@ public static partial class PanelThemes
         if (effects.Decor is { } decor)
             text = new Regex(@"(""texture"": [0-9.]+)(,?)").Replace(text, match => match.Groups[1].Value + ", \"decor\": " + DecorJson(decor) + match.Groups[2].Value, 1);
         // A theme with a night look keeps it, and its hours, after everything the template lists (start is its day look).
-        return source?.Night is { } night ? AppendNight(text, night, source.Daylight) : text;
+        return source?.Night is { } night ? AppendNight(text, night, source.Daylight, start, start is null ? null : Build(id, source, true)) : text;
     }
 
     // The night look as the theme file writes it: only what it sets, as "daylight" and "night" members at the end of the file.
-    private static string AppendNight(string text, PanelThemeFile night, PanelThemeDaylight? daylight)
+    private static string AppendNight(string text, PanelThemeFile night, PanelThemeDaylight? daylight, PanelPalette? day, PanelPalette? nightPalette)
     {
-        var layer = new PanelThemeFile { Colors = night.Colors, Apps = night.Apps, Effects = night.Effects, Clock = night.Clock };
+        // The structural surfaces follow the background, so a night look rarely sets them: the template writes the day look's out
+        // in full and the night look would inherit them, which is a pale card on a night surface. The ones whose night value
+        // differs from the day value are written here.
+        Dictionary<string, string>? colors = night.Colors;
+        if (day is not null && nightPalette is not null)
+        {
+            colors = colors is null ? new(StringComparer.OrdinalIgnoreCase) : new(colors, StringComparer.OrdinalIgnoreCase);
+            foreach (var key in StructuralSurfaces.Concat(ShoulderLayers.Select(layer => layer.Key)))
+                if (!colors.ContainsKey(key) && day.Colors.TryGetValue(key, out var dayColor) && nightPalette.Colors.TryGetValue(key, out var nightColor) && dayColor != nightColor)
+                    colors[key] = nightColor.ToString();
+        }
+        var layer = new PanelThemeFile { Colors = colors, Apps = night.Apps, Effects = night.Effects, Clock = night.Clock };
         if (JsonSerializer.SerializeToNode(layer, Json) is not JsonObject json) return text;
         // Only what the layer sets: no format, empty strings (an id, a name, an unset clock style) or names made for display.
         json.Remove("formatVersion");

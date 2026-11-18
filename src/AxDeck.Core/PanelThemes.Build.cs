@@ -32,16 +32,41 @@ public static partial class PanelThemes
         var chain = BaseChain(file);
         night &= file.Night is not null;
         if (night) chain.Add(file.Night!);
+        // The tokens this theme writes itself, as opposed to those it inherits: a structural surface has to follow this theme's own
+        // background, not the one of the theme it is built on (see below).
+        var own = new HashSet<string>(StringComparer.Ordinal);
+        var isOwn = new HashSet<PanelThemeFile>(ReferenceEqualityComparer.Instance) { file };
+        if (night) isOwn.Add(file.Night!);
         foreach (var layer in chain)
         {
             foreach (var (key, value) in layer.Colors ?? [])
-                if (Tokens.FirstOrDefault(token => string.Equals(token.Key, key, StringComparison.OrdinalIgnoreCase)) is { } token && ThemeColor.TryParse(value, out var color)) colors[token.Key] = color;
+                if (Tokens.FirstOrDefault(token => string.Equals(token.Key, key, StringComparison.OrdinalIgnoreCase)) is { } token && ThemeColor.TryParse(value, out var color))
+                {
+                    colors[token.Key] = color;
+                    if (isOwn.Contains(layer)) own.Add(token.Key);
+                }
             foreach (var (key, value) in layer.Apps ?? [])
                 if (AppKeys.FirstOrDefault(app => string.Equals(app, key, StringComparison.OrdinalIgnoreCase)) is { } app && ThemeColor.TryParse(value, out var color)) apps[app] = color;
             if (layer.Clock is { } layerClock && ClockProblem(layerClock) is null) clock = MergeClock(clock, layerClock);
             if (layer.Effects is { } layerEffects) MergeEffects(effects, layerEffects);
         }
-        // The dark theme sets every token, so a missing one only happens if the embedded file is broken.
+        // A structural surface follows from this theme's own background and foreground, by the proportions the settings' background
+        // picker uses (PanelThemes.Derive). A light theme built on the dark one would otherwise inherit its raised and inset
+        // surfaces, dark cards on a light panel, so for those six the theme's own value is what counts and an inherited one is
+        // replaced. The other backgrounds are a color in their own right (a pop-up is drawn lighter than the panel) and are only
+        // derived when nothing sets them. Neither falls back to white: white is a surface text cannot be read on.
+        var plain = colors["surface"].Over(ThemeColor.Black);
+        var ink = colors[ForegroundKey].Over(plain);
+        bool plainDark = IsDarkSurface(plain);
+        foreach (var (key, onDark, onLight) in BackgroundShades)
+        {
+            if (StructuralSurfaces.Contains(key) ? own.Contains(key) : colors.ContainsKey(key)) continue;
+            double amount = plainDark ? onDark : onLight;
+            colors[key] = amount >= 0 ? ThemeColor.Mix(plain, ink, amount) : ThemeColor.Mix(plain, ThemeColor.White, -amount);
+        }
+        foreach (var (key, onDark, onLight) in ShoulderLayers)
+            if (!own.Contains(key)) colors[key] = plainDark ? ThemeColor.White.WithAlpha(onDark) : ThemeColor.Black.WithAlpha(onLight);
+        // The dark theme sets every other token, so a missing one only happens if the embedded file is broken.
         foreach (var token in Tokens) if (!colors.ContainsKey(token.Key)) colors[token.Key] = token.Key == "surface" ? ThemeColor.Black : ThemeColor.White;
         var writtenColors = new Dictionary<string, ThemeColor>(colors, StringComparer.Ordinal);
         var writtenApps = new Dictionary<string, ThemeColor>(apps, StringComparer.Ordinal);
@@ -53,7 +78,10 @@ public static partial class PanelThemes
         colors["tooltip"] = colors["tooltip"].Over(surface);
         colors["bubble"] = colors["bubble"].Over(surface);
         var values = EffectValues(effects);
-        List<ThemeColor> surfaces = [surface, .. StructuralSurfaces.Select(key => colors[key]), .. values.SurfaceGradient.Select(stop => stop.Over(surface)),
+        // The backgrounds text is drawn on is the surface and what it shows. The structural surfaces lie over these and hold no
+        // body text of their own, so measuring the text roles against them as well would only move every color for a background
+        // it is never drawn on.
+        List<ThemeColor> surfaces = [surface, .. values.SurfaceGradient.Select(stop => stop.Over(surface)),
             .. TextureStops(values, colors, surface), .. DecoratedStops(values, colors, surface)];
 
         var adjustments = new List<PanelThemeAdjustment>();
@@ -71,12 +99,15 @@ public static partial class PanelThemes
             };
             var needs = against.Select(background => new ContrastNeed(background, token.Minimum)).ToList();
             // Text also stands on fills: the primary text on the selected segment, a pressed button, an input field, the date range,
-            // tooltips and the seek time bubble; the secondary text on the segment strip and on hover. Those need the body-text minimum.
+            // tooltips and the seek time bubble; the secondary text on the segment strip and on hover. A translucent fill is measured
+            // over the surface: the structural surface under it is one color brighter or darker than the surface, which the fill's own
+            // alpha already swallows, and taking it into account would let a brighter background drag text darker than the surface
+            // needs. Those need the body-text minimum.
             List<ThemeColor> fills = token.Key switch
             {
-                "textPrimary" => [colors["fillSelected"].Over(colors["active"]), colors["pressed"].Over(colors["raised"]), colors["input"].Over(colors["raised"]),
+                "textPrimary" => [colors["fillSelected"].Over(surface), colors["pressed"].Over(surface), colors["input"].Over(surface),
                     colors["rangeFill"].Over(popup), colors["tooltip"], colors["bubble"], colors["active"], colors["quota"]],
-                "textSecondary" => [colors["fill"].Over(colors["inset"]), colors["hover"].Over(colors["raised"]), colors["quotaHover"], colors["toolbar"]],
+                "textSecondary" => [colors["fill"].Over(surface), colors["hover"].Over(surface), colors["quotaHover"], colors["toolbar"]],
                 _ => []
             };
             needs.AddRange(fills.Select(fill => new ContrastNeed(fill, TextContrast)));

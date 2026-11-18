@@ -100,6 +100,21 @@ internal sealed class ProcessListView : FrameworkElement
         _message = ranked.Count == 0 ? Loc.T("没有进程", "No processes") : "";
         bool moving = false;
         var seen = new HashSet<string>();
+        // Two rows of one column that trade places would slide through each other, their names overlapping for the whole move;
+        // those turn over in place instead, the one leaving fading as the one arriving fades in.
+        var crossing = new HashSet<string>();
+        for (int slot = 0; rows > 0 && slot < ranked.Count; slot++)
+        {
+            if (!_motion.TryGetValue(ranked[slot].Id, out var here)) continue;
+            double from = here.Slot.Target;
+            if (Math.Abs(slot - from) > 2 || (int)from / rows != slot / rows) continue;
+            for (int other = 0; other < ranked.Count; other++)
+            {
+                if (other == slot || !_motion.TryGetValue(ranked[other].Id, out var there)) continue;
+                double otherFrom = there.Slot.Target;
+                if ((int)otherFrom / rows == (int)from / rows && (from - otherFrom) * (slot - other) < 0) { crossing.Add(ranked[slot].Id); break; }
+            }
+        }
         for (int slot = 0; slot < ranked.Count; slot++)
         {
             var id = ranked[slot].Id; seen.Add(id);
@@ -107,7 +122,7 @@ internal sealed class ProcessListView : FrameworkElement
             {
                 double from = state.Slot.Target;
                 // A short move within a column slides; a longer one, or one into another column, turns over in place.
-                bool slide = rows > 0 && Math.Abs(slot - from) <= 2 && (int)from / rows == slot / rows;
+                bool slide = rows > 0 && !crossing.Contains(id) && Math.Abs(slot - from) <= 2 && (int)from / rows == slot / rows;
                 if (slide) moving |= state.Slot.Set(slot, motion);
                 else if (Math.Abs(slot - from) > 1e-6) { state.Slot = new Eased(slot); state.Alpha = new Eased(0); moving |= state.Alpha.Set(1, motion); }
                 _motion[id] = state;

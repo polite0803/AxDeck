@@ -52,6 +52,8 @@ One Dark Pro、GitHub Dark、GitHub Light、Dracula Official、Night Owl 移植�
 
 颜色写作 `#RRGGBB` 或 `#AARRGGBB`（AA 为不透明度）。括号中是对比度下限，按 WCAG 2 的算法计算。文字三级、`menuDetail`、`accent` 和 `danger` 要在面板底色（含渐变的每个色标）与弹出层底色上都达标；`liked`、`clock`、`equalizer` 只看面板底色；`onAccent` 看强调色，`indicatorProgress` 看指示条。另外，文字也会落在填充色上：`textPrimary` 在 `fillSelected`、`pressed`、`input`、`rangeFill`、`tooltip`、`bubble` 上，`textSecondary` 在 `fill`、`hover` 上，都需要 4.5:1。
 
+`raised`、`toolbar`、`inset`、`active`、`quota`、`quotaHover`、`topLight`、`bottomShade` 这八项是结构表面：它们随主题自己的底色与前景按固定比例生成，从别的主题继承来的值会被换掉，所以浅色主题不会顶着深色主题的卡片。这八项不是文字落笔的地方，文字对比度只按面板底色和它显示的东西计算。其余没有写出的颜色仍按基础主题继承；`popup`、`input`、`tooltip`、`bubble` 这类本身就是一种颜色的表面，只有完全没写时才自行推导。
+
 | 键 | 用途 |
 | --- | --- |
 | `surface` | 刘海、胶囊和展开面板的底色，总是不透明 |
@@ -64,6 +66,8 @@ One Dark Pro、GitHub Dark、GitHub Light、Dracula Official、Night Owl 移植�
 | `clock` | 时间颜色选“主题默认色”时的颜色（4.5:1） |
 | `equalizer` | 律动条不跟随封面时的颜色（3:1） |
 | `hairline` `track` `ringTrack` `fill` `fillSelected` `hover` `pressed` `outline` | 分隔线、进度底轨、分段控件、悬停与按下、描边 |
+| `raised` `toolbar` `inset` `active` `quota` `quotaHover` | 抬起的按钮与卡片、工具栏底色、下沉的分段底轨、选中的页面与分段、配额环底带及其悬停 |
+| `topLight` `bottomShade` | 卡片、按钮和条上沿的亮线与下沿的暗线，半透明 |
 | `popup` `popupBorder` `input` `rangeFill` | 菜单与弹出层，日期输入框和日期范围 |
 | `coverPlaceholder` `coverOutline` `scrollThumb` | 无封面占位、封面描边、滚动条（滑块在底色上 2:1） |
 | `rim` `shadow` | 表面内侧描线；收起时的阴影（亮色加零偏移即为辉光） |

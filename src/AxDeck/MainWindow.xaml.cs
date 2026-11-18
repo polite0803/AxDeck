@@ -249,6 +249,8 @@ public partial class MainWindow : Window
     {
         var now = DateTime.Now;
         ClockLabel.Text = now.ToString("HH:mm");
+        // A wider time than the room the page leaves hides it (MainWindow.Header.cs).
+        ApplyClock();
         if (_compactClock is not null) _compactClock.Time = now;
     }
     public void ApplySettings() => ApplySettings(false);

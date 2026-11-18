@@ -22,7 +22,7 @@ public partial class MainWindow
         bool shown = DesktopContent.Visibility == Visibility.Visible && _desktopView is not null && DesktopContent.Children.Contains(_desktopView);
         RefreshStatus();
         ShowPageContent(DesktopContent);
-        ModelToolbar.Visibility = Visibility.Collapsed; ApplicationPages.Visibility = Visibility.Collapsed; ClockLabel.Visibility = Visibility.Visible;
+        ModelToolbar.Visibility = Visibility.Collapsed; ApplicationPages.Visibility = Visibility.Collapsed; ShowClock(true);
         double width = ContentCanvas.Width, height = ContentCanvas.Height;
         if (!double.IsFinite(width) || !double.IsFinite(height)) return;
         var header = PanelHeader.For(ToolbarFor(height), height < 170 ? 14 : 20);

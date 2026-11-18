@@ -55,7 +55,11 @@ internal sealed class ServicesView : Grid
         scroll.Content = content;
         Children.Add(scroll);
 
-        var bar = new StackPanel { Margin = new Thickness(0, 6, 0, 0) };
+        // 状态与动作条：上面一条两端淡出的细线把它同可滚动的读数分开，否则滚动区最后一行贴着状态文字，看上去像被裁掉了半截。
+        var foot = new StackPanel { Margin = new Thickness(0, 6, 0, 0) };
+        foot.Children.Add(new Border { Height = 1, Background = UI.Fade(UI.Hairline, vertical: false, tails: .08), Margin = new Thickness(0, 0, 0, 6) });
+        var bar = new StackPanel();
+        foot.Children.Add(bar);
         bar.Children.Add(_status);
         var buttons = new WrapPanel { Orientation = Orientation.Horizontal, ItemWidth = double.NaN, Margin = new Thickness(-4, 0, -4, 0) };
         buttons.Children.Add(ActionButton(Loc.T("刷新", "Refresh"), () => _owner.ServicesRefresh(false)));
@@ -68,8 +72,8 @@ internal sealed class ServicesView : Grid
         buttons.Children.Add(ActionButton(Loc.T("编辑 SSH 配置", "Edit SSH config"), () => _owner.ServicesEditConfig()));
         buttons.Children.Add(ActionButton(Loc.T("复制诊断", "Copy diagnostics"), () => _owner.ServicesCopyDiagnostics()));
         bar.Children.Add(buttons);
-        Grid.SetRow(bar, 1);
-        Children.Add(bar);
+        Grid.SetRow(foot, 1);
+        Children.Add(foot);
     }
 
     public void SetStatus(string text) => SetStatus(text, false);

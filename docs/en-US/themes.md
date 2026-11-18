@@ -52,6 +52,8 @@ The full template is [`theme-template.json`](../../src/AxDeck.Core/Templates/the
 
 Colors are `#RRGGBB` or `#AARRGGBB` (AA is the opacity). The minimum in brackets is a WCAG 2 contrast. The three text levels, `menuDetail`, `accent` and `danger` must reach it on the surface (each stop of its gradient included) and on the pop-up surface; `liked`, `clock` and `equalizer` on the surface only; `onAccent` on the accent and `indicatorProgress` on the indicator. Text also stands on fills: `textPrimary` on `fillSelected`, `pressed`, `input`, `rangeFill`, `tooltip` and `bubble`, and `textSecondary` on `fill` and `hover`, each needing 4.5:1.
 
+Those eight, `raised`, `toolbar`, `inset`, `active`, `quota`, `quotaHover`, `topLight` and `bottomShade`, are structural surfaces: they follow the theme's own background and foreground by fixed proportions, and a value inherited from another theme is replaced, so a light theme does not end up with the dark theme's cards. No text is drawn on them, so the contrast rules measure text against the surface and what it shows only. Every other color not written is still inherited from the base theme; a surface that is a color of its own, such as `popup`, `input`, `tooltip` and `bubble`, is derived only when nothing sets it.
+
 | Key | Use |
 | --- | --- |
 | `surface` | The notch, capsule and expanded panel; always opaque |
@@ -64,6 +66,8 @@ Colors are `#RRGGBB` or `#AARRGGBB` (AA is the opacity). The minimum in brackets
 | `clock` | The clock when its color is "Theme default" (4.5:1) |
 | `equalizer` | The equalizer when it does not follow the cover (3:1) |
 | `hairline` `track` `ringTrack` `fill` `fillSelected` `hover` `pressed` `outline` | Dividers, tracks, joined switches, hover and pressed states, outlines |
+| `raised` `toolbar` `inset` `active` `quota` `quotaHover` | Buttons and cards standing above the surface, the toolbar's own ground, the sunken segment strip, the chosen page and segment, the band behind the quota rings and its hover |
+| `topLight` `bottomShade` | The light line along the upper edge of cards, buttons and bars and the dark one along their lower edge; translucent |
 | `popup` `popupBorder` `input` `rangeFill` | Menus and pop-ups, date fields and date ranges |
 | `coverPlaceholder` `coverOutline` `scrollThumb` | A missing cover, the cover outline, scroll bars (the thumb 2:1 on the surface) |
 | `rim` `shadow` | The line along the surface's inner edge; the collapsed shadow (a bright color with no depth is a glow) |

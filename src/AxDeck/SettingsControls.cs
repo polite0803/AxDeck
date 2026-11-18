@@ -15,7 +15,10 @@ public sealed partial class SettingsWindow
 {
     private FrameworkElement SettingLabel(string title, Func<string>? help = null)
     {
-        var label = TextLine(title, 13, TextPrimary, FontWeights.SemiBold);
+        // Regular weight, not semibold: a page holds a dozen or more rows, and when every one of them is bold nothing leads and the
+        // list reads as a template. Weight is spent on the page title and the group headings instead; the rows separate by the
+        // hairlines between them.
+        var label = TextLine(title, 13, TextPrimary);
         label.VerticalAlignment = VerticalAlignment.Center;
         if (help is null) return label;
         return new HelpHeading(label, HelpIcon(title, help, 14)) { VerticalAlignment = VerticalAlignment.Center, HorizontalAlignment = HorizontalAlignment.Left };
@@ -89,9 +92,10 @@ public sealed partial class SettingsWindow
         var move = new TranslateTransform();
         var highlight = new Border { CornerRadius = new CornerRadius(6), HorizontalAlignment = HorizontalAlignment.Left, VerticalAlignment = VerticalAlignment.Top,
             IsHitTestVisible = false, RenderTransform = move, Visibility = Visibility.Hidden };
-        highlight.SetResourceReference(Border.BackgroundProperty, "SettingsFillSelected");
-        // The chosen option is outlined as well: its fill alone stands too close to the control's own (SW-07).
-        highlight.BorderThickness = new Thickness(1); highlight.SetResourceReference(Border.BorderBrushProperty, "SettingsInputBorder");
+        // The chosen option takes the accent, as a switch's on state does, so a segment and a toggle say "on" the same way. The fill
+        // already stands over 3:1 clear of the strip in both modes, so it needs no outline of its own; an outline read as a second
+        // frame around the block, which made the control look nested three deep.
+        highlight.SetResourceReference(Border.BackgroundProperty, "SettingsAccentFill");
         var host = new Grid(); host.Children.Add(highlight); host.Children.Add(content);
         void Slide(double from, double to)
         {

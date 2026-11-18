@@ -19,6 +19,14 @@
 
   "colors": {
     "surface": "#000000",           // The notch, capsule and panel. Always drawn opaque.
+    "raised": "#1D1D1E",            // Buttons, cards and input wells that stand above the surface. Drawn opaque.
+    "toolbar": "#121213",           // The strip behind the toolbar. Drawn opaque.
+    "inset": "#090909",             // Wells and segment strips that sit below the surface. Drawn opaque.
+    "active": "#2F2F2F",            // The chosen page, tab or segment. Drawn opaque.
+    "quota": "#161616",             // The band behind the quota gauges. Drawn opaque.
+    "quotaHover": "#222223",        // That band under the pointer. Drawn opaque.
+    "topLight": "#18FFFFFF",        // A light line along the upper edge of cards and bars. Stays translucent.
+    "bottomShade": "#38FFFFFF",     // A dark line along their lower edge. Stays translucent.
     "textPrimary": "#F5F5F7",       // Titles and figures. At least 7:1 against the surface and pop-ups.
     "textSecondary": "#9EEBEBF5",   // Labels. At least 4.5:1.
     "textTertiary": "#8CEBEBF5",    // Reset times, notes and other small text. At least 4.5:1.

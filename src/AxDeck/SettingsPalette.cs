@@ -36,7 +36,6 @@ internal sealed record SettingsPalette(bool Dark)
         Brush("SettingsTextPrimary", Primary); Brush("SettingsTextSecondary", Secondary);
         Brush("SettingsFillHover", Dark ? "#232327" : "#E8E9EF");
         Brush("SettingsFillPressed", Dark ? "#363640" : "#DDDFE8");
-        Brush("SettingsFillSelected", Dark ? "#41414A" : "#FFFFFF");
         Brush("SettingsNavSelected", Dark ? "#27272D" : "#FFFFFF");
         Brush("SettingsAccent", Dark ? "#348AEB" : "#2374DE");
         // The fill of buttons with white text on the accent: at least 4.5:1 for that text, at rest and under the pointer, in both

@@ -14,7 +14,7 @@
   <SolidColorBrush x:Key="SettingsTextSecondary" Color="#9B9BA3"/>
   <SolidColorBrush x:Key="SettingsFillHover" Color="#14FFFFFF"/>
   <SolidColorBrush x:Key="SettingsFillPressed" Color="#24FFFFFF"/>
-  <SolidColorBrush x:Key="SettingsFillSelected" Color="#2EFFFFFF"/>
+
   <!-- Focus outlines are drawn only while moving focus with the keyboard, never after a mouse click. -->
   <Style x:Key="SettingsFocus"><Setter Property="Control.Template"><Setter.Value><ControlTemplate>
     <Border BorderBrush="{DynamicResource SettingsAccent}" BorderThickness="1" CornerRadius="6" Margin="-2"/>
@@ -446,7 +446,9 @@
       <Border x:Name="Selection" CornerRadius="6" Background="Transparent" Padding="{TemplateBinding Padding}" BorderThickness="1" BorderBrush="Transparent"><ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/></Border>
       <ControlTemplate.Triggers>
         <Trigger Property="IsMouseOver" Value="True"><Setter Property="Foreground" Value="{DynamicResource SettingsTextPrimary}"/></Trigger>
-        <Trigger Property="IsChecked" Value="True"><Setter Property="Foreground" Value="{DynamicResource SettingsTextPrimary}"/><Setter Property="FontWeight" Value="SemiBold"/></Trigger>
+        <!-- The chosen option is filled with the accent (SegmentBorder), so its label is white: the accent fill's own minimum is
+             the 4.5:1 white text gets on it in both modes. -->
+        <Trigger Property="IsChecked" Value="True"><Setter Property="Foreground" Value="White"/><Setter Property="FontWeight" Value="SemiBold"/></Trigger>
       </ControlTemplate.Triggers>
     </ControlTemplate></Setter.Value></Setter>
   </Style>

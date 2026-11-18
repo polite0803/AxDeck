@@ -46,6 +46,22 @@ internal static class UI
     {
         var brush = new SolidColorBrush((Color)ColorConverter.ConvertFromString(text)); brush.Freeze(); return brush;
     });
+    // A rule that thins out at both ends instead of butting into the panel's edges: the column separators between quota
+    // columns and the rule above the totals. Tails is the share of the length each end fades over; the solid middle keeps
+    // the line reading as a divider rather than a smudge. Vertical runs top to bottom, horizontal left to right.
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<(string, bool, double), Brush> Fades = new();
+    public static Brush Fade(string color, bool vertical = true, double tails = .14) => Fades.GetOrAdd((color, vertical, tails), static key =>
+    {
+        var solid = (Color)ColorConverter.ConvertFromString(key.Item1);
+        var brush = new LinearGradientBrush(new GradientStopCollection
+        {
+            new(Color.FromArgb(0, solid.R, solid.G, solid.B), 0),
+            new(solid, Math.Clamp(key.Item3, 0, .49)),
+            new(solid, 1 - Math.Clamp(key.Item3, 0, .49)),
+            new(Color.FromArgb(0, solid.R, solid.G, solid.B), 1)
+        }, key.Item2 ? new Point(.5, 0) : new Point(0, .5), key.Item2 ? new Point(.5, 1) : new Point(1, .5));
+        brush.Freeze(); return brush;
+    });
     public static string ColorFor(ProviderId id) => PanelTheme.DefaultAppColor(id);
     public static TextBlock Text(string text, double size = 13, string color = "#E6E8EF", FontWeight? weight = null)
         => new() { Text = text, FontFamily = TextFont, FontSize = size, Foreground = Brush(color), FontWeight = weight ?? FontWeights.Normal, TextWrapping = TextWrapping.Wrap };

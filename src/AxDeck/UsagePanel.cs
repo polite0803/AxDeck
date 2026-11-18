@@ -184,7 +184,7 @@ public partial class MainWindow
         {
             // The page as it was built; another page may have taken the header meanwhile.
             ApplyHeader(_usageHeaderBuilt);
-            ClockLabel.Visibility = Visibility.Visible; ModelToolbar.Visibility = Visibility.Collapsed;
+            ShowClock(true); ModelToolbar.Visibility = Visibility.Collapsed;
             ApplicationPages.Visibility = ApplicationPages.Children.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
             return;
         }
@@ -212,7 +212,7 @@ public partial class MainWindow
         ApplicationPages.Children.Clear(); ApplicationPages.Visibility = Visibility.Collapsed;
         double panelHeight = ContentCanvas.Height;
         ApplyHeader(UnfittedHeader(panelHeight));
-        ClockLabel.Visibility = _details ? Visibility.Collapsed : Visibility.Visible;
+        ShowClock(!_details);
         ModelToolbar.Visibility = _details ? Visibility.Visible : Visibility.Collapsed;
 
         // The compact rings may keep the data current while the AI usage page itself is switched off.
@@ -405,24 +405,31 @@ public partial class MainWindow
         FrameworkElement body;
         if (off)
         {
-            // No readings: what the state is, why, and a way to sync now, centered in the column. Left-aligned, the button's text sat
-            // inside its outline and padding, so it looked further right than the lines above it.
-            var status = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
-            var label = UI.Fixed(snapshot.StatusLabel, Math.Max(11, layout.Label + 1), Math.Ceiling(layout.Label * 1.5), UI.Secondary, FontWeights.SemiBold);
-            label.TextAlignment = TextAlignment.Center; label.ToolTip = snapshot.Status;
+            // No readings: what the state is, why, and a way to sync now. Set on the column's own text grid rather than centred in a
+            // block of its own: the state then reads as part of the column, and switching between an empty and a filled column does
+            // not move the eye to the middle of the panel. A centred block also made the label and its explanation into a headline
+            // and a caption, which is more ceremony than a glance needs.
+            var status = new StackPanel { VerticalAlignment = VerticalAlignment.Center, HorizontalAlignment = HorizontalAlignment.Left };
+            var label = UI.Fixed(snapshot.StatusLabel, Math.Max(11, layout.Label), Math.Max(14, layout.LabelRow), UI.Secondary);
+            label.ToolTip = snapshot.Status;
             status.Children.Add(label);
             // The detail is dropped when it only repeats the label, and when the column is too short for it (the smallest panel):
-            // the label and the button stay, the full text is in the label's tip.
+            // the label and the action stay, the full text is in the label's tip.
             TextBlock? detail = null;
             if (snapshot.Status != snapshot.StatusLabel)
             {
                 detail = UI.Text(snapshot.Status, Math.Max(10, layout.Reset), UI.Tertiary);
-                detail.FontFamily = UI.PanelFont; detail.Margin = new Thickness(0, 3, 0, 0); detail.TextWrapping = TextWrapping.Wrap;
-                detail.TextAlignment = TextAlignment.Center;
+                detail.FontFamily = UI.PanelFont; detail.Margin = new Thickness(0, 2, 0, 0); detail.TextWrapping = TextWrapping.Wrap;
                 status.Children.Add(detail);
             }
-            var sync = new Button { Style = (Style)FindResource("PanelOutlineButton"), FontFamily = UI.TextFont, Padding = new Thickness(10, 2, 10, 2), Height = 24,
-                HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, 6, 0, 0), Content = Loc.T("立即同步", "Sync now") };
+            // The way to sync now is a quiet text action, not an outlined pill: the toolbar's arrows are the page's one prominent
+            // control, and a second bordered button in every empty column competed with them.
+            var sync = new Button
+            {
+                Style = (Style)FindResource("PanelTextButton"), Content = Loc.T("立即同步", "Sync now"),
+                HorizontalAlignment = HorizontalAlignment.Left, Height = 20, Padding = new Thickness(0, 0, 4, 0), FontSize = Math.Max(10, layout.Reset)
+            };
+            sync.Margin = new Thickness(0, 6, 0, 0);
             AutomationProperties.SetName(sync, Loc.T("立即同步用量", "Sync usage now"));
             sync.Click += (_, _) => SyncNow();
             status.Children.Add(sync);
@@ -488,7 +495,7 @@ public partial class MainWindow
         if (layout.Footer)
         {
             var footer = new StackPanel();
-            footer.Children.Add(new Border { Height = 1, Background = UI.Brush(UI.Hairline), Margin = new Thickness(0, layout.FootTop, 0, layout.FootBottom) });
+            footer.Children.Add(new Border { Height = 1, Background = UI.Fade(UI.Hairline, vertical: false, tails: .08), Margin = new Thickness(0, layout.FootTop, 0, layout.FootBottom) });
             string todayLabel = Loc.T("今日", "Today"), weekLabel = Loc.T("七日", "Week");
             // Both captions take the wider one's width, so they start and end on the same vertical lines.
             double captionWidth = Math.Max(JustifiedText.NaturalWidth(todayLabel, layout.Foot), JustifiedText.NaturalWidth(weekLabel, layout.Foot));
@@ -509,7 +516,9 @@ public partial class MainWindow
         var surface = new Border
         {
             Child = column, Padding = new Thickness(layout.ColumnPad, ColumnTopInset, layout.ColumnPad, 0),
-            BorderThickness = new Thickness(separator ? 1 : 0, 0, 0, 0), BorderBrush = UI.Brush(UI.Hairline), Tag = entry.InstanceId
+            // The rule between columns fades out at both ends instead of running hard from the title to the totals: full-strength,
+            // it cut the panel into boxes and made the columns read as separate cards rather than one page.
+            BorderThickness = new Thickness(separator ? 1 : 0, 0, 0, 0), BorderBrush = UI.Fade(UI.Hairline), Tag = entry.InstanceId
         };
         if (view.Pages > 1)
         {

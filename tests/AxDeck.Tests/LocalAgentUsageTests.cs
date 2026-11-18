@@ -72,7 +72,8 @@ internal static class LocalAgentUsageTests
             fromFile.LiveQuota && fromFile.Metrics.Single() is { Amount: 75, Total: 100 }
             && fromFile.Metrics.Single().UsedPercent == 25);
 
-        File.SetLastWriteTimeUtc(json, DateTime.UtcNow.AddDays(-10));
+        // Measured from the test's own clock, not from today: the record has to be over seven days old for the reader above.
+        File.SetLastWriteTimeUtc(json, Clock().UtcDateTime.AddDays(-10));
         var stale = reader.Read([overridden]).Single();
         check("An old local record is still shown, but marked as stale rather than as a live balance",
             stale.LiveQuota && stale.IsStale && stale.Status.Contains("7 天"));

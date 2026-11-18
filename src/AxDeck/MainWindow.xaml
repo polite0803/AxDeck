@@ -71,10 +71,14 @@
               <Canvas Grid.Row="0" Grid.RowSpan="2" x:Name="GestureLayer" IsHitTestVisible="False" ClipToBounds="True"/>
             </Grid>
               <!-- Keep the toolbar outside the fixed page layout so neither resize direction clips its controls. -->
-              <Grid x:Name="Toolbar" Height="{Binding Height.Value, ElementName=ToolbarRow}" VerticalAlignment="Top">
-                <!-- The clock is centered on the whole panel; the switches and the settings button sit inside their own insets. -->
-                <TextBlock x:Name="ClockLabel" FontFamily="{DynamicResource FontPanel}" FontSize="12" Foreground="{DynamicResource PanelTertiary}" HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False"/>
-                <Border x:Name="PageSwitch" Background="Transparent" CornerRadius="{DynamicResource PanelR8}" Padding="2" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="10,0,0,0">
+              <Grid x:Name="Toolbar" Height="{Binding Height.Value, ElementName=ToolbarRow}" VerticalAlignment="Top" SizeChanged="Toolbar_SizeChanged">
+                <!-- Three columns, so the clock is centered in the room the page switch and the right-hand buttons leave it rather
+                     than in the whole panel: on a narrow page the two would otherwise meet. FitClock hides the clock when even that
+                     room is too small for it. The clipboard page's own header lies over all three (it places its parts itself). -->
+                <Grid>
+                <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition x:Name="ClockColumn" Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                <Border x:Name="PageSwitch" Grid.Column="0" Background="Transparent" CornerRadius="{DynamicResource PanelR8}" Padding="2" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="10,0,0,0"
+                        SizeChanged="Toolbar_SizeChanged">
                  <Grid>
                  <!-- The chosen page's fill glides between the buttons, as the monitor page's sort pill does (MainWindow.PlacePageCapsule). -->
                  <Border x:Name="PageCapsule" Background="{DynamicResource PanelFillSelected}" HorizontalAlignment="Left" VerticalAlignment="Center"
@@ -115,11 +119,12 @@
                  </StackPanel>
                  </Grid>
                 </Border>
-                <StackPanel x:Name="ApplicationPages" Margin="82,0,0,0" HorizontalAlignment="Left" VerticalAlignment="Center" Visibility="Collapsed"/>
-                <Grid x:Name="ModelToolbar" Margin="10,0,96,0" Visibility="Collapsed" VerticalAlignment="Center"/>
+                <TextBlock x:Name="ClockLabel" Grid.Column="1" FontFamily="{DynamicResource FontPanel}" FontSize="12" Foreground="{DynamicResource PanelTertiary}" HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False"/>
+                <StackPanel x:Name="ApplicationPages" Grid.Column="0" Margin="82,0,0,0" HorizontalAlignment="Left" VerticalAlignment="Center" Visibility="Collapsed"/>
+                <Grid x:Name="ModelToolbar" Grid.Column="0" Margin="10,0,96,0" Visibility="Collapsed" VerticalAlignment="Center"/>
                 <!-- The clipboard page's own header parts: the full-content view's back, title and arrows, and the open search box. -->
-                <Grid x:Name="ShelfToolbar" Visibility="Collapsed" VerticalAlignment="Stretch"/>
-                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,20,0">
+                <Grid x:Name="ShelfToolbar" Grid.ColumnSpan="3" Visibility="Collapsed" VerticalAlignment="Stretch"/>
+                <StackPanel x:Name="ToolbarRight" Grid.Column="2" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,20,0">
                   <Button x:Name="MediaSourceButton" Style="{StaticResource PanelSourceButton}" Width="Auto" MaxWidth="150" Padding="8,0" Margin="0,0,2,0" Click="MediaSource_Click" Visibility="Collapsed">
                     <Grid>
                       <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
@@ -177,6 +182,7 @@
                   </Button>
                   <Button x:Name="SettingsButton" Style="{StaticResource PanelSettingsButton}" Content="&#xE713;" FontFamily="{StaticResource FontIconMdl2}" FontSize="16" Click="Settings_Click"/>
                 </StackPanel>
+                </Grid>
               </Grid>
           </Grid>
         </Grid>

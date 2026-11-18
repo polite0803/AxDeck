@@ -449,7 +449,7 @@ public partial class MainWindow
         bool shown = MusicContent.IsVisible && _expanded && !_preview;
         RefreshStatus();
         ShowPageContent(MusicContent);
-        ModelToolbar.Visibility = Visibility.Collapsed; ApplicationPages.Visibility = Visibility.Collapsed; ClockLabel.Visibility = Visibility.Visible;
+        ModelToolbar.Visibility = Visibility.Collapsed; ApplicationPages.Visibility = Visibility.Collapsed; ShowClock(true);
         double h = ContentCanvas.Height, w = ContentCanvas.Width;
         var track = _mediaTrack;
         if (_seeking && _seekTrack is { } seeking && track is not null && SameMediaSong(seeking, track))
