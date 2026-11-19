@@ -41,6 +41,7 @@
     <Compile Include="..\..\src\AxDeck\LayoutRetry.cs" Link="LayoutRetry.cs" />
     <Compile Include="..\..\src\AxDeck\MainWindow.PageSwitch.cs" Link="MainWindow.PageSwitch.cs" />
     <Compile Include="..\..\src\AxDeck\PageHandover.cs" Link="PageHandover.cs" />
+    <Compile Include="..\..\src\AxDeck\PopupMotion.cs" Link="PopupMotion.cs" />
     <!-- 展开的面板只显示一个页面：每个页面渲染都经由它，测试直接验证「其余全部折叠」这一步。 -->
     <Compile Include="..\..\src\AxDeck\PageContentShowing.cs" Link="PageContentShowing.cs" />
     <Compile Include="..\..\src\AxDeck\RadioGroups.cs" Link="RadioGroups.cs" />

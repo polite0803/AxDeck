@@ -22,6 +22,8 @@ internal static class Program
             if (args is ["--only", "ringletter", ..]) { RingLetterChecks.Run(Check, args.Length > 2 ? args[2] : null); return Finish(); }
             if (args is ["--only", "drawn"]) { DrawnAutomationTests.Run(Check); return Finish(); }
             if (args is ["--only", "settings"]) { SettingsFocusTests.Run(Check); AxDeck.MainWindow.CheckPageCapsuleFit(Check); return Finish(); }
+            // 下拉框关闭时留下的影子必须和列表一样大、落在同一处；否则会看到一份放大错位的列表。
+            if (args is ["--only", "popup"]) { PopupMotionTests.Run(Check); return Finish(); }
             if (args is ["--only", "fonts"]) { FontFollowTests.Run(Check); return Finish(); }
             if (args is ["--only", "cloudflare"]) { CloudflareTunnelChecks.Run(Check); return Finish(); }
             if (args is ["--only", "bge"]) { BgeM3Checks.Run(Check); return Finish(); }
@@ -60,6 +62,7 @@ internal static class Program
             AxDeck.DesktopOrderDragTests.Run(Check);
             RingLetterChecks.Run(Check);
             SettingsFocusTests.Run(Check);
+            PopupMotionTests.Run(Check);
             AxDeck.MainWindow.CheckPageCapsule(Check);
             AxDeck.MainWindow.CheckPageCapsuleFit(Check);
             // 换页后旧页面的内容不能留在新页面上（从服务页切到设备页时曾经留下过一整排按钮）。

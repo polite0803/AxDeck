@@ -63,5 +63,15 @@ internal static class MotionReviewTests
         check("Motion review: a pop-up that did not change while it entered takes only its first picture", !still.Enter() && still.Changed());
         check("Motion review: a pop-up's picture is taken again once a hover's fade has settled",
             PopupPicture.SettleMilliseconds((int)(Eased.Hover * 1000)) == (int)(Eased.Hover * 1000) + 40);
+
+        // F7: the leaving picture is drawn at the list's DPI, so its DIP size in the ghost must undo that ghost's scale to
+        // cover the list one to one. This is the mixed-DPI case that showed the list twice, with the lower copy enlarged.
+        var fitted = PopupPicture.FitToDpi(208, 242, 1, 1, 4.0 / 3, 4.0 / 3);
+        check("Motion review: a pop-up picture keeps the list's device size across displays' DPI",
+            Math.Abs(fitted.Width * 4.0 / 3 - 208) < 1e-9 && Math.Abs(fitted.Height * 4.0 / 3 - 242) < 1e-9);
+        var stretched = PopupPicture.FitToDpi(208, 242, 1.5, 1, 2, 1.25);
+        check("Motion review: a pop-up picture fits each axis at its own DPI",
+            Math.Abs(stretched.Width * 2 - 208 * 1.5) < 1e-9
+            && Math.Abs(stretched.Height * 1.25 - 242) < 1e-9);
     }
 }

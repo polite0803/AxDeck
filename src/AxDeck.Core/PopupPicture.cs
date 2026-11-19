@@ -31,4 +31,10 @@ public sealed class PopupPicture
     // How long after a change the picture is taken again: the hover fade's time (milliseconds) and a little more, so a hover's
     // fade has settled.
     public static int SettleMilliseconds(int hover) => hover + 40;
+
+    // A picture's DIP size in its own DPI for it to cover content that lives at another DPI. Both axes are kept apart, since
+    // a window can be scaled differently across monitors and a single scale would leave the picture larger in one direction.
+    public static (double Width, double Height) FitToDpi(
+        double width, double height, double fromScaleX, double fromScaleY, double toScaleX, double toScaleY)
+        => (width * fromScaleX / toScaleX, height * fromScaleY / toScaleY);
 }

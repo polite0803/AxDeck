@@ -361,9 +361,9 @@ public sealed class WindowsHost : IDisposable
             if (above == hit) return true;
         return false;
     }
-    // Puts a window directly beneath another, without moving, sizing or activating it.
-    public static void PlaceBelow(IntPtr window, IntPtr above)
-        => SetWindowPos(window, above, 0, 0, 0, 0, 0x0001 | 0x0002 | 0x0010); // SWP_NOSIZE | SWP_NOMOVE | SWP_NOACTIVATE
+    // Puts a window directly beneath another at a screen position in device pixels, without sizing or activating it.
+    public static void PlaceBelow(IntPtr window, IntPtr above, int x, int y)
+        => SetWindowPos(window, above, x, y, 0, 0, 0x0001 | 0x0010); // SWP_NOSIZE | SWP_NOACTIVATE
     // The monitor under the mouse pointer, where a window opened with CenterScreen appears.
     public static (Rect Bounds, Rect Work, double Scale) CursorScreen()
     { GetCursorPos(out var point); return Screen(MonitorFromPoint(point, 2)); }

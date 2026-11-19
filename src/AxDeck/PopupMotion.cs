@@ -69,12 +69,18 @@ internal static class PopupMotion
             var root = VisualTreeHelper.GetParent(element) as Visual ?? element;
             if (PresentationSource.FromVisual(root) is not HwndSource real || PresentationSource.FromVisual(window) is null) return;
             var offset = root == element ? new Vector() : VisualTreeHelper.GetOffset(element);
-            var at = window.PointFromScreen(root.PointToScreen(new Point(offset.X, offset.Y)));
+            // Keep the screen point in device pixels: a pop-up is its own HWND and can start on another monitor's DPI,
+            // where WPF's DIP offsets would scale the picture. Move its HWND directly instead.
+            var screen = root.PointToScreen(new Point(offset.X, offset.Y));
+            var at = window.PointFromScreen(screen);
             var picture = new Image { Stretch = Stretch.Fill, IsHitTestVisible = false };
             placed.Picture = picture; placed.Window = window;
             var ghost = placed.Ghost = new Popup { PlacementTarget = window, Placement = PlacementMode.Relative, HorizontalOffset = at.X, VerticalOffset = at.Y,
                 AllowsTransparency = true, StaysOpen = true, IsHitTestVisible = false, Focusable = false, Child = picture, IsOpen = true };
-            if (PresentationSource.FromVisual(picture) is HwndSource own) Native.WindowsHost.PlaceBelow(own.Handle, real.Handle);
+            if (PresentationSource.FromVisual(picture) is HwndSource own)
+            {
+                Native.WindowsHost.PlaceBelow(own.Handle, real.Handle, (int)Math.Round(screen.X), (int)Math.Round(screen.Y));
+            }
             // First once the content has entered, then again only after something that can change it. After a change it is taken
             // again once a hover's fade (Soft.Hover, Feedback) has had time to settle.
             var schedule = new PopupPicture();
@@ -129,7 +135,12 @@ internal static class PopupMotion
     {
         double width = content.ActualWidth, height = content.ActualHeight;
         if (width < 1 || height < 1 || PresentationSource.FromVisual(image) is null) return;
-        image.Width = width; image.Height = height; image.Source = PageHandover.Snapshot(content, width, height, VisualTreeHelper.GetDpi(image));
+        // Draw at the list's own DPI, then let its DIP size in the ghost undo the ghost's DPI. The bitmap's device pixels
+        // stay the list's, so a ghost opened on another monitor's scaling does not enlarge the copy.
+        var from = VisualTreeHelper.GetDpi(content); var to = VisualTreeHelper.GetDpi(image);
+        (image.Width, image.Height) = PopupPicture.FitToDpi(
+            width, height, from.DpiScaleX, from.DpiScaleY, to.DpiScaleX, to.DpiScaleY);
+        image.Source = PageHandover.Snapshot(content, width, height, from);
     }
 
     // Applies a choice made in a pop-up once the pop-up's leaving has been drawn: a choice that rebuilds the page holds the
