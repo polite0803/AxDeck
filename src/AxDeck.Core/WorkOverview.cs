@@ -21,7 +21,7 @@ public static class WorkOverviewBuilder
     public static WorkOverview Build(FocusTimer timer, IEnumerable<ProjectEntry>? projects = null, DateTimeOffset? now = null)
     {
         var at = now ?? DateTimeOffset.Now;
-        var day = at.Date;
+        var day = new DateTimeOffset(at.Date, at.Offset);
         var sessions = (timer.History ?? []).Where(session => session.EndedAt >= day && session.EndedAt <= at).ToList();
         var sourceSet = sessions.SelectMany(session => session.WorkSources).ToHashSet();
         // A sample with any record still being written means a watched tool was working then. This is metadata from the

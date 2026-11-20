@@ -7,7 +7,7 @@ static class WorkOverviewTests
     public static void Run(Action<string, bool> check)
     {
         var now = new DateTimeOffset(2026, 11, 20, 18, 0, 0, TimeSpan.FromHours(8));
-        var midnight = now.Date;
+        var midnight = new DateTimeOffset(now.Date, now.Offset);
         var project = new ProjectEntry { Id = Guid.NewGuid(), DisplayName = "AxDeck", RootPath = @"D:\work\AxDeck", WorkSource = ProviderId.Codex };
         var other = new ProjectEntry { Id = Guid.NewGuid(), DisplayName = "Other", RootPath = @"D:\work\Other" };
         var timer = new FocusTimer();
@@ -36,5 +36,13 @@ static class WorkOverviewTests
         var stale = WorkOverviewBuilder.Build(timer, [], now);
         check("Work overview: a session naming a removed project is still reported honestly",
             stale.Projects.Count == 2 && stale.Projects.All(row => row.Project.DisplayName == "未登记的项目"));
+
+        var localNow = new DateTimeOffset(2026, 11, 20, 23, 30, 0, TimeSpan.FromHours(-5));
+        var localTimer = new FocusTimer();
+        localTimer.Start(localNow.AddDays(-1), 25, "Local", [ProviderId.Codex]);
+        localTimer.Finish(localNow.AddDays(-1).AddMinutes(25));
+        var localDay = WorkOverviewBuilder.Build(localTimer, [], localNow);
+        check("Work overview: another offset's local midnight does not pull in yesterday",
+            localDay.FocusCount == 0 && localDay.Projects.Count == 0);
     }
 }
