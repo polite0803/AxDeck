@@ -19,6 +19,10 @@ public partial class MainWindow
             content.Children.Clear();
             switch (page)
             {
+                case DeckPage.Work:
+                    held |= _workView is not null;
+                    _workView = null;
+                    break;
                 case DeckPage.Usage:
                     held |= _usageBuilt is not null || _usageHeader is not null;
                     ModelToolbar.Children.Clear(); ApplicationPages.Children.Clear();

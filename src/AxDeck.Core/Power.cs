@@ -144,6 +144,82 @@ public static class PowerResolver
     }
 }
 
+// The energy counted while a monitor page is open, from consecutive whole-machine readings. Only intervals between two valid readings
+// are added: a pause, a clock rollback or jump, a change of source or an unavailable reading breaks the chain instead of being bridged.
+// The result is the session's energy, not a day total; when nothing valid has been integrated it is unavailable rather than zero.
+public sealed record EnergySample(double WattHours, TimeSpan Duration)
+{
+    public static readonly EnergySample None = new(0, TimeSpan.Zero);
+    public bool HasEnergy => Duration > TimeSpan.Zero;
+}
+
+public sealed class EnergyLedger
+{
+    // A longer interval is a pause (sleep, a stopped sampler, a suspended debugger), not a reading at the old power for the
+    // whole time. Two-second sampling is the slowest the monitor uses, so this also covers a few missed readings.
+    public const double LongestIntervalSeconds = 15;
+    // The counter is in billionths of a watt-hour, so a long session does not accumulate binary floating-point error.
+    private long _nanoWattHours;
+    private TimeSpan _duration;
+    private DateTimeOffset? _last;
+    private PowerSource? _source;
+    private double _lastWatts;
+
+    public EnergySample Total => new(_nanoWattHours / 1_000_000_000d, _duration);
+
+    public EnergySample Add(DateTimeOffset at, PowerSample? power)
+    {
+        if (power is null || !PowerResolver.Plausible(power.Watts))
+        {
+            Break();
+            return Total;
+        }
+        if (_last is not { } previous)
+        {
+            Remember(at, power);
+            return Total;
+        }
+        var seconds = (at - previous).TotalSeconds;
+        if (seconds <= 0 || seconds > LongestIntervalSeconds || _source != power.Source)
+        {
+            Remember(at, power);
+            return Total;
+        }
+        // The trapezoid is exact for a constant reading and follows a changing one without over-weighting either endpoint.
+        double nanoWattHours = (_lastWatts + power.Watts) / 2 * seconds * 1_000_000_000 / 3600;
+        if (double.IsFinite(nanoWattHours) && nanoWattHours >= 0 && nanoWattHours <= long.MaxValue - _nanoWattHours)
+        {
+            _nanoWattHours += (long)Math.Round(nanoWattHours, MidpointRounding.AwayFromZero);
+            _duration += at - previous;
+        }
+        Remember(at, power);
+        return Total;
+    }
+
+    // Start the next chain from this reading. Used when sampling pauses or the reading is no longer wanted, so the next page opening
+    // cannot bridge the time it was closed.
+    public void Break()
+    {
+        _last = null;
+        _source = null;
+        _lastWatts = 0;
+    }
+
+    public void Reset()
+    {
+        _nanoWattHours = 0;
+        _duration = TimeSpan.Zero;
+        Break();
+    }
+
+    private void Remember(DateTimeOffset at, PowerSample power)
+    {
+        _last = at;
+        _source = power.Source;
+        _lastWatts = power.Watts;
+    }
+}
+
 // The peak and the average of the last `length` readings, as many as the curve shows (a minute at the one-second interval, two at
 // the two-second one); the oldest is dropped as each new one comes. Times are on the caller's clock (seconds).
 public sealed class PowerStats(int length)

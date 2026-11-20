@@ -294,7 +294,7 @@ static class SystemMonitorTests
     private static void Pages(Action<string, bool> check)
     {
         var settings = new DeckSettings();
-        check("Pages: monitor comes after usage and music, the clipboard after it, then the devices, services and desktop pages; the organizer is not a page of the switch", DeckPages.Visible(settings).SequenceEqual([DeckPage.Usage, DeckPage.Music, DeckPage.Monitor, DeckPage.Clipboard, DeckPage.Devices, DeckPage.Services, DeckPage.Desktop]));
+        check("Pages: development work comes first, then usage, music, monitor, clipboard, devices, services and desktop; the organizer is not a page of the switch", DeckPages.Visible(settings).SequenceEqual([DeckPage.Work, DeckPage.Usage, DeckPage.Music, DeckPage.Monitor, DeckPage.Clipboard, DeckPage.Devices, DeckPage.Services, DeckPage.Desktop]));
         var sized = new DeckSettings();
         DeckPages.SetSize(sized, DeckPage.Music, 700, 300); DeckPages.SetSize(sized, DeckPage.Monitor, 800, 320); DeckPages.SetSize(sized, DeckPage.Usage, 900, 260);
         check("Pages: a drag sets the size of the page it is on and of no other",
@@ -311,22 +311,22 @@ static class SystemMonitorTests
             DeckPages.Limits(sized, DeckPage.Usage).MinWidth == Math.Max(DeckPages.MinWidth, sized.MinimumWidth) && DeckPages.Limits(sized, DeckPage.Music).MinWidth == DeckPages.MinWidth);
         check("Pages: a shown page resolves to itself", DeckPages.Resolve(settings, DeckPage.Monitor) == DeckPage.Monitor);
         settings.UsagePage = false;
-        check("Pages: a hidden page falls back to the first shown one", DeckPages.Resolve(settings, DeckPage.Usage) == DeckPage.Music);
+        check("Pages: a hidden page falls back to the first shown one", DeckPages.Resolve(settings, DeckPage.Usage) == DeckPage.Work);
         settings.MonitorPage = false;
-        check("Pages: the music page alone", DeckPages.Resolve(settings, DeckPage.Monitor) == DeckPage.Music);
-        settings.MusicPage = false; settings.ClipboardPage = false; settings.DevicesPage = false; settings.ServicesPage = false; settings.DesktopPage = false;
+        check("Pages: the work page alone", DeckPages.Resolve(settings, DeckPage.Monitor) == DeckPage.Work);
+        settings.WorkPage = false; settings.MusicPage = false; settings.ClipboardPage = false; settings.DevicesPage = false; settings.ServicesPage = false; settings.DesktopPage = false;
         check("Pages: with every page off the usage page says so", DeckPages.Resolve(settings, DeckPage.Music) == DeckPage.Usage && DeckPages.Visible(settings).Count == 0);
         var ordered = new DeckSettings { PageOrder = [DeckPage.Devices, DeckPage.Monitor, DeckPage.Usage, DeckPage.Music], ClipboardPage = false, ServicesPage = false };
-        check("Pages: the switch follows the chosen order", DeckPages.Visible(ordered).SequenceEqual([DeckPage.Devices, DeckPage.Monitor, DeckPage.Usage, DeckPage.Music, DeckPage.Desktop]));
+        check("Pages: the switch follows the chosen order", DeckPages.Visible(ordered).SequenceEqual([DeckPage.Devices, DeckPage.Monitor, DeckPage.Usage, DeckPage.Music, DeckPage.Work, DeckPage.Desktop]));
         ordered.MonitorPage = false;
-        check("Pages: a hidden page falls back to the first shown one in the chosen order", DeckPages.Resolve(ordered, DeckPage.Monitor) == DeckPage.Devices && DeckPages.Visible(ordered).SequenceEqual([DeckPage.Devices, DeckPage.Usage, DeckPage.Music, DeckPage.Desktop]));
+        check("Pages: a hidden page falls back to the first shown one in the chosen order", DeckPages.Resolve(ordered, DeckPage.Monitor) == DeckPage.Devices && DeckPages.Visible(ordered).SequenceEqual([DeckPage.Devices, DeckPage.Usage, DeckPage.Music, DeckPage.Work, DeckPage.Desktop]));
         ordered.DevicesPage = false;
         check("Pages: the devices page leaves the switch with its page off, in whatever place it stands", DeckPages.Resolve(ordered, DeckPage.Devices) == DeckPage.Usage);
         var odd = System.Text.Json.JsonSerializer.Deserialize<DeckSettings>("""{"PageOrder":[2,9,2]}""")!;
-        check("Pages: unknown and repeated pages are dropped and missing ones added", odd.PageOrder.SequenceEqual([DeckPage.Monitor, DeckPage.Usage, DeckPage.Music, DeckPage.Clipboard, DeckPage.Devices, DeckPage.Services, DeckPage.Desktop]));
+        check("Pages: unknown and repeated pages are dropped and missing ones added", odd.PageOrder.SequenceEqual([DeckPage.Monitor, DeckPage.Work, DeckPage.Usage, DeckPage.Music, DeckPage.Clipboard, DeckPage.Devices, DeckPage.Services, DeckPage.Desktop]));
         var copy = ordered.Copy(); copy.PageOrder = [.. DeckPages.Order];
         var orderRead = System.Text.Json.JsonSerializer.Deserialize<DeckSettings>(System.Text.Json.JsonSerializer.Serialize(ordered))!;
-        check("Pages: the order is copied deeply and survives saving and reading", ordered.PageOrder[0] == DeckPage.Devices && orderRead.PageOrder.SequenceEqual([DeckPage.Devices, DeckPage.Monitor, DeckPage.Usage, DeckPage.Music, DeckPage.Clipboard, DeckPage.Services, DeckPage.Desktop])
+        check("Pages: the order is copied deeply and survives saving and reading", ordered.PageOrder[0] == DeckPage.Devices && orderRead.PageOrder.SequenceEqual([DeckPage.Devices, DeckPage.Monitor, DeckPage.Usage, DeckPage.Music, DeckPage.Work, DeckPage.Clipboard, DeckPage.Services, DeckPage.Desktop])
             && new DeckSettings().PageOrder.SequenceEqual(DeckPages.Order));
         var wheelOff = System.Text.Json.JsonSerializer.Deserialize<DeckSettings>("""{"MouseWheelPages":false}""")!; wheelOff.Normalize();
         var wheelOn = System.Text.Json.JsonSerializer.Deserialize<DeckSettings>("""{"MouseWheelPages":true}""")!; wheelOn.Normalize();
@@ -336,10 +336,12 @@ static class SystemMonitorTests
         check("The wheel: enum values stay saved as before", (int)MouseWheelAction.None == 0 && (int)MouseWheelAction.Pages == 1 && (int)MouseWheelAction.Volume == 2);
         check("Pages: opening choices", DeckPages.Opening(DefaultDeckPage.Monitor) == DeckPage.Monitor && DeckPages.Opening(DefaultDeckPage.Last) is null
             && DeckPages.Opening(DefaultDeckPage.Usage) == DeckPage.Usage && DeckPages.Opening(DefaultDeckPage.Music) == DeckPage.Music);
-        var sizes = new DeckSettings { Width = 500, Height = 150, MusicWidth = 700, MusicHeight = 180, MonitorWidth = 600, MonitorHeight = 300, ClipboardWidth = 480, ClipboardHeight = 160 };
+        var sizes = new DeckSettings { Width = 500, Height = 150, WorkWidth = 700, WorkHeight = 180, MusicWidth = 760, MusicHeight = 420, MonitorWidth = 600, MonitorHeight = 300, ClipboardWidth = 480, ClipboardHeight = 160 };
         check("Pages: the window holds the largest shown page", DeckPages.Largest(sizes) == (760, 420));
         sizes.MusicPage = false; sizes.MonitorPage = false; sizes.ClipboardPage = false; sizes.DevicesPage = false; sizes.ServicesPage = false; sizes.DesktopPage = false;
-        check("Pages: only shown pages size the window", DeckPages.Largest(sizes) == (Math.Max(500, sizes.MinimumWidth), 150));
+        check("Pages: only shown pages size the window", DeckPages.Largest(sizes) == (700, 180));
+        sizes.WorkPage = false;
+        check("Pages: with no page shown the window uses the usage page's size", DeckPages.Largest(sizes) == (Math.Max(500, sizes.MinimumWidth), 150));
         var saved = new DeckSettings { MonitorWidth = 5000, MonitorHeight = double.NaN, MonitorInterval = 9, MonitorPalette = (MonitorPalette)42, MonitorSort = (ProcessSort)7, LastPage = (DeckPage)9 };
         saved.Normalize();
         check("Pages: monitor settings are normalized", saved is { MonitorWidth: 1200, MonitorInterval: 2, MonitorPalette: MonitorPalette.Theme, MonitorSort: ProcessSort.Cpu, LastPage: DeckPage.Usage }

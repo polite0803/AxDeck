@@ -20,6 +20,7 @@ internal sealed class ServicesView : Grid
     private readonly StackPanel _bgePanel = new();
     private readonly StackPanel _bgeAutostartPanel = new();
     private readonly StackPanel _axtvPanel = new();
+    private readonly StackPanel _diagnosticsPanel = new();
     private readonly TextBlock _status = UI.Text("", 12, UI.Tertiary);
     // The path of the package to install, and the name of the AVD to start. Both belong to the controller: the view
     // only shows them and reports the changes.
@@ -52,6 +53,9 @@ internal sealed class ServicesView : Grid
         content.Children.Add(Section(Loc.T("AxTV 模拟器", "AxTV emulator")));
         content.Children.Add(_axtvPanel);
         BuildAxTv();
+        content.Children.Add(Section(Loc.T("运行开销与能力", "Runtime cost and capabilities")));
+        content.Children.Add(_diagnosticsPanel);
+        BuildDiagnostics();
         scroll.Content = content;
         Children.Add(scroll);
 
@@ -75,6 +79,103 @@ internal sealed class ServicesView : Grid
         Grid.SetRow(foot, 1);
         Children.Add(foot);
     }
+
+    private Row _diagnosticCost = null!, _diagnosticTraffic = null!, _diagnosticMonitor = null!;
+    private readonly List<Row> _diagnosticFacts = [];
+    private readonly StackPanel _diagnosticStops = new();
+    private string _diagnosticStopsKey = "";
+
+    // Built once and filled by UpdateDiagnostics. The cost is a one-off process probe; the capability facts reuse the monitor snapshot
+    // the app already has, so opening this page does not start a second sampler.
+    private void BuildDiagnostics()
+    {
+        _diagnosticCost = new Row(Loc.T("应用开销", "App cost"));
+        _diagnosticTraffic = new Row(Loc.T("本机流量", "Local traffic"));
+        _diagnosticMonitor = new Row(Loc.T("自动停用读数", "Stopped readings"));
+        _diagnosticsPanel.Children.Add(_diagnosticCost.Grid);
+        _diagnosticsPanel.Children.Add(_diagnosticTraffic.Grid);
+        for (int i = 0; i < 11; i++)
+        {
+            var row = new Row("");
+            row.Grid.Tag = "DiagnosticFact";
+            _diagnosticFacts.Add(row);
+            _diagnosticsPanel.Children.Add(row.Grid);
+        }
+        _diagnosticsPanel.Children.Add(_diagnosticMonitor.Grid);
+        _diagnosticsPanel.Children.Add(_diagnosticStops);
+    }
+
+    public void UpdateDiagnostics(AppDiagnostics diagnostics)
+    {
+        _diagnosticCost.Set(diagnostics.ResourceDetail, DiagnosticColor(diagnostics.ResourceState));
+        _diagnosticCost.Grid.ToolTip = diagnostics.ResourceDetail;
+        _diagnosticTraffic.Set(diagnostics.TrafficDetail, DiagnosticColor(diagnostics.TrafficState));
+        _diagnosticTraffic.Grid.ToolTip = diagnostics.TrafficDetail;
+        for (int i = 0; i < _diagnosticFacts.Count; i++)
+        {
+            var row = _diagnosticFacts[i];
+            if (i >= diagnostics.Facts.Count)
+            {
+                row.Set("", IdleColor);
+                row.Grid.Visibility = Visibility.Collapsed;
+                continue;
+            }
+            var fact = diagnostics.Facts[i];
+            row.Grid.Visibility = Visibility.Visible;
+            row.SetLabel(AppDiagnostics.SubjectName(fact.Subject));
+            row.Set($"{AppDiagnostics.StateName(fact.State)} · {fact.Detail}", DiagnosticColor(fact.State));
+            row.Grid.ToolTip = fact.Detail;
+            var action = _owner.ServicesDiagnosticAction(fact);
+            row.SetAction(action is { } value ? DiagnosticActionLabel(value) : null,
+                action is { } named ? DiagnosticActionName(named, fact) : null,
+                action is not null ? Loc.T("打开对应的设置，检查这项读数", "Open the matching settings and check this reading") : null,
+                action is { } run ? () => _owner.ServicesDiagnostic(run) : null);
+        }
+        _diagnosticMonitor.Set(
+            Loc.T($"{diagnostics.Stops.Count} 项自动停用的读数", $"{Loc.Count(diagnostics.Stops.Count, "reading", "readings")} automatically stopped"),
+            diagnostics.Stops.Count > 0 ? WarnColor : IdleColor);
+        UpdateStops(diagnostics.Stops);
+    }
+
+    // Stops change only when SensorGuard stops or resumes a reading. Rebuilding then keeps each stop's direct resume action current,
+    // while ordinary refreshes keep even these rows in place.
+    private void UpdateStops(IReadOnlyList<SensorStop> stops)
+    {
+        string key = string.Join("|", stops.Select(stop => $"{stop.Reading}:{stop.Device}:{stop.Method}:{stop.Name}"));
+        if (key == _diagnosticStopsKey) return;
+        _diagnosticStopsKey = key;
+        _diagnosticStops.Children.Clear();
+        foreach (var stop in stops)
+        {
+            var row = new Row(Loc.T("需要恢复", "Needs resume"));
+            row.Set(SensorStops.Notice(stop), WarnColor);
+            row.Grid.ToolTip = SensorStops.Notice(stop);
+            row.SetAction(Loc.T("重新开启", "Turn on again"),
+                Loc.T("重新开启：", "Turn on again: ") + SensorStops.Notice(stop),
+                Loc.T("重新开启后如果电脑再次卡住，AxDeck 会再次自动停止读取。", "Should the PC freeze again, AxDeck stops the reading again by itself."),
+                () => _owner.ServicesResumeReading(stop));
+            _diagnosticStops.Children.Add(row.Grid);
+        }
+    }
+
+    private static string DiagnosticActionLabel(DiagnosticAction action) => action switch
+    {
+        DiagnosticAction.OpenSensorSettings => Loc.T("传感器设置", "Sensor settings"),
+        DiagnosticAction.AllowFrames => Loc.T("授权", "Allow"),
+        _ => Loc.T("监控设置", "Monitor settings"),
+    };
+
+    private static string DiagnosticActionName(DiagnosticAction action, DiagnosticFact fact) => Loc.T(
+        $"{DiagnosticActionLabel(action)}：{AppDiagnostics.SubjectName(fact.Subject)}，{AppDiagnostics.StateName(fact.State)} · {fact.Detail}",
+        $"{DiagnosticActionLabel(action)}: {AppDiagnostics.SubjectName(fact.Subject)}, {AppDiagnostics.StateName(fact.State)} · {fact.Detail}");
+
+    private static string DiagnosticColor(DiagnosticState state) => state switch
+    {
+        DiagnosticState.Available => OkColor,
+        DiagnosticState.Estimated => WarnColor,
+        DiagnosticState.Unavailable => BadColor,
+        _ => IdleColor,
+    };
 
     public void SetStatus(string text) => SetStatus(text, false);
 
@@ -295,6 +396,9 @@ internal sealed class ServicesView : Grid
     {
         private readonly TextBlock _value = UI.Text("", 12.5, UI.Primary);
         private readonly Ellipse _dot = new() { Width = 8, Height = 8, VerticalAlignment = VerticalAlignment.Center };
+        private readonly TextBlock _label;
+        private readonly Button _action;
+        private Action? _click;
 
         public Grid Grid { get; }
 
@@ -303,23 +407,46 @@ internal sealed class ServicesView : Grid
             var grid = new Grid { Margin = new Thickness(0, 1, 0, 1) };
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(96) });
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-            var labelBlock = UI.Fixed(label, 12.5, 18, UI.Secondary);
-            labelBlock.VerticalAlignment = VerticalAlignment.Center;
-            grid.Children.Add(labelBlock);
-            var right = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(8, 0, 0, 0) };
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            _label = UI.Fixed(label, 12.5, 18, UI.Secondary);
+            _label.VerticalAlignment = VerticalAlignment.Center;
+            grid.Children.Add(_label);
+            var right = new Grid { VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(8, 0, 0, 0) };
+            right.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            right.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
             right.Children.Add(_dot);
             _value.Margin = new Thickness(6, 0, 0, 0);
             _value.TextTrimming = TextTrimming.CharacterEllipsis;
+            _value.MinWidth = 0;
+            Grid.SetColumn(_value, 1);
             right.Children.Add(_value);
             Grid.SetColumn(right, 1);
             grid.Children.Add(right);
+            _action = ActionButton("", () => _click?.Invoke(), small: true);
+            _action.Margin = new Thickness(8, 0, 0, 0);
+            _action.Visibility = Visibility.Collapsed;
+            Grid.SetColumn(_action, 2);
+            grid.Children.Add(_action);
             Grid = grid;
         }
+
+        public void SetLabel(string label) => _label.Text = label;
 
         public void Set(string text, string color)
         {
             _value.Text = text;
             _dot.Fill = UI.Brush(color);
+        }
+
+        public void SetAction(string? label, string? name, string? help, Action? click)
+        {
+            _click = click;
+            bool shown = label is { Length: > 0 } && click is not null;
+            _action.Visibility = shown ? Visibility.Visible : Visibility.Collapsed;
+            if (!shown) return;
+            _action.Content = UI.Fixed(label!, 11.5, 18, UI.Secondary);
+            _action.ToolTip = help;
+            System.Windows.Automation.AutomationProperties.SetName(_action, name ?? label!);
         }
     }
 

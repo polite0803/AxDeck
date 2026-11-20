@@ -8,6 +8,9 @@ static class AppCommandTests
         // The addresses.
         check("Commands: an address names its command", AppCommand.FromUrl("axdeck://settings") == (AppCommandKind.OpenSettings, (string?)null));
         check("Commands: an address carries its argument", AppCommand.FromUrl("axdeck://page/music") == (AppCommandKind.OpenPage, "music"));
+        check("Commands: an address opens a project", AppCommand.FromUrl("axdeck://project/D%3A%5Cwork%5CAxDeck") == (AppCommandKind.Project, @"D:\work\AxDeck"));
+        check("Commands: an address restores a project", AppCommand.FromUrl("axdeck://restore-project/%2Fwork%2Faxdeck") == (AppCommandKind.RestoreProject, "/work/axdeck"));
+        check("Commands: an address starts focus for a project id", AppCommand.FromUrl("axdeck://focus-project/3F2504E0-4F89-11D3-9A0C-0305E82C3301") == (AppCommandKind.FocusProject, "3F2504E0-4F89-11D3-9A0C-0305E82C3301"));
         check("Commands: an address is not case sensitive", AppCommand.FromUrl("AxDeck://PAGE/Music") == (AppCommandKind.OpenPage, "Music"));
         check("Commands: an escaped argument is read", AppCommand.FromUrl("axdeck://search/%E9%9F%B3%E4%B9%90") == (AppCommandKind.Search, "音乐"));
         check("Commands: another scheme is not an address of the app", AppCommand.FromUrl("https://example.com") == (AppCommandKind.None, (string?)null));
@@ -16,6 +19,9 @@ static class AppCommandTests
         // The command line.
         check("Commands: a command line names its command", AppCommand.FromArguments(["--settings"]) == (AppCommandKind.OpenSettings, (string?)null));
         check("Commands: a command line carries its argument", AppCommand.FromArguments(["--page", "monitor"]) == (AppCommandKind.OpenPage, "monitor"));
+        check("Commands: a project path can be joined with =", AppCommand.FromArguments([@"--project=C:\work\AxDeck"]) == (AppCommandKind.Project, @"C:\work\AxDeck"));
+        check("Commands: a project can be opened by a separate argument", AppCommand.FromArguments(["--project", @"D:\OneManager\AxDeck"]) == (AppCommandKind.Project, @"D:\OneManager\AxDeck"));
+        check("Commands: a project focus can be started by a separate argument", AppCommand.FromArguments(["--focus-project", "3F2504E0-4F89-11D3-9A0C-0305E82C3301"]) == (AppCommandKind.FocusProject, "3F2504E0-4F89-11D3-9A0C-0305E82C3301"));
         check("Commands: an argument can be joined with =", AppCommand.FromArguments(["--focus=45"]) == (AppCommandKind.Focus, "45"));
         check("Commands: other arguments are passed over", AppCommand.FromArguments(["C:\\some path\\x.txt", "--refresh"]) == (AppCommandKind.Refresh, (string?)null));
         check("Commands: a command line that names none is nothing", AppCommand.FromArguments(["--unknown"]) == (AppCommandKind.None, (string?)null));

@@ -47,11 +47,24 @@ When a record carries its own amount (Cursor and OpenCode, for example), that am
 
 A price in that list usually comes from the cheapest provider and can differ from the model maker's list price. For example, GLM-5.3 is listed at 0.07 and 1.4 USD per million input and output tokens, while Z.AI charges 1.4 and 4.4. So for each model your records use, AxDeck looks up the model maker's own endpoint on OpenRouter and uses its prices instead; a model whose maker has no endpoint there keeps the list price. Each model's endpoint prices are looked up once a day and saved on this PC; when a lookup fails, the prices saved before are used. Prices added by hand take precedence.
 
-## Quota curves, arrival time and the working dot
+## Quota curves, arrival time and work status
 
 - **The curve**: a line behind each quota bar is drawn from the shares recorded today. Readings are kept at most once every 10 minutes for 30 days, and are recorded whether or not the panel is open, so the curve covers the time it was hidden. Nothing is drawn until there are enough readings to say anything. Only each quota's used share is stored — no token counts, no account, no conversation — in `%LOCALAPPDATA%\AxDeck\usage-history.json`.
 - **Arrival time**: hovering over a quota adds to its tooltip an estimate, at the pace of the recent readings, of when it would reach the column's critical level. Nothing is estimated when the readings do not support a pace, or when the share is not rising: the panel does not guess.
-- **The working dot**: while a tool is writing its own session records, a small dot in that app's color sits at the right end of its column's title, and its tooltip says so. AxDeck only compares the modification times of the session records; it never opens or reads them, and no network request follows. Tools that keep no session records have no dot.
+- **Work status**: the strip at the top of the AI usage page shows one dot for each tool you chose to watch and names the tools that are writing local session records now. It also gives the latest write time and how many records are still being written out of the local total; screen readers announce the selected tools and privacy note. A single active record is not counted twice. This status is independent of the quota columns, so a watched tool still appears when it has no column. AxDeck reads only each record's file metadata, never its contents, and no network request follows. The count is of records, not chats: one conversation can write several. Tools that keep no session records are not offered as work sources.
+
+## Development work page
+
+The **Development work** page brings together the local records AxDeck already keeps, so you can move from a project to a focus session and back to the material you were carrying without leaving the panel.
+
+- **Projects**: only the folders you register under Settings › Projects and work are listed. Opening a project opens its registered folder; Restore can start the launcher you chose and prepare its default file group on the clipboard. There is no disk walk and no inference from a window title, process or folder time. Each project also has a work source, used when you start a focus session from it.
+- **Today's work at a glance**: the page counts only sessions in the local `focus-timer.json` that ended today, with their focus count, target minutes, project-named records and tools that actually left session-write samples. A tool declared for a session but never observed writing is not an active source. This is neither billing nor time tracking, and it sends nothing online.
+- **Focus from a project**: every project can run "Focus on project" from the page or the command palette, carrying that project's work source into the session. Shortcuts and scripts can use `axdeck://focus-project/<project id>` or `AxDeck.exe --focus-project <project id>`.
+- **Linked site**: a project can explicitly select one site already present in `services.json`. The Work page shows its label and can copy that site's SSH, cloudflared or open command. AxDeck does not infer a site from the project name, folder or git remote, does not start the command and does not check whether the site is online.
+- **Focus**: the countdown shows the remaining time, its label, the linked project and the selected AI work sources. Start a 25-minute session, pause, resume, reset or open the full timer from here. The state lives in `focus-timer.json` and carries on across a restart on this PC.
+- **AI work activity**: the tools you chose to watch are listed with their session-record metadata: whether records were written recently, when the latest write happened, and how many records exist. This is the same read-only source as the work status strip; it never opens a record or reads the conversation.
+- **Recent hand-offs**: the latest text clips and named file groups from the Shelf appear here too. Pasting either one uses the existing Shelf action; AxDeck does not copy files itself when it prepares a group.
+- **Settings**: Settings › Projects and work controls whether the page shows and its size, and holds the registered projects, launchers, default file groups and linked site. The AI work sources come from the watch selection on the AI usage page; the linked site comes from the local `services.json`.
 
 ## Quota rings and off-peak time
 

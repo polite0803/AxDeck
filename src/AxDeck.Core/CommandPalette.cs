@@ -11,6 +11,8 @@ public enum PaletteAction
     // The argument names the page (DeckPage) or the minutes of a focus countdown.
     Page, ToggleCompactStyle, ToggleLineStyle, RefreshUsage, OpenSettings, ToggleHidden, ToggleClickThrough,
     FocusOpen, FocusStart, FocusPause, FocusReset,
+    FocusResume, FocusResumeProject, OpenProject, RestoreProject, PasteRecentClip, PasteFileGroup,
+    FocusStartProject,
 }
 
 // One thing the panel can be told to do. The title is what is shown; the keywords are what the text is matched against, in
@@ -20,6 +22,19 @@ public sealed record PaletteCommand(string Id, string Title, string Hint, Palett
     // The texts the query is matched against: the title, the hint and the keywords.
     public string[] Keywords { get; init; } = [];
 }
+
+// A completed focus session and the project it named. The palette only carries the metadata already saved by FocusTimer;
+// it does not read a conversation or inspect the project folder.
+public sealed record FocusResumeOption(FocusSession Session, ProjectEntry? Project = null);
+
+// The local work context the palette can offer besides its static commands. Every list is optional, so callers that only
+// know the settings keep the original palette.
+public sealed record CommandPaletteContext(
+    IReadOnlyList<FocusResumeOption>? RecentSessions = null,
+    IReadOnlyList<ProjectEntry>? Projects = null,
+    IReadOnlyList<ClipEntry>? RecentClips = null,
+    IReadOnlyList<ShelfFileGroup>? FileGroups = null,
+    ProviderId? CurrentWorkSource = null);
 
 // How well a command answers a query: the higher, the better. A word that begins the title beats a word inside it, which beats
 // a word only the keywords hold.
@@ -45,9 +60,59 @@ public static class CommandPalette
     public const int Limit = 8;
 
     // The commands of the current state: the pages that are shown, the actions that are always there, and the focus timer's.
-    public static List<PaletteCommand> Build(DeckSettings settings)
+    public static List<PaletteCommand> Build(DeckSettings settings) => Build(settings, null);
+
+    public static List<PaletteCommand> Build(DeckSettings settings, CommandPaletteContext? context)
     {
         var commands = new List<PaletteCommand>();
+
+        // Work first when there is a context: the reason to open the palette is often to return to a project, not to visit a
+        // settings page. The entries come from explicit records and carry stable IDs for the window to execute.
+        foreach (var project in (context?.Projects ?? []).Take(ProjectBook.MaximumProjects))
+        {
+            commands.Add(new PaletteCommand($"project:open:{project.Id}", Loc.T($"打开项目：{project.DisplayName}", $"Open project: {project.DisplayName}"),
+                project.RootPath, PaletteAction.OpenProject, project.Id.ToString())
+            { Keywords = ["project", "folder", "项目", "目录", "打开", project.DisplayName, project.RootPath] });
+            commands.Add(new PaletteCommand($"project:restore:{project.Id}", Loc.T($"恢复工作：{project.DisplayName}", $"Restore work: {project.DisplayName}"),
+                Loc.T("打开项目程序，并准备默认文件组", "Open the project app and prepare its default file group"), PaletteAction.RestoreProject, project.Id.ToString())
+            { Keywords = ["restore", "resume", "work", "恢复", "继续", "工作", project.DisplayName, project.RootPath] });
+            commands.Add(new PaletteCommand($"project:focus:{project.Id}", Loc.T($"开始项目专注：{project.DisplayName}", $"Focus on project: {project.DisplayName}"),
+                Loc.T("使用项目的名称和 AI 工作来源开始 25 分钟计时", "Starts 25 minutes with the project's name and AI work source"),
+                PaletteAction.FocusStartProject, project.Id.ToString())
+            { Keywords = ["focus", "timer", "project", "专注", "计时", "项目", project.DisplayName, project.RootPath] });
+        }
+
+        foreach (var option in (context?.RecentSessions ?? []).OrderByDescending(item => item.Session.EndedAt).Take(6))
+        {
+            var session = option.Session;
+            string label = session.Label.Length > 0 ? session.Label : Loc.T("最近的专注会话", "Recent focus session");
+            string argument = session.StartedAt.ToUnixTimeSeconds().ToString();
+            var action = session.ProjectId is null ? PaletteAction.FocusResume : PaletteAction.FocusResumeProject;
+            commands.Add(new PaletteCommand($"focus:resume:{argument}", Loc.T($"继续专注：{label}", $"Resume focus: {label}"),
+                Loc.T($"{Math.Max(1, session.TargetSeconds / 60)} 分钟 · {Shelf.When(session.EndedAt, DateTimeOffset.Now)}",
+                    $"{Math.Max(1, session.TargetSeconds / 60)} min · {Shelf.When(session.EndedAt, DateTimeOffset.Now)}"),
+                action, argument)
+            { Keywords = ["focus", "resume", "session", "专注", "继续", "会话", label, option.Project?.DisplayName ?? ""] });
+        }
+
+        foreach (var clip in (context?.RecentClips ?? []).Where(clip => clip.Kind != ClipKind.Image).Take(6))
+        {
+            var (first, _) = Shelf.FirstLine(clip.Text);
+            if (first.Length == 0) continue;
+            string title = first.Length > 42 ? first[..42] : first;
+            commands.Add(new PaletteCommand($"clip:paste:{clip.Id}", Loc.T($"粘贴最近内容：{title}", $"Paste recent: {title}"),
+                Loc.T("粘贴到打开命令面板前的窗口", "Paste into the window that was active before the palette"),
+                PaletteAction.PasteRecentClip, clip.Id.ToString())
+            { Keywords = ["clipboard", "paste", "recent", "剪贴板", "粘贴", "最近", clip.Text] });
+        }
+
+        foreach (var group in (context?.FileGroups ?? []).Take(ShelfFileGroup.MaximumGroups))
+        {
+            commands.Add(new PaletteCommand($"files:paste:{group.Id}", Loc.T($"粘贴文件组：{group.ShownName}", $"Paste file group: {group.ShownName}"),
+                Loc.T($"{group.Paths.Count} 个文件", $"{Loc.Count(group.Paths.Count, "file", "files")}"),
+                PaletteAction.PasteFileGroup, group.Id.ToString())
+            { Keywords = ["files", "group", "paste", "文件", "文件组", "粘贴", group.ShownName] });
+        }
 
         // The pages that are shown, in the order of the page switch.
         foreach (var page in DeckPages.Visible(settings))
@@ -100,6 +165,7 @@ public static class CommandPalette
     // The page's name, in the language in use.
     public static string PageTitle(DeckPage page) => page switch
     {
+        DeckPage.Work => Loc.T("开发工作", "Development work"),
         DeckPage.Usage => Loc.T("AI 用量", "AI usage"),
         DeckPage.Music => Loc.T("音乐", "Music"),
         DeckPage.Monitor => Loc.T("系统监控", "System monitor"),
@@ -113,6 +179,7 @@ public static class CommandPalette
     // The words that find a page, in both languages.
     private static string[] PageKeywords(DeckPage page) => page switch
     {
+        DeckPage.Work => ["work", "project", "focus", "工作", "项目", "专注", "开发"],
         DeckPage.Usage => ["usage", "quota", "用量", "额度", "积分"],
         DeckPage.Music => ["music", "player", "音乐", "播放器", "歌曲"],
         DeckPage.Monitor => ["monitor", "system", "cpu", "gpu", "监控", "系统", "硬件"],

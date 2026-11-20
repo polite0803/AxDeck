@@ -44,6 +44,20 @@ public sealed class TransferFile
     [JsonIgnore] public string Name => System.IO.Path.GetFileName(Path.TrimEnd('\\', '/')) is { Length: > 0 } name ? name : Path;
 }
 
+// A named, ordered set of file paths the user assembled by hand. Files are never copied and folders are never expanded:
+// the group is a shortcut for pasting the exact paths it holds.
+public sealed class ShelfFileGroup
+{
+    public const int MaximumGroups = 24;
+    public const int MaximumPaths = 64;
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public string Name { get; set; } = "";
+    public List<string> Paths { get; set; } = [];
+
+    [JsonIgnore] public string ShownName => Name.Length > 0 ? Name : Loc.T("未命名文件组", "Unnamed file group");
+    public ShelfFileGroup Copy() => new() { Id = Id, Name = Name, Paths = [.. Paths] };
+}
+
 public sealed class ShelfCategory
 {
     public Guid Id { get; set; } = Guid.NewGuid();
@@ -68,6 +82,7 @@ public sealed class ShelfData
 
     public List<ClipEntry> Clips { get; set; } = [];
     public List<TransferFile> Files { get; set; } = [];
+    public List<ShelfFileGroup> FileGroups { get; set; } = [];
     public List<ShelfCategory> ClipCategories { get; set; } = [new ShelfCategory { Id = Favorites, Name = "常用" }];
     public List<ShelfCategory> FileCategories { get; set; } = [];
 
@@ -86,6 +101,7 @@ public sealed class ShelfData
         var data = JsonSerializer.Deserialize<ShelfData>(bytes, Options) ?? new();
         data.Clips = [.. (data.Clips ?? []).Where(clip => clip is not null && (clip.Kind == ClipKind.Image || clip.Text.Length > 0))];
         data.Files = [.. (data.Files ?? []).Where(file => file is not null && file.Path.Length > 0)];
+        data.FileGroups = Shelf.NormalizeFileGroups(data.FileGroups);
         data.ClipCategories = [.. (data.ClipCategories ?? []).Where(category => category is not null)];
         data.FileCategories = [.. (data.FileCategories ?? []).Where(category => category is not null && category.Id != Favorites)];
         foreach (var category in data.ClipCategories.Concat(data.FileCategories))
@@ -295,6 +311,49 @@ public static class Shelf
         return added;
     }
 
+    public static List<ShelfFileGroup> NormalizeFileGroups(IEnumerable<ShelfFileGroup>? groups)
+    {
+        var ids = new HashSet<Guid>();
+        var list = new List<ShelfFileGroup>();
+        foreach (var group in (groups ?? []).OfType<ShelfFileGroup>())
+        {
+            group.Name = ProjectEntry.CleanText(group.Name, 48);
+            group.Paths = [.. (group.Paths ?? []).Select(ProjectEntry.CleanPath).Where(path => path.Length > 0)
+                .Distinct(StringComparer.OrdinalIgnoreCase).Take(ShelfFileGroup.MaximumPaths)];
+            if (group.Id == Guid.Empty || !ids.Add(group.Id))
+            {
+                do { group.Id = Guid.NewGuid(); } while (!ids.Add(group.Id));
+            }
+            list.Add(group);
+            if (list.Count == ShelfFileGroup.MaximumGroups) break;
+        }
+        return list;
+    }
+
+    public static ShelfFileGroup AddFileGroup(ShelfData data, string name)
+    {
+        var group = new ShelfFileGroup { Name = ProjectEntry.CleanText(name, 48) };
+        data.FileGroups.Add(group);
+        data.FileGroups = NormalizeFileGroups(data.FileGroups);
+        return data.FileGroups.First(item => item.Id == group.Id);
+    }
+
+    // Appends paths in the order the user selected them, without expanding folders or checking the disk. A path already in
+    // the group stays in its original place.
+    public static int AddGroupPaths(ShelfFileGroup group, IEnumerable<string> paths)
+    {
+        group.Paths ??= [];
+        var known = group.Paths.ToHashSet(StringComparer.OrdinalIgnoreCase);
+        int added = 0;
+        foreach (string path in (paths ?? []).Select(ProjectEntry.CleanPath))
+        {
+            if (path.Length == 0 || group.Paths.Count >= ShelfFileGroup.MaximumPaths || !known.Add(path)) continue;
+            group.Paths.Add(path);
+            added++;
+        }
+        return added;
+    }
+
     // The name shown for a category; "常用" in the language of the interface.
     public static string CategoryName(ShelfCategory category) => category.Id == ShelfData.Favorites ? Loc.T("常用", "Favorites") : category.Name;
 
@@ -362,6 +421,7 @@ public static class Shelf
     public static string When(DateTimeOffset time, DateTimeOffset now)
     {
         var span = now - time;
+        if (span < TimeSpan.Zero) return Loc.T("刚刚", "Now");
         if (span < TimeSpan.FromMinutes(1)) return Loc.T("刚刚", "Now");
         if (span < TimeSpan.FromHours(1)) return Loc.T($"{(int)span.TotalMinutes} 分钟前", $"{(int)span.TotalMinutes} min");
         var local = time.ToLocalTime(); var today = now.ToLocalTime().Date;

@@ -28,6 +28,7 @@ internal static class ShelfTests
         var category = new ShelfCategory { Name = "工作" };
         data.ClipCategories.Add(category);
         var now = DateTimeOffset.Now;
+        check("Shelf time: a timestamp after now still reads as just now", Shelf.When(now.AddMinutes(5), now) == "刚刚");
         var first = Shelf.Add(data, new ClipEntry { Text = "hello", Copied = now.AddMinutes(-5) });
         first.Categories.Add(category.Id);
         Shelf.Add(data, new ClipEntry { Text = "other", Copied = now.AddMinutes(-4) });
@@ -183,8 +184,8 @@ internal static class ShelfTests
         check("Shelf settings: an excluded name or path matches its process, in any case",
             ClipboardExclusions.Excludes(normalized.ClipboardExcluded, "bitwarden") && ClipboardExclusions.Excludes(normalized.ClipboardExcluded, "KEEPASS")
             && !ClipboardExclusions.Excludes(normalized.ClipboardExcluded, "Bitwarden.exe") && !ClipboardExclusions.Excludes(normalized.ClipboardExcluded, ""));
-        check("Shelf settings: the page order of an older file gains the page at the end, and the organizer's page leaves the switch",
-            DeckPages.Normalize([DeckPage.Monitor, DeckPage.Usage, DeckPage.Music, DeckPage.Boxes]).SequenceEqual([DeckPage.Monitor, DeckPage.Usage, DeckPage.Music, DeckPage.Clipboard, DeckPage.Devices, DeckPage.Services, DeckPage.Desktop]));
+        check("Shelf settings: an older file keeps its page order, gains missing pages from the default switch and drops the organizer",
+            DeckPages.Normalize([DeckPage.Monitor, DeckPage.Usage, DeckPage.Music, DeckPage.Boxes]).SequenceEqual([DeckPage.Monitor, DeckPage.Usage, DeckPage.Music, DeckPage.Work, DeckPage.Clipboard, DeckPage.Devices, DeckPage.Services, DeckPage.Desktop]));
     }
 
 

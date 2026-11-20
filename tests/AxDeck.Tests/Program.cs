@@ -47,6 +47,7 @@ try
     TemperatureTests.Run(Check);
     StorageTests.Run(Check);
     SensorStopTests.Run(Check);
+    AppDiagnosticsTests.Run(Check);
     StripAdmissionTests.Run(Check);
     DevicesTests.Run(Check);
     DeviceNoticesTests.Run(Check);
@@ -63,6 +64,8 @@ try
     BgeAutostartTests.Run(Check);
     ServiceLogTests.Run(Check);
     CommandPaletteTests.Run(Check);
+    ProjectTests.Run(Check);
+    WorkOverviewTests.Run(Check);
     AppCommandTests.Run(Check);
     FocusTimerTests.Run(Check);
     DeviceProtocolTests.Run(Check);

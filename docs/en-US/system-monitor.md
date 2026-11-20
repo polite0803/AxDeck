@@ -59,6 +59,8 @@ The page shows the whole machine's power draw in watts with the last minute as a
 
 Power is read only while the system monitor page is open or the notch or capsule shows it. An NVIDIA card's power is read through nvidia-smi, which ships with its driver, and only while the card is working, so a sleeping discrete card is never woken.
 
+The power tooltip also shows the energy counted during the current readings: the watts at adjacent samples multiplied by the time between them. It is not a day total and is never saved. When the page closes, the counters pause, the PC sleeps, the clock changes, the reading becomes unavailable or the power source changes, the interval is left out rather than filling in an unknown amount. The time shown beside it is the time actually covered by valid readings.
+
 PCs whose CPU power cannot be read (some AMD PCs, for example) can turn on [enhanced sensors](enhanced-sensors.md) for that too.
 
 ## This PC's battery

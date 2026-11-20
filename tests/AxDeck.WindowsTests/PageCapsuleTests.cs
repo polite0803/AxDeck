@@ -18,6 +18,7 @@ public partial class MainWindow
     private DeckSettings Settings { get; } = new();
     private DeckPage CurrentPage { get; set; }
     private readonly Button AIUsageButton = new() { Content = "Usage", Width = 60, Height = 24 };
+    private readonly Button WorkPageButton = new() { Content = "Work", Width = 60, Height = 24 };
     private readonly Button MusicPageButton = new() { Content = "Music", Width = 60, Height = 24 };
     private readonly Button MonitorPageButton = new() { Content = "Monitor", Width = 60, Height = 24 };
     private readonly Button ShelfPageButton = new() { Content = "Clipboard", Width = 60, Height = 24 };

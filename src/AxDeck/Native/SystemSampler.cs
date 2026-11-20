@@ -60,6 +60,7 @@ internal sealed class SystemSampler : IDisposable
     private BatteryProvider? _battery;
     private readonly Queue<double> _powerHistory = new(HistoryLength);
     private readonly PowerStats _powerStats = new(HistoryLength);
+    private readonly EnergyLedger _energy = new();
     // Where the last whole-machine figure came from: the peak and mean (of the curve's readings) start over when it changes (plugged in
     // or out), so a measurement and an estimate are never counted together. The curve keeps its readings.
     private PowerSource? _powerSource;
@@ -273,7 +274,7 @@ internal sealed class SystemSampler : IDisposable
     // buffer and the icons (MemoryPlan.KeepCaches).
     private void Rest()
     {
-        _history.Clear(); _cpuHistory.Clear(); _gpuHistories.Clear(); _powerHistory.Clear(); _powerStats.Reset(); _powerSource = null; _cpuPower.Clear(); _gpuPower.Clear();
+        _history.Clear(); _cpuHistory.Clear(); _gpuHistories.Clear(); _powerHistory.Clear(); _powerStats.Reset(); _powerSource = null; _energy.Reset(); _cpuPower.Clear(); _gpuPower.Clear();
         _power!.Sample(false, false, 0, [], default, false); _storage.Rest(); _bridges.Rest();
         _lastProcesses = Reading<ProcessList>.Unavailable(Why.Waiting);
         if (!_keepCaches) { _processes.Dispose(); ProcessIcons.Clear(); }
@@ -346,6 +347,7 @@ internal sealed class SystemSampler : IDisposable
                 battery = batterySample;
                 if (powerWanted)
                 {
+                    var observedAt = DateTimeOffset.Now;
                     power = _power!.Sample(meter, true, now, adapters, BatteryModel.Discharge(batteryInputs, batterySample), _battery.Present,
                         report?.PackageWatts, report?.MemoryWatts, bridge.Watts);
                     if (power.TryGet(out var drawn))
@@ -357,6 +359,7 @@ internal sealed class SystemSampler : IDisposable
                         if (PowerResolver.PartWatts(drawn, "cpu") is { } cpuWatts) _cpuPower.Add(cpuWatts, now);
                         if (PowerResolver.PartWatts(drawn, "gpu") is { } gpuWatts) _gpuPower.Add(gpuWatts, now);
                     }
+                    _energy.Add(observedAt, power.OrDefault);
                 }
             }
             catch (Exception ex) when (ex is not OutOfMemoryException)
@@ -371,6 +374,7 @@ internal sealed class SystemSampler : IDisposable
         {
             if (_powerHistory.Count > 0) { _powerHistory.Clear(); _powerStats.Reset(); }
             _powerSource = null;
+            _energy.Break();
             _cpuPower.Clear(); _gpuPower.Clear();
             _power!.Sample(false, false, now, [], default, false);
         }
@@ -385,6 +389,7 @@ internal sealed class SystemSampler : IDisposable
             CpuHistory = _cpuHistory.ToArray(), Gpus = adapters, Storage = storage,
             Power = power, Battery = battery, PowerHistory = _powerHistory.ToArray(),
             PowerSummary = _powerStats.Summary(now),
+            Energy = _energy.Total,
             CpuPower = _cpuPower.Track(now), GpuPower = _gpuPower.Track(now),
             Frames = frames
         };

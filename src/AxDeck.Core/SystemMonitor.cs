@@ -278,6 +278,8 @@ public sealed record MonitorSnapshot(DateTimeOffset Time, int LogicalProcessors,
     public Reading<BatterySample> Battery { get; init; } = Reading<BatterySample>.Unavailable(Loc.T("正在读取", "Reading"));
     public IReadOnlyList<double> PowerHistory { get; init; } = [];
     public PowerSummary? PowerSummary { get; init; }
+    // The energy counted from consecutive readings while this power session ran, and the time those readings cover (EnergyLedger).
+    public EnergySample Energy { get; init; } = EnergySample.None;
     // The processor's and the graphics' own power over the same readings, for the page's power line when it shows one of them.
     public PowerTrack CpuPower { get; init; } = PowerTrack.None;
     public PowerTrack GpuPower { get; init; } = PowerTrack.None;

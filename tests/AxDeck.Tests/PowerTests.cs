@@ -20,6 +20,7 @@ static class PowerTests
             Counters(check);
             Batteries(check);
             Formats(check);
+            Energy(check);
             Admission(check);
             Readings(check);
             Layout(check);
@@ -132,6 +133,40 @@ static class PowerTests
         check("Counters: none is unavailable, not zero", !empty.System.HasValue && !empty.Cpu.HasValue && !empty.Memory.HasValue);
         var broken = PowerResolver.FromCounters([("RAPL_Package0_PKG", double.NaN), ("RAPL_Package0_DRAM", -5)], []);
         check("Counters: a NaN or negative reading is skipped", !broken.Cpu.HasValue && !broken.Memory.HasValue);
+    }
+
+    private static void Energy(Action<string, bool> check)
+    {
+        static PowerSample P(double watts, PowerSource source = PowerSource.Components) =>
+            new(watts, PowerOrigin.Estimated, source, [new("cpu", "CPU", watts, "RAPL")]);
+        var start = new DateTimeOffset(2026, 11, 20, 12, 0, 0, TimeSpan.Zero);
+        var ledger = new EnergyLedger();
+        check("Energy: the first reading starts a chain but adds no energy", ledger.Add(start, P(10)) == EnergySample.None);
+        check("Energy: adjacent readings are integrated by the trapezoid", ledger.Add(start.AddSeconds(2), P(20)) is { HasEnergy: true } two
+            && Math.Abs(two.WattHours - 30.0 / 3600) < 5e-9 && two.Duration == TimeSpan.FromSeconds(2));
+        ledger.Add(start.AddSeconds(4), P(30));
+        check("Energy: the total is the sum of the intervals", Math.Abs(ledger.Total.WattHours - 80.0 / 3600) < 5e-9 && ledger.Total.Duration == TimeSpan.FromSeconds(4));
+        ledger.Add(start.AddSeconds(6), null);
+        ledger.Add(start.AddSeconds(8), P(90, PowerSource.Battery));
+        check("Energy: an unavailable reading breaks the chain", Math.Abs(ledger.Total.WattHours - 80.0 / 3600) < 5e-9 && ledger.Total.Duration == TimeSpan.FromSeconds(4));
+        ledger.Add(start.AddSeconds(10), P(90, PowerSource.SystemMeter));
+        check("Energy: a new source starts a new chain", Math.Abs(ledger.Total.WattHours - 80.0 / 3600) < 5e-9);
+        ledger.Add(start.AddSeconds(12), P(100, PowerSource.SystemMeter));
+        check("Energy: after the break, integration resumes", Math.Abs(ledger.Total.WattHours - 270.0 / 3600) < 5e-9 && ledger.Total.Duration == TimeSpan.FromSeconds(6));
+        ledger.Add(start.AddSeconds(40), P(200, PowerSource.SystemMeter));
+        check("Energy: a long pause is not bridged", Math.Abs(ledger.Total.WattHours - 270.0 / 3600) < 5e-9 && ledger.Total.Duration == TimeSpan.FromSeconds(6));
+        ledger.Add(start.AddSeconds(38), P(200, PowerSource.SystemMeter));
+        check("Energy: a clock rollback is not bridged", Math.Abs(ledger.Total.WattHours - 270.0 / 3600) < 5e-9);
+        ledger.Reset();
+        check("Energy: reset clears the session", ledger.Total == EnergySample.None);
+        var invalid = new EnergyLedger();
+        invalid.Add(start, new PowerSample(double.NaN, PowerOrigin.Estimated, PowerSource.Components, []));
+        invalid.Add(start.AddSeconds(2), new PowerSample(-1, PowerOrigin.Estimated, PowerSource.Components, []));
+        check("Energy: invalid readings add nothing", invalid.Total == EnergySample.None);
+        check("Energy: a session total is written in Wh and the time it covers", PowerText.Energy(new EnergySample(12.34, TimeSpan.FromMinutes(61))) == "12.3 Wh · 1 小时 1 分");
+        var timed = PowerText.Table(Reading<PowerSample>.Of(P(10)), null, PowerTrack.None, PowerTrack.None,
+            new EnergySample(12.34, TimeSpan.FromMinutes(61)))!;
+        check("Energy: the tooltip carries the session total in its own row", timed.Total is { Label: "本次累计" } && timed.Total.Cells.SequenceEqual(["12.3 Wh · 1 小时 1 分"]));
     }
 
     private static void Batteries(Action<string, bool> check)
@@ -410,7 +445,8 @@ static class PowerTests
         var english = PowerText.Table(Reading<PowerSample>.Of(estimateEn), summary with { Seconds = 45 }, cpuTrack, gpuTrack)!;
         check("Text: the English table is the same form", english.Columns.SequenceEqual(["System", "CPU", "GPU"]) && english.Rows.Select(row => row.Label).SequenceEqual(["Now", "Peak, 45 s", "Mean, 45 s"])
             && english.Notes.SequenceEqual(["Source  CPU + GPU estimate; display, drives, fans and others not included"]));
-        check("Text: the English reading's name", PowerText.Spoken(Reading<PowerSample>.Of(estimateEn), Reading<BatterySample>.Of(cell), true) == "System power 17.0 W, estimated; battery 96%, Plugged in, not charging; power mode Best performance");
+        check("Text: the English reading's name", PowerText.Spoken(Reading<PowerSample>.Of(estimateEn), Reading<BatterySample>.Of(cell), true,
+            new EnergySample(1.25, TimeSpan.FromMinutes(5))) == "System power 17.0 W, estimated; battery 96%, Plugged in, not charging; power mode Best performance; this session 1.25 Wh · 5 min");
         Loc.Use(Loc.Chinese);
         var all = new[] { string.Join("\n", table.Columns.Concat(table.Rows.SelectMany(row => row.Cells.Prepend(row.Label))).Concat(table.Notes)), PowerText.Battery(Reading<BatterySample>.Of(discharging)), PowerText.Spoken(Reading<PowerSample>.Of(estimate), Reading<BatterySample>.Of(cell), true) };
         check("Text: no tool name and no full stop in any of them", all.All(line => !line.Contains("nvidia-smi", StringComparison.OrdinalIgnoreCase) && !line.Contains("NVML") && !line.Contains('。')));

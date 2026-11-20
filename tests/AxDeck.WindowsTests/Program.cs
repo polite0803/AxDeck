@@ -29,6 +29,7 @@ internal static class Program
             if (args is ["--only", "bge"]) { BgeM3Checks.Run(Check); return Finish(); }
             if (args is ["--only", "axtv"]) { AxTvChecks.Run(Check); return Finish(); }
             if (args is ["--only", "services"]) { AxDeck.ServicesViewTests.Run(Check); return Finish(); }
+            if (args is ["--only", "work"]) { AxDeck.WorkViewTests.Run(Check); return Finish(); }
             if (args is ["--only", "pages"]) { AxDeck.PageContentShowingTests.Run(Check); return Finish(); }
             if (args is ["--only", "desktop"]) { AxDeck.DesktopChecks.Run(Check); return Finish(); }
             // 桌面页的图标收不收得到点击：搭起真实的 DesktopIconsView，用命中测试问一句。
@@ -87,6 +88,7 @@ internal static class Program
             BgeM3Checks.Run(Check);
             AxTvChecks.Run(Check);
             AxDeck.ServicesViewTests.Run(Check);
+            AxDeck.WorkViewTests.Run(Check);
 
             return Finish();
         }

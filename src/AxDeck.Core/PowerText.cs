@@ -3,7 +3,11 @@ namespace AxDeck.Core;
 // The power tooltip as a table: its column names, its rows (a label and a cell per column), whether the first row is a sum (the whole
 // machine ≈ the parts added up), and notes under it.
 public sealed record PowerTableRow(string Label, IReadOnlyList<string> Cells);
-public sealed record PowerTable(IReadOnlyList<string> Columns, IReadOnlyList<PowerTableRow> Rows, bool Sum, IReadOnlyList<string> Notes);
+public sealed record PowerTable(IReadOnlyList<string> Columns, IReadOnlyList<PowerTableRow> Rows, bool Sum, IReadOnlyList<string> Notes)
+{
+    // A row that spans the table, used for the session's energy rather than repeating the same value under every column.
+    public PowerTableRow? Total { get; init; }
+}
 
 // The words of the power and battery readings: the power tooltip's table (Table) and the battery tooltip's lines of the form "item  value"
 // (two spaces between), in plain words and no implementation names; the few words the battery's line shows (Brief) and the power line's
@@ -39,7 +43,7 @@ public static class PowerText
     //   5 分钟内均值  46.2 W     38.0 W     8.2 W
     // "≈" and "+" join the current row only where the whole machine is the estimate made of these parts. Notes under it: what could not
     // be read, then where the whole machine's figure comes from. Null without a reading (NoPower then).
-    public static PowerTable? Table(Reading<PowerSample> power, PowerSummary? whole, PowerTrack cpu, PowerTrack gpu)
+    public static PowerTable? Table(Reading<PowerSample> power, PowerSummary? whole, PowerTrack cpu, PowerTrack gpu, EnergySample? energy = null)
     {
         if (!power.TryGet(out var sample)) return null;
         double? cpuNow = PowerResolver.PartWatts(sample, "cpu"), gpuNow = PowerResolver.PartWatts(sample, "gpu");
@@ -62,12 +66,15 @@ public static class PowerText
             rows.Add(new(Loc.T(span + "内峰值", "Peak, " + span), Cells(whole.Peak, cpu.Summary?.Peak, gpu.Summary?.Peak)));
             rows.Add(new(Loc.T(span + "内均值", "Mean, " + span), Cells(whole.Average, cpu.Summary?.Average, gpu.Summary?.Average)));
         }
+        PowerTableRow? total = null;
+        if (energy is { HasEnergy: true })
+            total = new(Loc.T("本次累计", "This session"), [Energy(energy)]);
         // The whole machine is these parts added up only when it is the estimate and every part it adds is a column.
         bool sum = sample.Source == PowerSource.Components && columns.Count > 1 && sample.Parts.All(part => part.Key is "cpu" or "gpu");
         var notes = new List<string>();
         if (sample.Missing.Count > 0) notes.Add(Line(Loc.T("未读取", "Not read"), string.Join(Loc.T("、", ", "), sample.Missing)));
         notes.Add(Line(Loc.T("来源", "Source"), Source(sample)));
-        return new PowerTable(columns, rows, sum, notes);
+        return new PowerTable(columns, rows, sum, notes) { Total = total };
     }
 
     // What the power line shows, after its unit: "整机", "CPU", "GPU".
@@ -75,6 +82,16 @@ public static class PowerText
 
     // The power line's mean at its right end: "均值 46 W".
     public static string Mean(double watts) => Loc.T("均值 ", "Mean ") + PowerFormat.Compact(watts, 9999) + " W";
+
+    // A session total in the tooltip: "42.6 Wh · 1 小时 12 分".
+    public static string Energy(EnergySample energy)
+    {
+        double wattHours = double.IsFinite(energy.WattHours) ? Math.Max(0, energy.WattHours) : 0;
+        string amount = (wattHours < 10 ? wattHours.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture)
+            : wattHours < 100 ? wattHours.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture)
+            : wattHours.ToString("0", System.Globalization.CultureInfo.InvariantCulture)) + " Wh";
+        return amount + " · " + PowerFormat.Duration(energy.Duration);
+    }
 
     // "放电 23.4 W", "充电 31.0 W", "已接通电源，未在充电", "已充满".
     public static string State(BatterySample battery) => battery.State switch
@@ -112,7 +129,7 @@ public static class PowerText
     }
 
     // The screen reader's name: the tooltips' first items in one line, "item value" and commas.
-    public static string Spoken(Reading<PowerSample> power, Reading<BatterySample> battery, bool batteryShown)
+    public static string Spoken(Reading<PowerSample> power, Reading<BatterySample> battery, bool batteryShown, EnergySample? energy = null)
     {
         string text = power.TryGet(out var sample)
             ? Loc.T("整机功耗 ", "System power ") + Watts(sample.Watts) + Loc.T("，", ", ") + Quality(sample)
@@ -120,6 +137,7 @@ public static class PowerText
         if (batteryShown && battery.TryGet(out var cell))
             text += Loc.T("；电池 ", "; battery ") + Percent(cell.Percent) + Loc.T("，", ", ") + State(cell)
                 + (BatteryModel.ModeName(cell.Mode) is { Length: > 0 } mode ? Loc.T("；电源模式 ", "; power mode ") + mode : "");
+        if (energy is { HasEnergy: true }) text += Loc.T("；本次累计 ", "; this session ") + Energy(energy);
         return text;
     }
 }

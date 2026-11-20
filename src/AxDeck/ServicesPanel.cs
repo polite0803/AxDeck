@@ -1,5 +1,4 @@
 using System.Diagnostics;
-using System.Text;
 using System.Windows;
 using System.Windows.Threading;
 using AxDeck.Core;
@@ -32,6 +31,7 @@ public partial class MainWindow
     private void ServicesReloadConfig()
     {
         var config = ServicesConfig.Load(_app.Store.DirectoryPath);
+        _app.RefreshProjectServices();
         CloudflareTunnel.Config = config;
         _bge.ModelPath = config.Bge.ModelPath;
         _servicesConfigPath = config.FilePath;
@@ -85,6 +85,7 @@ public partial class MainWindow
         Task.Run(() =>
         {
             var status = CloudflareTunnel.CollectStatus();
+            var diagnostics = CollectDiagnostics();
             List<CloudflareTunnel.SiteProbe>? probes = null;
             if (probe)
             {
@@ -95,9 +96,97 @@ public partial class MainWindow
             OnUi(() =>
             {
                 _servicesView?.Update(snap, list);
+                _servicesView?.UpdateDiagnostics(diagnostics);
                 _servicesView?.SetStatus(probe ? Loc.T("已探测全部站点", "All sites probed") : Loc.T("已刷新环境", "Environment refreshed"));
             });
         });
+    }
+
+    // The diagnostics reuse the monitor's last snapshot. They never open a sampler just to fill this page; the process probe is
+    // short and runs once per explicit refresh. All values are copied on the background task before they reach the UI thread.
+    private AppDiagnostics CollectDiagnostics()
+    {
+        var monitor = _app.Monitor;
+        var live = monitor?.Latest;
+        var sensors = monitor is null ? SensorStates.Unknown : new SensorStates(monitor.CpuSensor, monitor.GpuSensor, monitor.StorageState, monitor.DriveSensor)
+        {
+            Power = monitor.PowerSensor,
+            Charge = monitor.BatterySensor,
+            Frames = monitor.FramesSensor,
+        };
+        var memory = live?.Memory.TryGet(out var sample) == true ? sample : null;
+        var traffic = _app.Today?.Totals is { } totals
+            ? Reading<TrafficTotals>.Of(totals)
+            : Reading<TrafficTotals>.Unavailable(Loc.T("尚未读取本机流量", "Local traffic not sampled"));
+        try
+        {
+            return AppDiagnostics.Build(
+                ProcessProbe.Sample(), live, memory, live?.LogicalProcessors ?? Environment.ProcessorCount, sensors, SensorGuard.Stops,
+                DateTimeOffset.Now, traffic);
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            var resources = Reading<ProcessResourceUsage>.Unavailable(Loc.T("诊断读取失败：", "Diagnostics failed: ") + ex.Message);
+            return AppDiagnostics.Build(resources, null, null, Environment.ProcessorCount, SensorStates.Unknown, [], DateTimeOffset.Now, traffic);
+        }
+    }
+
+    internal DiagnosticAction? ServicesDiagnosticAction(DiagnosticFact fact)
+    {
+        var action = AppDiagnostics.ActionFor(fact.Subject, fact.State);
+        if (action == DiagnosticAction.OpenMonitorSettings && fact.Subject == DiagnosticSubject.Frames
+            && Settings.MonitorFrames)
+        {
+            var access = FramePermission.Current();
+            if (access == FrameAccess.Missing) return DiagnosticAction.AllowFrames;
+            if (access == FrameAccess.Allowed) return null;
+        }
+        return action;
+    }
+
+    internal void ServicesDiagnostic(DiagnosticAction action)
+    {
+        switch (action)
+        {
+            case DiagnosticAction.OpenMonitorSettings:
+                _app.OpenSettingsPage(SettingsWindow.MonitorSettingsPage);
+                break;
+            case DiagnosticAction.OpenSensorSettings:
+                _app.OpenSettingsPage(SettingsWindow.SensorsPage);
+                break;
+            case DiagnosticAction.AllowFrames:
+                if (!BoxReport.Confirm(this, Loc.T("授权读取帧率", "Allow reading frame rates"),
+                    Loc.T("读取帧率需要把当前用户加入 Windows 的“Performance Log Users”组。授权时 Windows 会请求管理员确认，重新登录 Windows 后生效。",
+                        "Reading frame rates needs the user in Windows' Performance Log Users group. Windows asks an administrator to confirm, and it works from the next sign-in."),
+                    Loc.T("授权", "Allow"))) return;
+                _servicesView?.SetStatus(Loc.T("正在授权读取帧率…", "Allowing frame rate access…"));
+                _ = GrantFrameAccessFromServices();
+                break;
+        }
+    }
+
+    private async Task GrantFrameAccessFromServices()
+    {
+        try
+        {
+            await FramePermission.GrantAsync();
+            _servicesView?.SetStatus(Loc.T("已授权；重新登录 Windows 后显示帧率", "Allowed; the frame rate shows after you sign in to Windows again"));
+        }
+        catch (OperationCanceledException)
+        {
+            _servicesView?.SetStatus(Loc.T("管理员确认超时", "The administrator prompt timed out"), warning: true);
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or System.ComponentModel.Win32Exception)
+        {
+            _servicesView?.SetStatus(Loc.T("授权失败：", "Could not allow: ") + ex.Message, warning: true);
+        }
+        ServicesRefresh(false);
+    }
+
+    internal void ServicesResumeReading(SensorStop stop)
+    {
+        SensorGuard.Resume(stop);
+        ServicesRefresh(false);
     }
 
     internal void ServicesSshTest(string host)
@@ -207,19 +296,18 @@ public partial class MainWindow
         Task.Run(() =>
         {
             var s = CloudflareTunnel.CollectStatus();
-            var sb = new StringBuilder();
-            sb.AppendLine($"cloudflared: {s.CloudflaredPath ?? "未找到"} ({s.CloudflaredVersion})");
-            sb.AppendLine($"local processes: {s.LocalProcesses}");
-            sb.AppendLine($"public 443: {s.PublicTcp443}");
-            sb.AppendLine($"edge: {s.Edge.Detail}");
-            sb.AppendLine($"ssh config exists: {s.SshConfigExists} ({s.SshConfig})");
-            sb.AppendLine($"proxy bat exists: {s.ProxyBatExists}");
-            sb.AppendLine($"proxy command ok: {s.ProxyCommandOk}");
-            sb.AppendLine($"ssh hosts: {string.Join(", ", s.SshHosts)}");
-            sb.AppendLine($"ports: {string.Join(", ", s.Ports.Select(p => $"{p.Key}={(p.Value ? "open" : "closed")}"))}");
-            // Where the entries come from, so a diagnostic pasted elsewhere says which file was read.
-            sb.AppendLine($"services.json: {_servicesConfigPath} ({(System.IO.File.Exists(_servicesConfigPath) ? "present" : "missing")}, {CloudflareTunnel.Sites.Count} sites)");
-            var text = sb.ToString();
+            var text = CollectDiagnostics().ClipboardText() + Environment.NewLine + Loc.T("服务与工具", "Services and tools") + Environment.NewLine
+                + Loc.T("cloudflared：", "cloudflared: ") + (s.CloudflaredPath ?? Loc.T("未找到", "not found")) + $" ({s.CloudflaredVersion})" + Environment.NewLine
+                + Loc.T("本地进程数：", "Local processes: ") + s.LocalProcesses + Environment.NewLine
+                + Loc.T("公网 443：", "Public 443: ") + (s.PublicTcp443 ? Loc.T("可达", "reachable") : Loc.T("不可达", "unreachable")) + Environment.NewLine
+                + Loc.T("边缘状态：", "Edge status: ") + s.Edge.Detail + Environment.NewLine
+                + Loc.T("SSH 配置：", "SSH config: ") + s.SshConfigExists + Environment.NewLine
+                + Loc.T("代理脚本：", "Proxy bat: ") + s.ProxyBatExists + Environment.NewLine
+                + Loc.T("ProxyCommand：", "ProxyCommand: ") + s.ProxyCommandOk + Environment.NewLine
+                // The file's location and size are useful, but its host names, hosts and ports are deliberately omitted.
+                + Loc.T("services.json：", "services.json: ") + _servicesConfigPath + Loc.T("（存在：", " (present: ")
+                + System.IO.File.Exists(_servicesConfigPath) + Loc.T("）", ")") + Environment.NewLine
+                + Loc.T($"站点数量：{CloudflareTunnel.Sites.Count}", $"Site entries: {CloudflareTunnel.Sites.Count}");
             OnUi(() =>
             {
                 try { Clipboard.SetText(text); _servicesView?.SetStatus(Loc.T("诊断已复制到剪贴板", "Diagnostics copied")); }

@@ -4,6 +4,11 @@ namespace AxDeck.Core;
 // column: only the folders and the file extension, so the dot knows where to look and nothing about what is inside.
 public static class SessionSources
 {
+    // The tools whose local session records can be watched for activity. It is a narrower set than the usage sources: a tool
+    // read over an API may still report usage without keeping a file the panel can watch.
+    public static readonly ProviderId[] Watchable = [ProviderId.Claude, ProviderId.Codex, ProviderId.Dsh, ProviderId.Kimi, ProviderId.Pi];
+    public static bool Supports(ProviderId source) => Watchable.Contains(source);
+
     // The folders holding this source's session records, and the extension of those records (without the dot). Empty when the
     // source keeps no records on this PC, which is the case for the ones read over an API instead.
     public static (IReadOnlyList<string> Folders, string Extension) Of(ProviderId source, DataLocations locations)
@@ -27,7 +32,15 @@ public static class SessionSources
     // span: either way there is nothing to show.
     public static bool IsWorking(ProviderId source, DataLocations locations, DateTimeOffset now, TimeSpan? active = null)
     {
+        return Read(source, locations, now, active).IsWorking;
+    }
+
+    // The latest write time for this source, or unavailable when it keeps no local records or its folder is absent.
+    public static SessionActivitySnapshot Read(ProviderId source, DataLocations locations, DateTimeOffset now, TimeSpan? active = null)
+    {
         var (folders, extension) = Of(source, locations);
-        return extension.Length > 0 && SessionActivity.IsWorking(folders, extension, now, active);
+        if (extension.Length == 0) return SessionActivitySnapshot.Unavailable(source);
+        var (state, latest, records, activeRecords) = SessionActivity.Read(folders, extension, now, active);
+        return new SessionActivitySnapshot(source, state, latest, records, activeRecords);
     }
 }

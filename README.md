@@ -25,6 +25,7 @@ A native Windows app built with C# and WPF, designed for performance and smoothn
 ## Why AxDeck
 
 - **All quotas in one place**: Quotas for Claude, Codex, Cursor, Antigravity and more are shown in a single panel, so you no longer open each website, command line or app to check them.
+- **Development work in one place**: Registration-free guesswork is out: you register the projects yourself, then open or restore them from a work page that also gathers the focus countdown, AI work status and recent shelf items.
 - **Quota checks made simple**: AxDeck stays collapsed at the top of the screen. Move the pointer over it to open it, and move away to close it.
 - **Media control**: Preview and control the song that is playing inline; the cover, equalizer and lyrics follow the music.
 - **System monitor**: CPU, memory, network speed and other readings stay in the notch or capsule, visible at a glance.
@@ -82,11 +83,23 @@ AxDeck sits at the top center of the screen and comes in three styles: Notch (de
 
 - One column per tool shows the plan, quota usage and reset countdowns, for up to 7 tools at once.
 - A line behind each quota bar shows how it has moved through the day, so a quota that climbed slowly all day reads differently from one that just jumped. Hover over a quota and the panel estimates, at the pace of the readings, when it would reach the critical level — and says nothing when the readings do not support a pace.
-- When a tool is writing its own session records, a small dot lights up beside its column's name to show it is working. Only the records' modification times are read, never the conversation.
+- A page-level work status strip shows the AI tools you chose to watch, which of them are writing local session records, the latest write time, and how many records are still being written out of the local total. It stays useful even when those tools have no quota column. Only record metadata is read, never the conversation, and the count is not a count of chats.
 - The bottom of each column totals tokens and estimated cost for today and the last 7 days.
 - Token and cost details are available for each model, filtered by tool and date range.
 
 You can choose the quota providers and set the quota and usage source of each column separately. See [Supported tools](docs/en-US/ai-tools.md).
+
+### Development work
+
+- **Your projects, chosen by you**: add a folder in Settings › Projects and work, then open it or restore it from the panel. Restore can bring up a launcher you chose and put a chosen file group on the clipboard. AxDeck never scans the disk or guesses a project from a window, process or folder time.
+- **Today's work at a glance**: the page counts today's finished focus sessions, their target minutes, the tools with real session-write samples, and focus records named for a project. A tool declared for a session but never observed writing is not reported as active.
+- **Focus countdown**: start a 25-minute session, pause, resume and reset it here. A session can carry a project and the AI tools you want to watch; the timer survives a restart on this PC.
+- **Focus from a project**: every project has a "Focus on project" command using its registered work source, available from the palette and `axdeck://focus-project/<project id>`.
+- **Linked service sites**: a project can explicitly link one site from `services.json`; the Work page shows its label and can copy the matching command. Nothing is matched automatically, started or probed.
+- **AI work activity**: the tools you chose to watch appear with their local record metadata, so you can tell which ones have written session records lately without opening or reading those records.
+- **Recent hand-offs**: the latest text and file groups from the Shelf show up here again, so switching from transfer to work and back does not lose your place.
+
+See [Development work page](docs/en-US/ai-tools.md#development-work-page) and [Data and privacy](docs/en-US/privacy.md).
 
 ### Music
 
@@ -175,12 +188,13 @@ For what each part shows and what it needs, see [Services and tools](docs/en-US/
 ### Command palette
 
 - Select the command button in the expanded panel's toolbar (or press the shortcut you set for "Open the command palette") and a few words reach any page, or run an action: switch the collapsed style, refresh the quotas now, open settings, hide the panel, toggle mouse pass-through, start a focus countdown.
+- Each registered project also offers Open, Restore and "Focus on project".
 - Chinese, English and keywords all match; the arrow keys move, Enter runs, Esc closes.
 
 ### Links and the command line
 
-- AxDeck registers the `axdeck://` address, so a shortcut, a script or another program can open it at something specific: `axdeck://page/music` opens the music page, `axdeck://focus/25` starts a 25-minute countdown, `axdeck://settings` opens settings.
-- The command line takes the same words: `AxDeck.exe --page music`, `--focus 25`, `--search lyrics`, `--refresh`.
+- AxDeck registers the `axdeck://` address, so a shortcut, a script or another program can open it at something specific: `axdeck://page/music` opens the music page, `axdeck://focus/25` starts a 25-minute countdown, `axdeck://settings` opens settings, and `axdeck://focus-project/<project id>` starts focus with that project's work source.
+- The command line takes the same words: `AxDeck.exe --page music`, `--focus 25`, `--focus-project <project id>`, `--search lyrics`, `--refresh`.
 - When an AxDeck is already running, a new start does not open a second panel; it hands its command to the one that is running.
 
 ### More settings

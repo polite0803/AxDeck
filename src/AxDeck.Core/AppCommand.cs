@@ -3,9 +3,10 @@ namespace AxDeck.Core;
 // What a command line or an axdeck:// address asks AxDeck to do. The parsing is plain data, so it is checked on its own.
 //
 // The command line of the app itself takes the same words as the address: "--settings" opens the settings, "--page music"
-// opens the music page, "--focus 25" starts a countdown of 25 minutes, "--search 音乐" opens the command palette with that
-// text in it. The address form is the same, written as a link: "axdeck://page/music".
-public enum AppCommandKind { None, OpenSettings, OpenPage, Focus, Search, Refresh, Show, Hide }
+// opens the music page, "--focus 25" starts a countdown of 25 minutes, "--project D:\work\AxDeck" opens a registered project,
+// "--restore-project D:\work\AxDeck" also restores its launcher and default file group, and "--search 音乐" opens the command
+// palette with that text in it. The address form is the same, written as a link: "axdeck://page/music".
+public enum AppCommandKind { None, OpenSettings, OpenPage, Focus, Search, Refresh, Show, Hide, Project, RestoreProject, FocusProject }
 
 // The scheme of the addresses AxDeck answers to.
 public static class AppCommand
@@ -18,6 +19,9 @@ public static class AppCommand
         "settings" => AppCommandKind.OpenSettings,
         "page" => AppCommandKind.OpenPage,
         "focus" => AppCommandKind.Focus,
+        "project" => AppCommandKind.Project,
+        "restore-project" => AppCommandKind.RestoreProject,
+        "focus-project" => AppCommandKind.FocusProject,
         "search" => AppCommandKind.Search,
         "refresh" => AppCommandKind.Refresh,
         "show" => AppCommandKind.Show,
@@ -31,6 +35,9 @@ public static class AppCommand
         AppCommandKind.OpenSettings => "settings",
         AppCommandKind.OpenPage => "page",
         AppCommandKind.Focus => "focus",
+        AppCommandKind.Project => "project",
+        AppCommandKind.RestoreProject => "restore-project",
+        AppCommandKind.FocusProject => "focus-project",
         AppCommandKind.Search => "search",
         AppCommandKind.Refresh => "refresh",
         AppCommandKind.Show => "show",
@@ -71,7 +78,8 @@ public static class AppCommand
                 if (equals >= 0) { value = name[(equals + 1)..]; name = name[..equals]; }
                 var kind = Kind(name.ToLowerInvariant());
                 if (kind == AppCommandKind.None) continue;
-                if (value is null && kind is AppCommandKind.OpenPage or AppCommandKind.Focus or AppCommandKind.Search && i + 1 < args.Count)
+                if (value is null && kind is AppCommandKind.OpenPage or AppCommandKind.Focus or AppCommandKind.Project
+                    or AppCommandKind.RestoreProject or AppCommandKind.FocusProject or AppCommandKind.Search && i + 1 < args.Count)
                 {
                     value = args[++i];
                 }

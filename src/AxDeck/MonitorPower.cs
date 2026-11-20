@@ -40,6 +40,7 @@ internal sealed class PowerBlock : FrameworkElement
     private Reading<BatterySample> _battery;
     private IReadOnlyList<double> _history = [];
     private PowerSummary? _summary;
+    private EnergySample _energy = EnergySample.None;
     private PowerTrack _cpu = PowerTrack.None, _gpu = PowerTrack.None;
     // What the line shows: the whole machine, the CPU or the GPU, switched by a click on the power part. Kept for the session, so a page
     // built again (a new size) shows the same.
@@ -66,7 +67,8 @@ internal sealed class PowerBlock : FrameworkElement
 
     public void Set(MonitorSnapshot snapshot, bool motion)
     {
-        _power = snapshot.Power; _history = snapshot.PowerHistory; _summary = snapshot.PowerSummary; _cpu = snapshot.CpuPower; _gpu = snapshot.GpuPower;
+        _power = snapshot.Power; _history = snapshot.PowerHistory; _summary = snapshot.PowerSummary; _energy = snapshot.Energy;
+        _cpu = snapshot.CpuPower; _gpu = snapshot.GpuPower;
         // The sampler's battery reading once it has one, the system's own until then.
         _battery = snapshot.Battery.HasValue || !_options.Quick.HasValue ? snapshot.Battery : _options.Quick;
         _top = Top(Shown().History);
@@ -78,7 +80,7 @@ internal sealed class PowerBlock : FrameworkElement
         if (_battery.TryGet(out var sample)) moving |= _fill.Set(sample.Percent / 100, ease);
         if (!_hasCurve && Shown().History.Count >= 3) { _hasCurve = true; moving |= _reveal.Set(1, ease); }
         Tip();
-        string spoken = PowerText.Spoken(_power, _battery, _options.Battery);
+        string spoken = PowerText.Spoken(_power, _battery, _options.Battery, _energy);
         if (spoken != _spoken)
         {
             string old = _spoken; _spoken = spoken;
@@ -123,7 +125,7 @@ internal sealed class PowerBlock : FrameworkElement
     {
         if (!opening && !_tip.IsOpen) return;
         if (_overBattery && _options.Battery) _tip.Content = PowerText.Battery(_battery);
-        else _tip.Content = PowerText.Table(_power, _summary, _cpu, _gpu) is { } table ? TableView(table) : PowerText.NoPower(_power.Reason);
+        else _tip.Content = PowerText.Table(_power, _summary, _cpu, _gpu, _energy) is { } table ? TableView(table) : PowerText.NoPower(_power.Reason);
     }
 
     // The power's table: the column names over the figures, right-aligned in their columns; "≈" and "+" between the current figures
@@ -137,7 +139,7 @@ internal sealed class PowerBlock : FrameworkElement
             if (i > 0) grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         }
-        int rows = 1 + table.Rows.Count;
+        int rows = 1 + table.Rows.Count + (table.Total is null ? 0 : 1);
         for (int i = 0; i < rows; i++) grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         void Put(string text, int row, int column, bool dim, HorizontalAlignment align, Thickness margin, int span = 1)
         {
@@ -157,6 +159,13 @@ internal sealed class PowerBlock : FrameworkElement
                 Put(row.Cells[i], r + 1, 2 * i + 1, false, HorizontalAlignment.Right, new Thickness(12, 0, 0, 0));
                 if (r == 0 && table.Sum && i > 0) Put(i == 1 ? "≈" : "+", r + 1, 2 * i, true, HorizontalAlignment.Center, new Thickness(8, 0, 0, 0));
             }
+        }
+        if (table.Total is { } total)
+        {
+            int row = table.Rows.Count + 1;
+            Put(total.Label, row, 0, true, HorizontalAlignment.Left, new Thickness(0));
+            Put(total.Cells.Count > 0 ? total.Cells[0] : "", row, 1, false, HorizontalAlignment.Right, new Thickness(12, 0, 0, 0),
+                grid.ColumnDefinitions.Count - 1);
         }
         // Notes must not participate in the table's auto column sizing: a long adapter
         // name used to widen every column and push the GPU beyond the tooltip's edge.

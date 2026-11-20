@@ -62,6 +62,8 @@ Neither the repository nor the published package carries a host name, a port or 
 
 A missing, unreadable or partly wrong file never stops the page: entries that cannot be used are skipped, and the page says to write a `services.json`.
 
+These sites can also be linked by hand to projects registered in Development work: choose "Linked site" in the project editor. The Work page only shows the site label and copies a command; it never matches by project name, folder or git remote, starts a command or probes the site.
+
 ## BGE-M3 embedding service
 
 This part manages the local llama.cpp embedding service: `llama-server` loads the model named by `bge.modelPath` in `services.json` in embeddings mode and serves `/v1/embeddings` on `http://localhost:8091` (1024 dimensions).
@@ -165,3 +167,18 @@ With the emulator not running, these say so instead of waiting for something tha
 - The BGE-M3 part runs entirely on this PC and the model never leaves it.
 - The emulator part only talks to the Android SDK on this PC; it does not go online.
 - No credentials or tokens are stored.
+
+## Runtime cost and capabilities
+
+The "Runtime cost and capabilities" section at the bottom of the page reports AxDeck's own cost and the readings this PC can provide. It does not start a second system sampler or sensor poll for diagnostics: it reuses the snapshot the system monitor already has. "Refresh" adds one process sample of about 250 ms.
+
+| State | Meaning |
+| --- | --- |
+| Available | This snapshot or sample contains a real reading |
+| Estimated | The value is derived from several components or converted, and is not a whole-machine measurement |
+| Not sampled | The system monitor is not running, the reading's page is not open, or no snapshot has been taken yet. It does not mean the hardware lacks the sensor |
+| Unavailable | No usable source or sensor was found, for example when the graphics driver reports no temperature |
+
+CPU, memory, GPU, storage, temperatures, system power, battery and frame rate each show their state beside the reading. Power summed from the CPU, GPU and other components is always marked "estimated"; missing traffic says "not sampled" and is never drawn as zero. A reading that has a useful next step gets a button: CPU temperature and system power open Enhanced sensors, while frame rate, GPU temperature and drive temperature open the system monitor settings. When the frame-rate switch is on but Windows permission is missing, the button first asks for confirmation and then uses the existing grant flow. A confirmed absence of a battery or graphics adapter gets no misleading repair button. Readings that SensorGuard has automatically stopped keep their own explanation and "Turn on again" button, using the same recovery path as the system monitor.
+
+"Copy diagnostics" copies the app's own cost, machine summary, capabilities, stopped readings and tunnel environment status. To make the report useful, it includes the `services.json` path and whether the file exists, but no host name, SSH host, port or model path from that file, and no conversation content, credentials or settings values. The report goes to the clipboard only and is not uploaded.

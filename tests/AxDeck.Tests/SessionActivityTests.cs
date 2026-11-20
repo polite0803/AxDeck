@@ -45,8 +45,15 @@ static class SessionActivityTests
         Write(Path.Combine(folder, "old.jsonl"), Now.AddMinutes(-30));
         // An old record says nothing about now, even when nothing newer is there.
         check("SessionActivity: an old record is quiet", !SessionActivity.IsWorking([folder], "jsonl", Now));
+        var old = SessionActivity.Read([folder], "jsonl", Now);
+        check("SessionActivity: a quiet folder still reports its newest write", old.State == SessionActivityState.Quiet && old.LastActivity == Now.AddMinutes(-30));
         Write(Path.Combine(folder, "fresh.jsonl"), Now.AddMinutes(-1));
         check("SessionActivity: a record written a minute ago is working", SessionActivity.IsWorking([folder], "jsonl", Now));
+        var fresh = SessionActivity.Read([folder], "jsonl", Now);
+        check("SessionActivity: an active folder reports its newest write, record count and active count",
+            fresh is { State: SessionActivityState.Active, LastActivity: { } last, RecordCount: 2, ActiveRecordCount: 1 } && last == Now.AddMinutes(-1));
+        check("SessionActivity: other file kinds are not counted as session records",
+            SessionActivity.Read([folder], "txt", Now).RecordCount == 0);
         // The walk goes below the folder the tool keeps its sessions in.
         var deeper = Folder("deep");
         Directory.CreateDirectory(Path.Combine(deeper, "a", "b"));
@@ -56,6 +63,7 @@ static class SessionActivityTests
         var future = Folder("future");
         Write(Path.Combine(future, "run.jsonl"), Now.AddHours(2));
         check("SessionActivity: a record from the future is quiet", !SessionActivity.IsWorking([future], "jsonl", Now));
+        check("SessionActivity: a future record supplies no activity time", SessionActivity.Read([future], "jsonl", Now).LastActivity is null);
         // A span chosen by the caller: the same record is quiet when asked about a shorter one.
         check("SessionActivity: a shorter span is honoured", !SessionActivity.IsWorking([folder], "jsonl", Now, TimeSpan.FromSeconds(10)));
     }
@@ -69,14 +77,23 @@ static class SessionActivityTests
         Directory.CreateDirectory(projects);
         Write(Path.Combine(projects, "session.jsonl"), Now.AddMinutes(-1));
         check("SessionActivity: Claude's records are found under projects", SessionSources.IsWorking(ProviderId.Claude, locations, Now));
+        check("SessionActivity: a source snapshot keeps its tool and latest write",
+            SessionSources.Read(ProviderId.Claude, locations, Now) is
+                { Source: ProviderId.Claude, State: SessionActivityState.Active, LastActivity: { } last, RecordCount: 1, ActiveRecordCount: 1 }
+                && last == Now.AddMinutes(-1));
         // A source read over an API keeps no records to watch, so it is never shown as working.
         check("SessionActivity: a source without records is never working", !SessionSources.IsWorking(ProviderId.OpenRouter, locations, Now));
         check("SessionActivity: a source without records has no folder", SessionSources.Of(ProviderId.OpenRouter, locations).Extension.Length == 0);
+        check("SessionActivity: a source without local records is unavailable, not quiet", SessionSources.Read(ProviderId.OpenRouter, locations, Now) is
+            { State: SessionActivityState.Unavailable, LastActivity: null } unavailable && unavailable.Source == ProviderId.OpenRouter);
         var codex = Path.Combine(locations.CodexHome, "sessions", "2026");
         Directory.CreateDirectory(codex);
         Write(Path.Combine(codex, "rollout.jsonl"), Now.AddMinutes(-1));
         check("SessionActivity: Codex's records are found under sessions", SessionSources.IsWorking(ProviderId.Codex, locations, Now));
         // A tool with no record on this PC is quiet rather than an error.
         check("SessionActivity: an installed tool that is not running is quiet", !SessionSources.IsWorking(ProviderId.Kimi, locations, Now));
+        check("SessionActivity: an absent source folder is unavailable", SessionSources.Read(ProviderId.Kimi, locations, Now).State == SessionActivityState.Unavailable);
+        Directory.CreateDirectory(SessionSources.Of(ProviderId.Kimi, locations).Folders[0]);
+        check("SessionActivity: an existing empty source folder is quiet", SessionSources.Read(ProviderId.Kimi, locations, Now).State == SessionActivityState.Quiet);
     }
 }

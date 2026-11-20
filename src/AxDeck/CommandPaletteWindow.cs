@@ -29,7 +29,7 @@ internal sealed class CommandPaletteWindow : Window
     {
         _app = app;
         _deck = deck;
-        _commands = CommandPalette.Build(app.Settings);
+        _commands = CommandPalette.Build(app.Settings, app.PaletteContext());
         Resources.MergedDictionaries.Add(new ResourceDictionary { Source = new Uri("/AxDeck;component/SettingsResources.xaml", UriKind.Relative) });
         _palette = new SettingsPalette(SettingsPalette.IsDark(app.Settings.Theme));
         _palette.Apply(Resources);

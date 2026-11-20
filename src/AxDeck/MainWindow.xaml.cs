@@ -128,6 +128,7 @@ public partial class MainWindow : Window
         HoverZone.Opacity = 0;
         _handover = new PageHandover(LeavingContent);
         InitializeMusic();
+        InitializeWork();
         InitializeMonitor();
         InitializeAudioOutput();
         InitializeShelf();
@@ -571,6 +572,7 @@ public partial class MainWindow : Window
             if (tip) button.ToolTip = text;
         }
         Label(AIUsageButton, "AI 用量", "AI usage");
+        Label(WorkPageButton, "开发工作", "Development work");
         Label(MonitorPageButton, "系统监控", "System monitor");
         Label(ShelfPageButton, "剪贴板与文件中转", "Clipboard and file transfer");
         Label(ShelfSearchButton, "搜索剪贴板与文件中转", "Search the clipboard and file transfer");

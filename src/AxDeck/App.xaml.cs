@@ -100,7 +100,7 @@ public partial class App : Application
         Store = new SettingsStore(folder); Settings = Store.Load();
         // Before anything is read: a reading left unanswered when the last run ended stops now (SensorGuard).
         SensorGuard.Start(folder);
-        UseLanguage(); UseFont();
+        UseLanguage(); LoadProjects(); UseFont();
         PanelTheme.Use(Settings);
         ScheduleDaylight();
         // "跟随系统" follows the Windows app theme while AxDeck runs.
@@ -259,7 +259,9 @@ public partial class App : Application
             // What the window built is garbage once it closes: given back like a panel's after it collapses.
             _settingsWindow.Closed += (_, _) => { _settingsWindow = null; RequestTrim(); };
             _settingsWindow.Show();
-            if (Store.LoadWarning is { } warning) _settingsWindow.SaveStatus(warning, true);
+            string warning = string.Join("\n", new[] { Store.LoadWarning, ProjectsStore.LoadWarning }
+                .Where(item => !string.IsNullOrWhiteSpace(item)));
+            if (warning.Length > 0) _settingsWindow.SaveStatus(warning, true);
         }
         if (_settingsWindow.WindowState == WindowState.Minimized) _settingsWindow.WindowState = WindowState.Normal;
         _settingsWindow.Activate();
@@ -280,9 +282,11 @@ public partial class App : Application
         bool dataChanged = settings.IncludeWsl != Settings.IncludeWsl || !settings.RequiredProviders.SetEquals(Settings.RequiredProviders) ||
             !settings.EnabledApps.Select(e => e.ConfigurationKey).ToHashSet().SetEquals(Settings.EnabledApps.Select(e => e.ConfigurationKey));
         bool syncEnabled = settings.UsageAutoSync && !Settings.UsageAutoSync;
+        bool workSourcesChanged = !settings.WorkSources.ToHashSet().SetEquals(Settings.WorkSources);
         // A new collapsed style morphs every panel's surface into its form (MainWindow.MorphShape).
         bool styleChanged = settings.Style != Settings.Style, memoryChanged = settings.MemoryMode != Settings.MemoryMode;
         settings.Normalize(); Settings = settings;
+        if (workSourcesChanged) WorkSourcesChanged();
         if (memoryChanged) ApplyMemoryMode();
         // A monitor page switched on in the smooth mode has its counters set up ahead, as at start.
         else if (MemoryPlan.WarmAtStart) WarmMonitor();

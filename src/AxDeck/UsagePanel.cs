@@ -92,7 +92,7 @@ public partial class MainWindow
         int count = Math.Min(columns.Count, pageSize);
         double columnWidth = (width - EdgeInset * 2) / count;
         var views = columns.Select(x => Quotas(x.Entry, x.Quota)).ToList();
-        var (layout, inline, wide) = Fit(count, views.Max(view => view.Slots), columnWidth, height);
+        var (layout, inline, wide) = Fit(count, views.Max(view => view.Slots), columnWidth, Math.Max(1, height - WorkStripHeight(height)));
         return (layout, inline, wide, count, columnWidth, views);
     }
 
@@ -159,12 +159,14 @@ public partial class MainWindow
         return new UsageBuild($"{fit.Layout.Tier}|{fit.Layout.Footer}|{fit.Inline}|{fit.Wide}|{fit.Count}", Snapshots, Settings, _applicationPage,
             string.Join(",", _quotaPages.OrderBy(page => page.Key).Select(page => $"{page.Key:N}:{page.Value}")), PanelTheme.Generation, Loc.Language,
             DateTime.Now.Ticks / TimeSpan.TicksPerMinute, VisualTreeHelper.GetDpi(this).DpiScaleY, _scale,
-            string.Join(",", _app.Working.Order()));
+            string.Join(",", _app.Activity.OrderBy(pair => pair.Key).Select(pair =>
+                $"{pair.Key}:{pair.Value.State}:{pair.Value.LastActivity?.UtcDateTime.Ticks}:{pair.Value.RecordCount}:{pair.Value.ActiveRecordCount}")));
     }
 
     public void RenderUsage()
     {
         if (UsageContent is null) return;
+        if (IsWorkPage) { RenderWork(); return; }
         if (IsMusicPage) { RenderMusic(); return; }
         if (IsMonitorPage) { RenderMonitor(); return; }
         if (IsShelfPage) { RenderShelf(lazy: true); return; }
@@ -197,7 +199,8 @@ public partial class MainWindow
         if (!shown) motion = Handover.None;
         _handover.Release(UsageContent, motion);
         if (_flippedColumn is { } flipped && shown && motion == Handover.None)
-            foreach (var column in UsageContent.Children.OfType<Panel>().SelectMany(grid => grid.Children.OfType<Border>()).Where(border => Equals(border.Tag, flipped)))
+            foreach (var column in UsageContent.Children.OfType<Grid>().SelectMany(page => page.Children.OfType<UniformGrid>())
+                .SelectMany(grid => grid.Children.OfType<Border>()).Where(border => Equals(border.Tag, flipped)))
                 PageHandover.Brighten(column);
         _flippedColumn = null;
         // The application pager is left out: it is what was clicked, under the pointer, when application pages flip.
@@ -220,21 +223,111 @@ public partial class MainWindow
         IReadOnlyList<ProviderId> statistics = Settings.UsagePage ? Settings.StatisticsProviders : [];
         SynchronizeModelSelection(statistics);
         if (_details) RenderModelToolbar(statistics);
+        // Work activity is not a quota column: it keeps its own selected sources and remains useful when no quota app is chosen.
+        if (!_details && _expanded && !_preview) _app.AskActivity();
         if (apps.Count == 0)
         {
             _usageForm = "empty";
+            UsageContent.Margin = new Thickness(EdgeInset, 0, EdgeInset, 10);
+            var page = new Grid();
+            page.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            page.RowDefinitions.Add(new RowDefinition());
+            page.Children.Add(WorkStrip(ContentCanvas.Height));
             var empty = new StackPanel { HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
             empty.Children.Add(UI.Fixed(Settings.UsagePage ? Loc.T("未选择应用", "No apps selected") : Loc.T("AI 用量已关闭", "AI usage is off"), 14, 20, UI.Secondary));
             var openText = Loc.T("打开设置", "Open settings");
             var open = Segmented([new(openText, openText, false, _app.OpenSettings)], 12, 22, 12, centerText: true);
             open.Margin = new Thickness(0, 12, 0, 0); open.HorizontalAlignment = HorizontalAlignment.Center;
-            empty.Children.Add(open); UsageContent.Children.Add(empty);
+            empty.Children.Add(open);
+            Grid.SetRow(empty, 1); page.Children.Add(empty);
+            UsageContent.Children.Add(page);
             return;
         }
         if (_details) { _usageForm = "details"; RenderModels(DashboardUsage.Statistics(Settings, Snapshots)); }
         // Only the page that draws the columns asks whether a tool is working, and only while it is on screen: a page built behind
         // another one, or a collapsed panel, never walks anyone's session folders.
-        else { if (_expanded && !_preview) _app.AskActivity(); RenderColumns(DashboardUsage.Columns(Settings, Snapshots)); }
+        else RenderColumns(DashboardUsage.Columns(Settings, Snapshots));
+    }
+
+    private static double WorkStripHeight(double panelHeight) => panelHeight < 190 ? 22 : 28;
+
+    // The page's work status, independent of its quota columns: the selected tools, which of them are writing local session
+    // records now, and the metadata that makes the state meaningful. It reads no conversation and sends nothing anywhere.
+    private FrameworkElement WorkStrip(double panelHeight)
+    {
+        var sources = Settings.WorkSources.Distinct().Where(SessionSources.Supports).ToList();
+        var snapshots = sources.Select(source => _app.Activity.TryGetValue(source, out var activity) ? activity : SessionActivitySnapshot.Unavailable(source)).ToList();
+        var active = snapshots.Where(item => item.IsWorking).ToList();
+        int records = snapshots.Sum(item => item.RecordCount), activeRecords = snapshots.Sum(item => item.ActiveRecordCount);
+        DateTimeOffset? latest = snapshots.Select(item => item.LastActivity).OfType<DateTimeOffset>().DefaultIfEmpty().Max() is { } lastSeen && lastSeen != default
+            ? lastSeen : null;
+        string status = sources.Count == 0
+            ? Loc.T("未选择工作来源", "No work sources selected")
+            : active.Count > 0
+                ? Loc.T(string.Join("、", active.Select(item => ProviderCatalog.Name(item.Source))) + " 正在工作",
+                    string.Join(", ", active.Select(item => ProviderCatalog.Name(item.Source))) + " working")
+                : _app.ActivityReadInProgress
+                    ? Loc.T("正在检查本机工作记录", "Checking local work records")
+                    : records > 0
+                        ? Loc.T("近期无写入", "No recent writes")
+                        : Loc.T("未找到本地工作记录", "No local work records");
+
+        var line = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
+        foreach (var source in sources)
+        {
+            bool working = snapshots.First(item => item.Source == source).IsWorking;
+            var dot = new Ellipse
+            {
+                Width = 6, Height = 6, Margin = new Thickness(0, 0, 5, 0), VerticalAlignment = VerticalAlignment.Center,
+                Fill = UI.Brush(working ? UI.ColorFor(source) : UI.Tertiary), Opacity = working ? 1 : .55
+            };
+            string tip = working ? Loc.T($"{ProviderCatalog.Name(source)} 正在写本机会话记录", $"{ProviderCatalog.Name(source)} is writing local session records")
+                : Loc.T($"{ProviderCatalog.Name(source)} 近期没有写入", $"{ProviderCatalog.Name(source)} has no recent writes");
+            dot.ToolTip = tip;
+            AutomationProperties.SetName(dot, tip);
+            line.Children.Add(dot);
+        }
+        var statusText = UI.Fixed(status, panelHeight < 190 ? 10.5 : 11.5, 18, sources.Count > 0 && active.Count > 0 ? UI.Primary : UI.Secondary,
+            active.Count > 0 ? FontWeights.SemiBold : null);
+        statusText.Margin = new Thickness(sources.Count > 0 ? 2 : 0, 0, 0, 0);
+        line.Children.Add(statusText);
+
+        string metrics = "";
+        if (latest is { } last)
+            metrics = Loc.T("最近写入 " + Shelf.When(last, DateTimeOffset.Now), "last write " + Shelf.When(last, DateTimeOffset.Now));
+        string recordText = records > 0
+            ? Loc.T($"{activeRecords} 正在写入 · 共 {records} 个本地记录", $"{Loc.Count(activeRecords, "record", "records")} being written · {Loc.Count(records, "local record", "local records")}")
+            : Loc.T("暂无本地记录", "no local records");
+        metrics = string.Join(" · ", new[] { metrics, recordText }.Where(text => text.Length > 0));
+
+        var detail = string.Join("\n", snapshots.Select(item =>
+        {
+            string when = item.LastActivity is { } last ? Loc.T("最近写入 " + Shelf.When(last, DateTimeOffset.Now), "last write " + Shelf.When(last, DateTimeOffset.Now)) : "";
+            string state = item.State switch
+            {
+                SessionActivityState.Active when item.ActiveRecordCount == 1 => Loc.T("正在写入 1 个记录", "1 record being written"),
+                SessionActivityState.Active => Loc.T($"正在写入 {item.ActiveRecordCount} 个记录", $"{item.ActiveRecordCount} records being written"),
+                SessionActivityState.Quiet => Loc.T("近期无写入", "No recent writes"),
+                _ => Loc.T("未找到本地记录", "No local records"),
+            };
+            string count = Loc.T($"共 {item.RecordCount} 个本地记录", item.RecordCount == 1 ? "1 local record" : $"{item.RecordCount} local records");
+            return ProviderCatalog.Name(item.Source) + " · " + state + (when.Length > 0 ? " · " + when : "") + " · " + count;
+        }));
+        string privacy = Loc.T("只读会话记录的时间与数量，不读对话内容。", "Only record times and counts are read; conversation content is not.");
+        if (detail.Length > 0) detail += "\n" + privacy; else detail = privacy;
+
+        var grid = new Grid { Height = WorkStripHeight(panelHeight), ToolTip = detail, ClipToBounds = true };
+        grid.ColumnDefinitions.Add(new ColumnDefinition());
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        grid.Children.Add(line);
+        if (ContentCanvas.Width >= 620 && panelHeight >= 190)
+        {
+            var right = UI.Fixed(metrics, 10.5, 18, UI.Tertiary);
+            right.HorizontalAlignment = HorizontalAlignment.Right; right.Margin = new Thickness(12, 0, 0, 0);
+            Grid.SetColumn(right, 1); grid.Children.Add(right);
+        }
+        AutomationProperties.SetName(grid, status + ". " + metrics + ". " + privacy);
+        return grid;
     }
 
     // A joined switch: one rounded strip, the selected segment filled. Buttons carry accessible names. With a glide key the fill
@@ -342,7 +435,12 @@ public partial class MainWindow
         var grid = new UniformGrid { Columns = count, Rows = 1 };
         for (int i = 0; i < columns.Count; i++)
             grid.Children.Add(Column(columns[i].Entry, columns[i].Quota, columns[i].Usage, views[i], layout, inline, wide, center, i > 0, columnWidth - layout.ColumnPad * 2 - (i > 0 ? 1 : 0)));
-        UsageContent.Children.Add(grid);
+        var columnPage = new Grid();
+        columnPage.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        columnPage.RowDefinitions.Add(new RowDefinition());
+        columnPage.Children.Add(WorkStrip(ContentCanvas.Height));
+        Grid.SetRow(grid, 1); columnPage.Children.Add(grid);
+        UsageContent.Children.Add(columnPage);
     }
 
     // Before its first reading a quota has its defaults: nothing read, no time, and the label and the detail alike.
@@ -367,13 +465,12 @@ public partial class MainWindow
         column.RowDefinitions.Add(new RowDefinition());
         column.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
 
-        // Title row: the plan sits right after the name, and the name gives way first. A small dot at the row's right end says
-        // whether the tool is writing its session records right now (SessionActivity).
+        // Title row: the plan sits right after the name, and the name gives way first. Work activity belongs to the page-level
+        // strip above the columns, not to a quota: the same tool may keep no quota here, or appear in more than one column.
         var head = new Grid();
         head.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         head.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         head.ColumnDefinitions.Add(new ColumnDefinition());
-        head.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         var (nameTop, chipTop, chipLift) = TitlePlaces(layout, VisualTreeHelper.GetDpi(this).DpiScaleY, _scale);
         var name = UI.Centered(entry.Name, layout.Name, off ? UI.Secondary : UI.Primary, FontWeights.SemiBold);
         name.HorizontalAlignment = HorizontalAlignment.Left;
@@ -387,14 +484,6 @@ public partial class MainWindow
             var chip = PlanChip(snapshot, layout, chipTop, chipLift);
             Grid.SetColumn(chip, 1); head.Children.Add(chip);
             chip.Measure(new Size(double.PositiveInfinity, layout.Head)); occupied += chip.DesiredSize.Width;
-        }
-        // The dot asks for no room of its own beyond a few DIP, and only when the row is wide enough to keep the name beside it.
-        if (ActivityDot(entry, layout, nameTop) is { } dot)
-        {
-            dot.Measure(new Size(double.PositiveInfinity, layout.Head));
-            double width = dot.DesiredSize.Width;
-            if (innerWidth - occupied - width >= layout.Name * 4)
-            { Grid.SetColumn(dot, 3); head.Children.Add(dot); occupied += width; }
         }
         name.MaxWidth = Math.Max(20, innerWidth - occupied);
         // The page stretches within its size step instead of being built again (RenderUsage), so the name gives way to the plan
@@ -548,25 +637,6 @@ public partial class MainWindow
         var chip = Enumerable.Range(-3, 7).Select(step => Snap(ideal) + step * pixel).MinBy(Miss);
         double lift = Math.Round((target - Capitals(chip + border, layout.Plan)) * screen) / screen;
         return (name, chip, lift);
-    }
-
-    // top: where the name's line box starts in the title row, from TitlePlaces. A small dot at the row's right end while the tool is
-    // writing its session records (SessionActivity), in that application's color, with the tool's name in its tip: the panel is a
-    // glance, so the dot says only that something is running, and nothing about the conversation. Null when the tool is not
-    // writing, or keeps no records the panel can watch (SessionSources), so a quiet column has nothing extra in it.
-    private FrameworkElement? ActivityDot(AppEntry entry, Layout layout, double top)
-    {
-        if (!_app.Working.Contains(entry.QuotaSource)) return null;
-        double size = Math.Max(4, Math.Round(layout.Label * .5));
-        var dot = new Ellipse
-        {
-            Width = size, Height = size, Fill = UI.Brush(PanelTheme.AppTheme(entry)),
-            VerticalAlignment = VerticalAlignment.Top, HorizontalAlignment = HorizontalAlignment.Right,
-            Margin = new Thickness(4, Math.Round(top + (UI.LineBox(layout.Name) - size) / 2), 0, 0),
-            ToolTip = Loc.T($"{entry.Name} 正在工作", $"{entry.Name} is working")
-        };
-        AutomationProperties.SetName(dot, Loc.T("正在工作", "Working now"));
-        return dot;
     }
 
     // top and lift: from TitlePlaces. The text sits right below the border: centered, it moved by a pixel where the rounded

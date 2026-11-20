@@ -62,6 +62,7 @@
     <Compile Include="..\..\src\AxDeck\SettingsPalette.cs" Link="SettingsPalette.cs" />
     <Compile Include="..\..\src\AxDeck\UI.cs" Link="UI.cs" />
     <Compile Include="..\..\src\AxDeck\ServicesView.cs" Link="ServicesView.cs" />
+    <Compile Include="..\..\src\AxDeck\WorkView.cs" Link="WorkView.cs" />
     <!-- The desktop page: its icons are drawn from real files and system entries, so the grid and the service are checked on their own. -->
     <Compile Include="..\..\src\AxDeck\Native\ShellDesktopIcons.cs" Link="ShellDesktopIcons.cs" />
     <Compile Include="..\..\src\AxDeck\Native\ShellDesktop.cs" Link="ShellDesktop.cs" />

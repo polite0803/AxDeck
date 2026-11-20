@@ -45,8 +45,8 @@ public sealed record IgnoredMediaApp(string AppId = "", string Name = "", string
 public enum ProviderId { Claude, Codex, Antigravity, Cursor, GlmChina, NewApi, Sub2Api, Custom, ZCode = 10, GlmGlobal = 11, Dsh = 12, DeepSeek = 13, GrokBot = 14, Kimi = 15, KimiApi = 16, OpenCode = 17, OpenCodeGo = 18, OpenRouter = 19, Pi = 20, LocalApp = 21 }
 public enum SettingsTheme { System, Light, Dark }
 // Pages are saved as numbers, so new members go at the end; their order in the page switch is DeckSettings.PageOrder.
-public enum DeckPage { Usage, Music, Monitor, Clipboard, Devices, Services, Boxes, Desktop }
-public enum DefaultDeckPage { Last, Usage, Music, Monitor, Clipboard, Devices, Services, Boxes, Desktop }
+public enum DeckPage { Usage, Music, Monitor, Clipboard, Devices, Services, Boxes, Desktop, Work }
+public enum DefaultDeckPage { Last, Usage, Music, Monitor, Clipboard, Devices, Services, Boxes, Desktop, Work }
 // What the mouse wheel does over the expanded panel. Saved as numbers, so new members go at the end.
 public enum MouseWheelAction { None, Pages, Volume }
 // What a double click on an end of the collapsed notch or capsule does: turn its auto width on or off, or start moving it
@@ -344,6 +344,7 @@ public static class MonitorSizes
 public sealed class DeckSettings
 {
     private List<AppEntry>? _apps;
+    private List<ProviderId>? _workSources;
     private List<CompactReading>? _readings;
     private List<CompactPart> _notchOrder = [.. CompactParts.Default], _capsuleOrder = [.. CompactParts.Default];
     private List<DeckPage> _pageOrder = [.. DeckPages.Order];
@@ -611,6 +612,10 @@ public sealed class DeckSettings
     // Kept while Display is Primary, so that choosing displays again restores them.
     public List<ChosenDisplay> DisplayMonitors { get; set; } = [];
     public bool UsagePage { get; set; } = true;
+    // The development-work page: registered projects, recent focus sessions and ready-to-paste work context.
+    public bool WorkPage { get; set; } = true;
+    public double WorkWidth { get; set; } = 680;
+    public double WorkHeight { get; set; } = 320;
     // The system monitor page; it reads the system only while it is open on screen.
     public bool MonitorPage { get; set; } = true;
     public double MonitorWidth { get; set; } = MonitorSizes.Default.Width;
@@ -733,6 +738,13 @@ public sealed class DeckSettings
         set => _readings = value;
     }
     public bool UsageAutoSync { get; set; } = true;
+    // The tools the panel watches for local work activity, independently of which quota columns are shown. The default keeps
+    // the two session folder watchers the app began with; a source without local session records is never saved here.
+    public List<ProviderId> WorkSources
+    {
+        get => _workSources ??= [ProviderId.Claude, ProviderId.Codex];
+        set => _workSources = value;
+    }
     // The settings window's size when last closed, in DIPs, and whether it was maximized. Empty until it is closed once;
     // it opens at the default size then. The size is fitted to the screen the window opens on.
     public double? SettingsWindowWidth { get; set; }
@@ -841,6 +853,7 @@ public sealed class DeckSettings
     {
         var copy = (DeckSettings)MemberwiseClone();
         copy._apps = _apps?.Select(app => app.Copy()).ToList();
+        copy._workSources = _workSources is null ? null : [.. _workSources];
         copy._readings = _readings?.Select(reading => reading?.Copy()!).ToList();
         copy.MonitorCustomColors = (MonitorCustomColors ?? new()).Copy();
         copy._notchOrder = [.. _notchOrder]; copy._capsuleOrder = [.. _capsuleOrder]; copy._pageOrder = [.. _pageOrder];
@@ -872,11 +885,15 @@ public sealed class DeckSettings
             }
             app.Normalize();
         }
+        // A source is watched once, in the order the user chose. Unknown values and tools that keep no local records are dropped.
+        WorkSources = [.. (WorkSources ?? []).Where(source => SessionSources.Supports(source)).Distinct()];
         Width = double.IsFinite(Width) ? Math.Clamp(Width, DeckPages.MinWidth, DeckPages.MaxWidth) : 760;
         Width = Math.Max(Width, MinimumWidth);
         Height = double.IsFinite(Height) ? Math.Clamp(Height, DeckPages.MinHeight, DeckPages.MaxHeight) : 240;
         MusicWidth = double.IsFinite(MusicWidth) ? Math.Clamp(MusicWidth, DeckPages.MinWidth, DeckPages.MaxWidth) : 440;
         MusicHeight = double.IsFinite(MusicHeight) ? Math.Clamp(MusicHeight, DeckPages.MinHeight, DeckPages.MaxHeight) : 200;
+        WorkWidth = double.IsFinite(WorkWidth) ? Math.Clamp(WorkWidth, DeckPages.MinWidth, DeckPages.MaxWidth) : 680;
+        WorkHeight = double.IsFinite(WorkHeight) ? Math.Clamp(WorkHeight, DeckPages.MinHeight, DeckPages.MaxHeight) : 320;
         MonitorWidth = double.IsFinite(MonitorWidth) ? Math.Clamp(MonitorWidth, DeckPages.MinWidth, DeckPages.MaxWidth) : MonitorSizes.Default.Width;
         DevicesWidth = double.IsFinite(DevicesWidth) ? Math.Clamp(DevicesWidth, DeckPages.MinWidth, DeckPages.MaxWidth) : 460;
         DevicesHeight = double.IsFinite(DevicesHeight) ? Math.Clamp(DevicesHeight, DeckPages.MinHeight, DeckPages.MaxHeight) : 200;

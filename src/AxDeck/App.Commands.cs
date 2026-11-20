@@ -69,6 +69,33 @@ public partial class App
                 SetUserHidden(false);
                 FocusStart(AppCommand.Minutes(argument) ?? FocusTimer.Presets[1]);
                 break;
+            case AppCommandKind.FocusProject when argument is not null && Guid.TryParse(argument, out var focusProject):
+                SetUserHidden(false);
+                FocusStartProject(focusProject);
+                break;
+            case AppCommandKind.FocusProject:
+                SetUserHidden(false);
+                SystemNotice(Loc.T("项目尚未登记", "Project not registered"),
+                    Loc.T("这个专注命令没有有效的项目编号。", "This focus command has no valid project id."), 1);
+                break;
+            case AppCommandKind.Project when Projects.Find(argument) is { } project:
+                SetUserHidden(false);
+                OpenProject(project.Id);
+                break;
+            case AppCommandKind.Project:
+                SetUserHidden(false);
+                SystemNotice(Loc.T("项目尚未登记", "Project not registered"),
+                    Loc.T($"“{argument}”还没有在设置中登记，因此没有打开。", $"\"{argument}\" has not been registered in the settings, so it was not opened."), 1);
+                break;
+            case AppCommandKind.RestoreProject when Projects.Find(argument) is { } restore:
+                SetUserHidden(false);
+                RestoreProject(restore.Id);
+                break;
+            case AppCommandKind.RestoreProject:
+                SetUserHidden(false);
+                SystemNotice(Loc.T("项目尚未登记", "Project not registered"),
+                    Loc.T($"“{argument}”还没有在设置中登记，因此没有恢复。", $"\"{argument}\" has not been registered in the settings, so it was not restored."), 1);
+                break;
             case AppCommandKind.Search:
                 SetUserHidden(false);
                 Deck.PaletteOpen(argument);
