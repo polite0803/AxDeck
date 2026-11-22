@@ -26,6 +26,16 @@ AxDeck 是 Windows 11 的「灵动岛」：常驻屏幕顶部的面板，显示 
 
 ## 构建与测试
 
+一条命令跑完整个门禁（构建 + 全部测试，逐步计时，任一步失败即非 0 退出）：
+
+```bash
+pwsh -File scripts/Gate.ps1
+```
+
+在真实开发机上跑全部 Windows 检查；`-Hosted` 只跑 CI 虚拟机上也成立的子集（读本机硬件的那几项会跳过）。脚本的参数、日志目录与退出码见文件头注释。提交前至少完整跑一次。
+
+也可以分步手工跑：
+
 ```bash
 dotnet build AxDeck.sln -c Release
 ```
