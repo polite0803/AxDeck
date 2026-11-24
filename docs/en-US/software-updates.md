@@ -6,7 +6,7 @@ The page does two things: it reads what is installed on this PC and asks whether
 
 ## What the page shows
 
-- A status line at the top: how many updates are available and when the last check ran, or "Checking… (the first check takes 1–2 minutes)". The "Check now" button at its right runs a check whenever you want.
+- A status line at the top: how many updates are available and when the last check ran, or "Checking… (the first check takes 1–2 minutes)". The "Check now" button at its right runs a check whenever you want. After you press Update, the right side of the line shows how that went until the next check finishes.
 - One row per app: its name, `current version → available version`, where the update came from (`WinGet` or `Vendor`), and the action at the right.
 - More rows than fit can be reached with the mouse wheel.
 
@@ -34,7 +34,8 @@ The table is meant to grow: when an app publishes a version endpoint, one entry 
 
 - A `WinGet` item has an "Update" button: the one package is upgraded silently in the background, the button reads "Updating…", then "Updated", and a new check runs by itself.
 - An item with only a download page has a "Download" button: the app's download page opens in your browser, and the rest is yours to do.
-- A failed upgrade turns the button into "Retry"; selecting it tries again.
+- A failed upgrade turns the button into "Retry" and puts winget's own words in the status line (no matching package, administrator rights needed, and so on); selecting it tries again.
+- An item that is no longer in the list, or a download page that will not open, also says so in the status line, so a click never looks ignored.
 - Upgrades run one at a time: WinGet holds a lock, and concurrent runs fail each other.
 - Nothing is updated on its own; every item waits for your click.
 
