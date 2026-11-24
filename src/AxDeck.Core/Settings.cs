@@ -45,8 +45,8 @@ public sealed record IgnoredMediaApp(string AppId = "", string Name = "", string
 public enum ProviderId { Claude, Codex, Antigravity, Cursor, GlmChina, NewApi, Sub2Api, Custom, ZCode = 10, GlmGlobal = 11, Dsh = 12, DeepSeek = 13, GrokBot = 14, Kimi = 15, KimiApi = 16, OpenCode = 17, OpenCodeGo = 18, OpenRouter = 19, Pi = 20, LocalApp = 21 }
 public enum SettingsTheme { System, Light, Dark }
 // Pages are saved as numbers, so new members go at the end; their order in the page switch is DeckSettings.PageOrder.
-public enum DeckPage { Usage, Music, Monitor, Clipboard, Devices, Services, Boxes, Desktop, Work }
-public enum DefaultDeckPage { Last, Usage, Music, Monitor, Clipboard, Devices, Services, Boxes, Desktop, Work }
+public enum DeckPage { Usage, Music, Monitor, Clipboard, Devices, Services, Boxes, Desktop, Work, Software = 9 }
+public enum DefaultDeckPage { Last, Usage, Music, Monitor, Clipboard, Devices, Services, Boxes, Desktop, Work, Software = 10 }
 // What the mouse wheel does over the expanded panel. Saved as numbers, so new members go at the end.
 public enum MouseWheelAction { None, Pages, Volume }
 // What a double click on an end of the collapsed notch or capsule does: turn its auto width on or off, or start moving it
@@ -679,6 +679,16 @@ public sealed class DeckSettings
     public bool DesktopPage { get; set; } = true;
     public double DesktopWidth { get; set; } = 760;
     public double DesktopHeight { get; set; } = 400;
+    // 软件更新页：整机已安装应用的可用更新（SoftwareUpdates）。检查要跑一次 winget，只在页面打开或到点时进行。
+    public bool SoftwarePage { get; set; } = true;
+    public double SoftwareWidth { get; set; } = 760;
+    public double SoftwareHeight { get; set; } = 240;
+    // 关闭后不再自动检查（启动后与每 6 小时）；页面仍可在打开时手动点「立即检查」。
+    public bool SoftwareAutoCheck { get; set; } = true;
+    // 列表默认只显示有更新的项；打开后连没有更新的已安装应用也一起列出。
+    public bool SoftwareShowAll { get; set; } = false;
+    // 在可见的终端窗口里跑 winget 升级，便于看进度和交互提示；关掉则隐藏窗口。
+    public bool SoftwareUpgradeInTerminal { get; set; } = false;
     // AxDeck 运行期间把真实桌面的图标藏起来。关掉它，桌面照旧由 Windows 画，这一页只是多一份镜像。
     public bool DesktopTakeOver { get; set; } = true;
     // The Android emulator the same page drives (the old "AxTV 模拟器管理器"): the AVD to start, and whether an
@@ -903,6 +913,8 @@ public sealed class DeckSettings
         BoxesHeight = double.IsFinite(BoxesHeight) ? Math.Clamp(BoxesHeight, DeckPages.MinHeight, DeckPages.MaxHeight) : 400;
         DesktopWidth = double.IsFinite(DesktopWidth) ? Math.Clamp(DesktopWidth, DeckPages.MinWidth, DeckPages.MaxWidth) : 760;
         DesktopHeight = double.IsFinite(DesktopHeight) ? Math.Clamp(DesktopHeight, DeckPages.MinHeight, DeckPages.MaxHeight) : 400;
+        SoftwareWidth = double.IsFinite(SoftwareWidth) ? Math.Clamp(SoftwareWidth, DeckPages.MinWidth, DeckPages.MaxWidth) : 760;
+        SoftwareHeight = double.IsFinite(SoftwareHeight) ? Math.Clamp(SoftwareHeight, DeckPages.MinHeight, DeckPages.MaxHeight) : 240;
         // 「桌面」页的外观设置：存档里没有就给一份默认的，后面的代码直接用，不必先问有没有。
         Boxes ??= new DesktopLook();
         AxTvAvd = (AxTvAvd ?? "").Trim();

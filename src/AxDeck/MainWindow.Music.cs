@@ -85,6 +85,7 @@ public partial class MainWindow
     internal bool IsMonitorPage => CurrentPage == DeckPage.Monitor;
     internal bool IsUsagePage => CurrentPage == DeckPage.Usage;
     internal bool IsShelfPage => CurrentPage == DeckPage.Clipboard;
+    internal bool IsSoftwarePage => CurrentPage == DeckPage.Software;
 
     private void InitializeMusic()
     {
@@ -144,11 +145,11 @@ public partial class MainWindow
         bool back = Settings.PageOrder.IndexOf(page) < Settings.PageOrder.IndexOf(before);
         _handover.Send(picture, place, PageContent(page), back ? Handover.Back : Handover.Forward);
     }
-    private FrameworkElement PageContent(DeckPage page) => page switch { DeckPage.Work => WorkContent, DeckPage.Music => MusicContent, DeckPage.Monitor => MonitorContent, DeckPage.Clipboard => ShelfContent, DeckPage.Devices => DevicesContent, DeckPage.Services => ServicesContent, DeckPage.Desktop => DesktopContent, _ => UsageContent };
+    private FrameworkElement PageContent(DeckPage page) => page switch { DeckPage.Work => WorkContent, DeckPage.Music => MusicContent, DeckPage.Monitor => MonitorContent, DeckPage.Clipboard => ShelfContent, DeckPage.Devices => DevicesContent, DeckPage.Services => ServicesContent, DeckPage.Desktop => DesktopContent, DeckPage.Software => SoftwareContent, _ => UsageContent };
     // 展开的面板只显示一个页面。每个页面的渲染都从这里过，而不是各自手写一串 Visibility = Collapsed：
     // 那样每加一页就要改六处，漏一处旧页面的内容就留在新页面上（PageContentShowing）。
     private void ShowPageContent(Grid page) =>
-        PageContentShowing.ShowOnly(page, [WorkContent, UsageContent, MusicContent, MonitorContent, ShelfContent, DevicesContent, ServicesContent, DesktopContent]);
+        PageContentShowing.ShowOnly(page, [WorkContent, UsageContent, MusicContent, MonitorContent, ShelfContent, DevicesContent, ServicesContent, DesktopContent, SoftwareContent]);
     private void ShowPage(DeckPage page, bool animatePage)
     {
         // The music page keeps what it built while another page shows (RenderMusic's key), so switching back does not build it again.
@@ -190,6 +191,7 @@ public partial class MainWindow
     private void DevicesPage_Click(object sender, RoutedEventArgs e) => SelectPage(DeckPage.Devices);
     private void ServicesPage_Click(object sender, RoutedEventArgs e) => SelectPage(DeckPage.Services);
     private void DesktopPage_Click(object sender, RoutedEventArgs e) => SelectPage(DeckPage.Desktop);
+    private void SoftwarePage_Click(object sender, RoutedEventArgs e) => SelectPage(DeckPage.Software);
     // Where the usage page's application tabs start: after the page switch, which holds one 28 DIP button per shown page.
     private double ApplicationPagesLeft(double side) { int pages = DeckPages.Visible(Settings).Count; return side + (pages <= 1 ? 36 : 72 + 29 * (pages - 2)); }
     // The header shared by both pages (see PanelHeader). Its row holds the page's top margin, so the clock, the switch and the
@@ -206,7 +208,7 @@ public partial class MainWindow
         Toolbar.Height = header.Height;
         PageSwitch.Margin = new Thickness(header.Side, 0, 0, 0);
         FitPageButtons(header);
-        foreach (var button in new[] { AIUsageButton, WorkPageButton, MonitorPageButton, MusicPageButton, ShelfPageButton, DevicesPageButton, ServicesPageButton, DesktopPageButton })
+        foreach (var button in new[] { AIUsageButton, WorkPageButton, MonitorPageButton, MusicPageButton, ShelfPageButton, DevicesPageButton, ServicesPageButton, DesktopPageButton, SoftwarePageButton })
         {
             // A local corner for these two buttons only; PanelIconButton keeps its 6 DIP corner elsewhere.
             button.ApplyTemplate();
@@ -220,7 +222,7 @@ public partial class MainWindow
     private void RenderPageSwitch()
     {
         SetValue(SuppressMusicToolTipsProperty, IsMusicPage);
-        foreach (var button in new FrameworkElement[] { AIUsageButton, WorkPageButton, MonitorPageButton, MusicPageButton, ShelfPageButton, DevicesPageButton, ServicesPageButton, DesktopPageButton, AudioOutputButton })
+        foreach (var button in new FrameworkElement[] { AIUsageButton, WorkPageButton, MonitorPageButton, MusicPageButton, ShelfPageButton, DevicesPageButton, ServicesPageButton, DesktopPageButton, SoftwarePageButton, AudioOutputButton })
         {
             button.SetValue(SuppressMusicToolTipsProperty, false);
             ToolTipService.SetIsEnabled(button, true);
@@ -230,7 +232,7 @@ public partial class MainWindow
         PageSwitch.Visibility = _details && IsUsagePage || IsShelfPage && ShelfHidesSwitch ? Visibility.Collapsed : Visibility.Visible;
         OrderPageButtons();
         if (!IsShelfPage) { ShelfToolbar.Visibility = Visibility.Collapsed; ShelfSearchButton.Visibility = Visibility.Collapsed; }
-        foreach (var (button, page) in new[] { (AIUsageButton, DeckPage.Usage), (WorkPageButton, DeckPage.Work), (MusicPageButton, DeckPage.Music), (MonitorPageButton, DeckPage.Monitor), (ShelfPageButton, DeckPage.Clipboard), (DevicesPageButton, DeckPage.Devices), (ServicesPageButton, DeckPage.Services), (DesktopPageButton, DeckPage.Desktop) })
+        foreach (var (button, page) in new[] { (AIUsageButton, DeckPage.Usage), (WorkPageButton, DeckPage.Work), (MusicPageButton, DeckPage.Music), (MonitorPageButton, DeckPage.Monitor), (ShelfPageButton, DeckPage.Clipboard), (DevicesPageButton, DeckPage.Devices), (ServicesPageButton, DeckPage.Services), (DesktopPageButton, DeckPage.Desktop), (SoftwarePageButton, DeckPage.Software) })
         {
             bool current = CurrentPage == page;
             button.Visibility = DeckPages.Shown(Settings, page) ? Visibility.Visible : Visibility.Collapsed;

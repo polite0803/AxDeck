@@ -31,11 +31,11 @@ public sealed partial class SettingsWindow : Window, IKeepsAppFonts
     private static string[] _pages => [Loc.T("常规", "General"), Loc.T("收起外观", "Collapsed view"), Loc.T("展开外观", "Expanded view"),
         Loc.T("配额与统计", "Quotas and usage"), Loc.T("模型价格", "Model prices"), Loc.T("样式", "Style"), Loc.T("播放器", "Players"), Loc.T("关于 AxDeck", "About AxDeck"), Loc.T("面板主题", "Panel theme"), Loc.T("显示与读数", "Display and readings"), Loc.T("增强传感器", "Enhanced sensors"), Loc.T("快捷键", "Shortcuts"), Loc.T("显示与设备", "Display and devices"),
         Loc.T("剪贴板", "Clipboard"), Loc.T("文件中转", "File transfer"), Loc.T("快捷操作", "Quick actions"), Loc.T("桌面页", "Desktop page"),
-        Loc.T("项目与工作", "Projects and work")];
+        Loc.T("项目与工作", "Projects and work"), Loc.T("软件更新", "Software updates")];
     // The order of the pages in the navigation; the theme page (ThemePage) and the shortcuts (HotkeysPage) are listed with the
     // basic pages, and the system monitor's page (MonitorSettingsPage) has its own group after music, then the clipboard's two
     // pages, before About.
-    private static readonly int[] PageOrder = [0, 1, 2, ThemePage, HotkeysPage, 3, 4, 5, 6, MusicGesturesPage, MonitorSettingsPage, SensorsPage, ClipboardSettingsPage, TransferSettingsPage, DevicesSettingsPage, OrganizerSettingsPage, ProjectsSettingsPage, 7];
+    private static readonly int[] PageOrder = [0, 1, 2, ThemePage, HotkeysPage, 3, 4, 5, 6, MusicGesturesPage, MonitorSettingsPage, SensorsPage, ClipboardSettingsPage, TransferSettingsPage, DevicesSettingsPage, OrganizerSettingsPage, ProjectsSettingsPage, SoftwareSettingsPage, 7];
     private int _page;
     private bool _preview;
     private StackPanel? _appRows;
@@ -328,9 +328,9 @@ public sealed partial class SettingsWindow : Window, IKeepsAppFonts
         _page = page; _navigation.Children.Clear(); _content.Children.Clear(); _aboutUpdateView = null; _scroll.ScrollToTop();
         foreach (int i in PageOrder)
         {
-            if (i is 0 or 3 or 5 or 7 or MonitorSettingsPage or ClipboardSettingsPage or DevicesSettingsPage or ProjectsSettingsPage)
+            if (i is 0 or 3 or 5 or 7 or MonitorSettingsPage or ClipboardSettingsPage or DevicesSettingsPage or ProjectsSettingsPage or SoftwareSettingsPage)
             {
-                var group = TextLine(i switch { 0 => Loc.T("基础设置", "Basics"), 3 => Loc.T("AI 用量", "AI usage"), MonitorSettingsPage => Loc.T("系统监控", "System monitor"), ClipboardSettingsPage => Loc.T("中转站", "Shelf"), DevicesSettingsPage => Loc.T("设备电量", "Device batteries"), ProjectsSettingsPage => Loc.T("开发工作", "Development work"), 5 => Loc.T("音乐", "Music"), _ => Loc.T("关于", "About") },10.5,TextTertiary);
+                var group = TextLine(i switch { 0 => Loc.T("基础设置", "Basics"), 3 => Loc.T("AI 用量", "AI usage"), MonitorSettingsPage => Loc.T("系统监控", "System monitor"), ClipboardSettingsPage => Loc.T("中转站", "Shelf"), DevicesSettingsPage => Loc.T("设备电量", "Device batteries"), ProjectsSettingsPage => Loc.T("开发工作", "Development work"), SoftwareSettingsPage => Loc.T("应用与更新", "Apps and updates"), 5 => Loc.T("音乐", "Music"), _ => Loc.T("关于", "About") },10.5,TextTertiary);
                 group.Margin = new Thickness(12, i == 0 ? 0 : 24, 0, 8); _navigation.Children.Add(group);
             }
             int target=i; bool selected=page==i;
@@ -345,13 +345,13 @@ public sealed partial class SettingsWindow : Window, IKeepsAppFonts
         }
         // The About page is titled by the wordmark itself, so the name does not appear twice.
         var head = new DockPanel { Margin = new Thickness(0,0,0,page == 7 ? 10 : 20) };
-        if (page is < 4 or 5 or 6 or ThemePage or MonitorSettingsPage or HotkeysPage or DevicesSettingsPage or ClipboardSettingsPage or MusicGesturesPage or OrganizerSettingsPage)
+        if (page is < 4 or 5 or 6 or ThemePage or MonitorSettingsPage or HotkeysPage or DevicesSettingsPage or ClipboardSettingsPage or MusicGesturesPage or OrganizerSettingsPage or SoftwareSettingsPage)
         {
             // Resets every setting on the page, so it asks first (SW-09, S-03); it keeps the look of the other "restore defaults" links.
             var reset=ActionButton(Loc.T("恢复默认", "Restore defaults"),()=>{ if(Confirm(Loc.T("恢复默认", "Restore defaults"),ResetConfirmText(page),Loc.T("恢复默认", "Restore defaults")))ResetPage(); }); reset.FontSize=11; DockPanel.SetDock(reset,Dock.Right); head.Children.Add(reset);
         }
         head.Children.Add(page == 7 ? Wordmark(28) : TextLine(_pages[page],24,TextPrimary,FontWeights.SemiBold)); _content.Children.Add(head);
-        switch(page) { case 0: General(); break; case 1: Compact(); break; case 2: Expanded(); break; case 3: Pages(); break; case 4: ModelPrices(); break; case 5: MusicStyle(); break; case 6: Players(); break; case 7: About(); break; case ThemePage: ThemesPage(); break; case MonitorSettingsPage: MonitorSettings(); break; case SensorsPage: SensorsSettings(); break; case HotkeysPage: HotkeysSettings(); break; case DevicesSettingsPage: DevicesSettings(); break; case ClipboardSettingsPage: ClipboardSettings(); break; case TransferSettingsPage: TransferSettings(); break; case MusicGesturesPage: MusicGesturesSettings(); break; case OrganizerSettingsPage: OrganizerSettings(); break; case ProjectsSettingsPage: ProjectsSettings(); break; }
+        switch(page) { case 0: General(); break; case 1: Compact(); break; case 2: Expanded(); break; case 3: Pages(); break; case 4: ModelPrices(); break; case 5: MusicStyle(); break; case 6: Players(); break; case 7: About(); break; case ThemePage: ThemesPage(); break; case MonitorSettingsPage: MonitorSettings(); break; case SensorsPage: SensorsSettings(); break; case HotkeysPage: HotkeysSettings(); break; case DevicesSettingsPage: DevicesSettings(); break; case ClipboardSettingsPage: ClipboardSettings(); break; case TransferSettingsPage: TransferSettings(); break; case MusicGesturesPage: MusicGesturesSettings(); break; case OrganizerSettingsPage: OrganizerSettings(); break; case ProjectsSettingsPage: ProjectsSettings(); break; case SoftwareSettingsPage: SoftwareSettings(); break; }
         if (_content.Children[^1] is Border lastGroup) lastGroup.Margin = new Thickness(lastGroup.Margin.Left, lastGroup.Margin.Top, lastGroup.Margin.Right, 0);
         // Apply the offset before the frame is drawn, so the rebuilt page never shows its top for a frame.
         if (keep > 0) { _scroll.UpdateLayout(); _scroll.ScrollToVerticalOffset(keep); _scroll.UpdateLayout(); }
@@ -376,6 +376,7 @@ public sealed partial class SettingsWindow : Window, IKeepsAppFonts
         TransferSettingsPage => "M 1.5,9 L 3.5,3 H 12.5 L 14.5,9 V 13 A 1,1 0 0 1 13.5,14 H 2.5 A 1,1 0 0 1 1.5,13 Z M 1.5,9 H 5.5 L 6.5,10.5 H 9.5 L 10.5,9 H 14.5",
         OrganizerSettingsPage => "M 1.5,3 H 14.5 V 11 H 1.5 Z M 5,13.5 H 11 M 8,11 V 13.5",
         ProjectsSettingsPage => "M 1.5,3 H 14.5 V 13 H 1.5 Z M 1.5,6 H 14.5 M 4,9 H 7 M 4,11 H 10 M 11.5,9 H 12.5",
+        SoftwareSettingsPage => "M 8,1 V 9 M 4.5,5.5 L 8,9 L 11.5,5.5 M 2,13 H 14",
         ThemePage => "M 8,1 C 4,1 1,4 1,8 C 1,12 4,15 8,15 C 9.4,15 9.6,13.6 8.8,12.8 C 8,12 8.6,10.5 10,10.5 H 12 C 13.7,10.5 15,9.2 15,7.5 C 15,4 12,1 8,1 Z M 4.6,8 V 8.1 M 6,4.8 V 4.9 M 9.6,4.4 V 4.5 M 12,6.8 V 6.9",
         5 => "M 6,12.5 V 3 L 14,1.5 V 11 M 6,12.5 A 2,2 0 1 1 2,12.5 A 2,2 0 1 1 6,12.5 M 14,11 A 2,2 0 1 1 10,11 A 2,2 0 1 1 14,11",
         _ => "M 8,1 A 7,7 0 1 1 7.99,1 M 8,7 V 12 M 8,4 V 4.2"
@@ -557,6 +558,7 @@ public sealed partial class SettingsWindow : Window, IKeepsAppFonts
                     DeckPage.Devices => (DefaultDeckPage.Devices, Loc.T("设备电量", "Device batteries")),
                     DeckPage.Services => (DefaultDeckPage.Services, Loc.T("服务与工具", "Services & tools")),
                     DeckPage.Desktop => (DefaultDeckPage.Desktop, Loc.T("桌面", "Desktop")),
+                    DeckPage.Software => (DefaultDeckPage.Software, Loc.T("软件更新", "Software updates")),
                     _ => (DefaultDeckPage.Usage, Loc.T("AI 用量", "AI usage"))
                 });
             filling = true;
@@ -581,6 +583,7 @@ public sealed partial class SettingsWindow : Window, IKeepsAppFonts
                 DeckPage.Devices => SizeRow(Loc.T("显示设备电量", "Show device batteries"), Loc.T("设备电量", "device batteries"), page, S.DevicesPage, value => { Change(s => s.DevicesPage = value); FillStarts(); }, Collect(DeviceSizeControls), pages, FillStarts),
                 DeckPage.Services => SizeRow(Loc.T("显示服务与工具", "Show services & tools"), Loc.T("服务与工具", "services & tools"), page, S.ServicesPage, value => { Change(s => s.ServicesPage = value); FillStarts(); }, Collect(ServicesSizeControls), pages, FillStarts),
                 DeckPage.Desktop => SizeRow(Loc.T("显示桌面", "Show the desktop"), Loc.T("桌面", "desktop"), page, S.DesktopPage, value => { Change(s => s.DesktopPage = value); FillStarts(); }, Collect(DesktopSizeControls), pages, FillStarts),
+                DeckPage.Software => SizeRow(Loc.T("显示软件更新", "Show software updates"), Loc.T("软件更新", "software updates"), page, S.SoftwarePage, value => { Change(s => s.SoftwarePage = value); FillStarts(); }, Collect(SoftwareSizeControls), pages, FillStarts),
                 _ => SizeRow(Loc.T("显示 AI 用量", "Show AI usage"), Loc.T("AI 用量", "AI usage"), page, S.UsagePage, value => { Change(s => s.UsagePage = value); FillStarts(); }, Collect(UsageSizes), pages, FillStarts)
             });
         UpdateDividers(pages);
@@ -702,7 +705,8 @@ public sealed partial class SettingsWindow : Window, IKeepsAppFonts
                     s.DevicesPage=defaults.DevicesPage;s.DevicesWidth=defaults.DevicesWidth;s.DevicesHeight=defaults.DevicesHeight;
                     s.ServicesPage=defaults.ServicesPage;s.ServicesWidth=defaults.ServicesWidth;s.ServicesHeight=defaults.ServicesHeight;
                     s.BoxesWidth=defaults.BoxesWidth;s.BoxesHeight=defaults.BoxesHeight;
-                    s.DesktopPage=defaults.DesktopPage;s.DesktopWidth=defaults.DesktopWidth;s.DesktopHeight=defaults.DesktopHeight;s.DesktopTakeOver=defaults.DesktopTakeOver;break;
+                    s.DesktopPage=defaults.DesktopPage;s.DesktopWidth=defaults.DesktopWidth;s.DesktopHeight=defaults.DesktopHeight;s.DesktopTakeOver=defaults.DesktopTakeOver;
+                    s.SoftwarePage=defaults.SoftwarePage;s.SoftwareWidth=defaults.SoftwareWidth;s.SoftwareHeight=defaults.SoftwareHeight;break;
                 case MonitorSettingsPage:s.MonitorPalette=defaults.MonitorPalette;s.MonitorCustomColors=defaults.MonitorCustomColors;s.CompactWarningColor=null;s.CompactCriticalColor=null;s.CompactSmoothing=defaults.CompactSmoothing;s.MonitorInterval=defaults.MonitorInterval;s.MonitorProcesses=defaults.MonitorProcesses;s.MonitorSort=defaults.MonitorSort;s.MonitorMain=defaults.MonitorMain;s.MonitorProcessView=defaults.MonitorProcessView;
                     s.CompactMonitor=defaults.CompactMonitor;s.CompactMonitorItems=defaults.CompactMonitorItems;s.CompactReadings=defaults.CompactReadings;s.NotchAutoWidth=defaults.NotchAutoWidth;s.CapsuleAutoWidth=defaults.CapsuleAutoWidth;s.MonitorTemperatures=defaults.MonitorTemperatures;s.MonitorStorage=defaults.MonitorStorage;s.MonitorPower=defaults.MonitorPower;s.MonitorGpuUsage=defaults.MonitorGpuUsage;break;
                 // The devices' order, names and switches stay; the page and its size are Expanded view's (case 2).
@@ -724,6 +728,8 @@ public sealed partial class SettingsWindow : Window, IKeepsAppFonts
                     PanelThemes.ApplyMatching(palette,s);break;}
                 // 桌面页的全部设置都在 DeckSettings.Boxes 里，恢复默认就是换一整套新的。
                 case OrganizerSettingsPage:s.Boxes=new DesktopLook();break;
+                // 检查出来的结果不是设置，留在 software-updates.json 里，恢复默认不动它。
+                case SoftwareSettingsPage:s.SoftwareAutoCheck=defaults.SoftwareAutoCheck;break;
             }
         });
         // 桌面页的数据由 BoxService 自己拿着一份，而上面改的只是副本，UpdateSettings 之后才生效：必须在这里、等新的

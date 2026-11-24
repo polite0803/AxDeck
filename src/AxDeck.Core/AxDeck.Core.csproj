@@ -13,6 +13,8 @@
     <EmbeddedResource Include="Templates\theme-template.json" LogicalName="AxDeck.Core.Templates.theme-template.json" />
     <!-- Release notes for the What's new window; see ReleaseHistory. The file name is the version. -->
     <EmbeddedResource Include="..\..\releases\*.md" LogicalName="AxDeck.Core.Releases.%(Filename)%(Extension)" />
+    <!-- Built-in update channels for apps winGet does not cover; see SoftwareCatalog. -->
+    <EmbeddedResource Include="apps.json" LogicalName="AxDeck.Core.apps.json" />
   </ItemGroup>
 
   <ItemGroup>

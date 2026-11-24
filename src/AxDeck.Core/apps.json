@@ -1,0 +1,40 @@
+[
+  {
+    "name": "Visual Studio Code",
+    "match": { "exe": "code.exe", "arp": "Visual Studio Code" },
+    "channel": {
+      "type": "url-json",
+      "url": "https://update.code.visualstudio.com/api/update/win32-x64-user/stable/latest",
+      "versionField": "productVersion"
+    },
+    "page": "https://code.visualstudio.com/download"
+  },
+  {
+    "name": "Mozilla Firefox",
+    "match": { "exe": "firefox.exe", "arp": "Mozilla Firefox" },
+    "channel": {
+      "type": "url-json",
+      "url": "https://product-details.mozilla.org/1.0/firefox_versions.json",
+      "versionField": "LATEST_FIREFOX_VERSION"
+    },
+    "page": "https://www.mozilla.org/firefox/"
+  },
+  {
+    "name": "GitHub CLI",
+    "match": { "exe": "gh.exe", "arp": "GitHub CLI", "winget": "GitHub.cli" },
+    "channel": { "type": "github-release", "repo": "cli/cli" },
+    "page": "https://github.com/cli/cli/releases"
+  },
+  {
+    "name": "DBeaver",
+    "match": { "exe": "dbeaver.exe", "arp": "DBeaver" },
+    "channel": { "type": "github-release", "repo": "dbeaver/dbeaver" },
+    "page": "https://dbeaver.io/download/"
+  },
+  {
+    "name": "Obsidian",
+    "match": { "exe": "obsidian.exe", "arp": "Obsidian" },
+    "channel": { "type": "github-release", "repo": "obsidianmd/obsidian-releases" },
+    "page": "https://obsidian.md/download"
+  }
+]

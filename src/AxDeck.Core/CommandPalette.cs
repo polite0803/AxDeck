@@ -173,6 +173,7 @@ public static class CommandPalette
         DeckPage.Devices => Loc.T("设备电量", "Device batteries"),
         DeckPage.Services => Loc.T("服务与工具", "Services and tools"),
         DeckPage.Desktop => Loc.T("桌面", "Desktop"),
+        DeckPage.Software => Loc.T("软件更新", "Software updates"),
         _ => page.ToString(),
     };
 
@@ -187,6 +188,7 @@ public static class CommandPalette
         DeckPage.Devices => ["devices", "battery", "设备", "电量", "耳机", "键盘", "鼠标"],
         DeckPage.Services => ["services", "tunnel", "bge", "服务", "隧道", "工具"],
         DeckPage.Desktop => ["desktop", "icons", "桌面", "图标"],
+        DeckPage.Software => ["software", "updates", "upgrade", "winget", "软件", "更新", "升级"],
         _ => [],
     };
 

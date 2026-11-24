@@ -185,7 +185,7 @@ internal static class ShelfTests
             ClipboardExclusions.Excludes(normalized.ClipboardExcluded, "bitwarden") && ClipboardExclusions.Excludes(normalized.ClipboardExcluded, "KEEPASS")
             && !ClipboardExclusions.Excludes(normalized.ClipboardExcluded, "Bitwarden.exe") && !ClipboardExclusions.Excludes(normalized.ClipboardExcluded, ""));
         check("Shelf settings: an older file keeps its page order, gains missing pages from the default switch and drops the organizer",
-            DeckPages.Normalize([DeckPage.Monitor, DeckPage.Usage, DeckPage.Music, DeckPage.Boxes]).SequenceEqual([DeckPage.Monitor, DeckPage.Usage, DeckPage.Music, DeckPage.Work, DeckPage.Clipboard, DeckPage.Devices, DeckPage.Services, DeckPage.Desktop]));
+            DeckPages.Normalize([DeckPage.Monitor, DeckPage.Usage, DeckPage.Music, DeckPage.Boxes]).SequenceEqual([DeckPage.Monitor, DeckPage.Usage, DeckPage.Music, DeckPage.Work, DeckPage.Clipboard, DeckPage.Devices, DeckPage.Services, DeckPage.Desktop, DeckPage.Software]));
     }
 
 

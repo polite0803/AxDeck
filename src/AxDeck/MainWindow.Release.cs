@@ -58,6 +58,11 @@ public partial class MainWindow
                     _desktopView?.Dispose();
                     _desktopView = null;
                     break;
+                case DeckPage.Software:
+                    held |= _softwareView is not null;
+                    // 行内状态跟着视图走：页面在设置里关掉再打开时，不该还留着「更新中」。
+                    _softwareView = null; _softwareKey = ""; _softwareRows.Clear();
+                    break;
             }
             released |= held;
         }

@@ -1,0 +1,21 @@
+Name                                                         Id                                 Version        Available
+-----------------------------------------------------------------------------------------------------------------------------
+CMake                                                        Kitware.CMake                      4.4.0          4.4.4
+DBeaver 26.2.1 (current user)                                DBeaver.DBeaver.Community          26.2.1         26.2.5
+GitHub CLI                                                   GitHub.cli                         2.92.0         2.105.0
+Java(TM) SE Development Kit 27.0.1.0.3 (64-bit)              Oracle.JDK.27                      27.0.1.0       27.0.1.1
+llama.cpp                                                    ggml.llamacpp                      b10107         b12602
+LLVM                                                         LLVM.LLVM                          19.1.7         23.1.6
+Microsoft .NET SDK 10.0.204 (x64)                            Microsoft.DotNet.SDK.10            10.0.204       10.0.404
+Microsoft Build of OpenJDK  17.0.16+8 (x64)                  Microsoft.OpenJDK.17               17.0.16.8      17.0.21.102
+Microsoft ODBC Driver 18 for SQL Server                      Microsoft.msodbcsql.18             18.6.1.1       18.7.1.1
+Microsoft OLE DB Driver 19 for SQL Server                    Microsoft.SQLServer.OLEDBDriver.19 19.4.1.0       19.4.3.0
+Microsoft Visual C++ 2013 Redistributable (x64) - 12.0.30501 Microsoft.VCRedist.2013.x64        12.0.30501.0   12.0.40664.0
+Microsoft Visual C++ v14 Redistributable (x64) - 14.50.35719 Microsoft.VCRedist.2015+.x64       14.50.35719.0  14.52.37029.0
+Microsoft Visual C++ v14 Redistributable (x86) - 14.50.35719 Microsoft.VCRedist.2015+.x86       14.50.35719.0  14.52.37029.0
+Outlook for Windows                                          Microsoft.Outlook                  1.2026.623.400 1.2026.812.100
+PostgreSQL 18                                                PostgreSQL.PostgreSQL.18           18.4-2         18.7-2
+PowerShell 7.6.10.0-x64                                      Microsoft.PowerShell               7.6.10.0       7.7.0.0
+Python Launcher                                              Python.Launcher                    3.12.9         3.15.2
+WinFsp 2025                                                  WinFsp.WinFsp                      2.1.25156      2.2.26323
+18 upgrades available.

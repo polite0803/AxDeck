@@ -25,6 +25,9 @@ internal static class ShellShortcuts
         try
         {
             var link = (IShellLinkW)new ShellLink();
+            // The object starts empty: without loading the file first, GetPath reads a shortcut that was never opened
+            // and always answers with an empty string.
+            ((IPersistFile)link).Load(shortcutPath, 0);
             var buffer = new StringBuilder(260);
             link.GetPath(buffer, buffer.Capacity, out _, 0);
             return buffer.ToString();

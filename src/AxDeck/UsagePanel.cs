@@ -173,6 +173,7 @@ public partial class MainWindow
         if (CurrentPage == DeckPage.Devices) { RenderDevices(); return; }
         if (CurrentPage == DeckPage.Services) { RenderServices(); return; }
         if (CurrentPage == DeckPage.Desktop) { RenderDesktop(); return; }
+        if (CurrentPage == DeckPage.Software) { RenderSoftware(); return; }
         // Only a page that was on screen hands over; one that arrives by the page switch or with the panel opening comes in whole.
         bool shown = UsageContent.IsVisible && _expanded && !_preview;
         ShowPageContent(UsageContent);

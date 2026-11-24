@@ -66,6 +66,8 @@
               <Grid Grid.Row="1" x:Name="ServicesContent" Visibility="Collapsed"/>
               <!-- 桌面页：桌面上的文件、快捷方式和系统项，以图标画在这里（MainWindow.Desktop.cs）。 -->
               <Grid Grid.Row="1" x:Name="DesktopContent" Visibility="Collapsed"/>
+              <!-- 软件更新页：全机已安装应用里有新版可用的那些（MainWindow.Software.cs）。 -->
+              <Grid Grid.Row="1" x:Name="SoftwareContent" Visibility="Collapsed"/>
               <!-- What a rebuilt usage or media page replaced, while it leaves (PageHandover). It spans the header row too and is
                    placed where the old content was: the next page's header row may be taller or shorter. -->
               <Grid Grid.Row="0" Grid.RowSpan="2" x:Name="LeavingContent"/>
@@ -123,6 +125,11 @@
                 <Button x:Name="DesktopPageButton" Style="{StaticResource PanelIconButton}" Width="28" Height="24" Margin="1,0,0,0" Click="DesktopPage_Click"
                         AutomationProperties.Name="桌面">
                   <Viewbox Width="16" Height="16"><Canvas Width="24" Height="24"><Path Data="M 2.5,5 A 1.5,1.5 0 0 1 4,3.5 H 20 A 1.5,1.5 0 0 1 21.5,5 V 15 A 1.5,1.5 0 0 1 20,16.5 H 4 A 1.5,1.5 0 0 1 2.5,15 Z M 8,20.5 H 16 M 12,16.5 V 20.5" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="1.5" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"/></Canvas></Viewbox>
+                </Button>
+                <!-- 软件更新页：全机已安装应用里有新版可用的那些（MainWindow.Software.cs）。 -->
+                <Button x:Name="SoftwarePageButton" Style="{StaticResource PanelIconButton}" Width="28" Height="24" Margin="1,0,0,0" Click="SoftwarePage_Click"
+                        AutomationProperties.Name="软件更新">
+                  <Viewbox Width="16" Height="16"><Canvas Width="24" Height="24"><Path Data="M 12,3.5 V 15 M 7,10 L 12,15 L 17,10 M 5,20.5 H 19" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="1.5" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"/></Canvas></Viewbox>
                 </Button>
                  </StackPanel>
                  </Grid>

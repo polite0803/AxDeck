@@ -133,6 +133,7 @@ public partial class MainWindow : Window
         InitializeAudioOutput();
         InitializeShelf();
         InitializeDevices();
+        InitializeSoftware();
         InitializeFocus();
         InitializeResize();
         InitializeScale();
@@ -580,6 +581,7 @@ public partial class MainWindow : Window
         Label(MusicPageButton, "音乐", "Music");
         Label(ServicesPageButton, "服务", "Services");
         Label(DesktopPageButton, "桌面", "Desktop");
+        Label(SoftwarePageButton, "软件更新", "Software updates");
         // The gear's tooltip belongs to the update notice, including its empty state (UsagePanel.RefreshStatus).
         Label(SettingsButton, "设置", "Settings", tip: false);
         Label(PaletteButton, "命令面板", "Command palette");

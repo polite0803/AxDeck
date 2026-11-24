@@ -94,6 +94,7 @@ try
     NeteaseLogTests.Run(Check);
     await DashboardUsageTests.Run(root, Check);
     await AppUpdateTests.Run(root, Check);
+    SoftwareUpdateTests.Run(Check);
     ReleaseHistoryTests.Run(root, Check);
     await InstallerUpdateTests.Run(root, Check);
     await PortableUpdateTests.Run(root, Check);

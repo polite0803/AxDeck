@@ -7,7 +7,7 @@ public static class DeckPages
     // The page switch, left to right, until the order is changed in the settings (DeckSettings.PageOrder). The clipboard comes
     // before the devices, as their groups do in the settings' list.
     // 桌面整理（DeckPage.Boxes）不在其中：分组窗口已经整套删掉，这一页只剩下一个还在枚举里的空位。
-    public static readonly IReadOnlyList<DeckPage> Order = [DeckPage.Work, DeckPage.Usage, DeckPage.Music, DeckPage.Monitor, DeckPage.Clipboard, DeckPage.Devices, DeckPage.Services, DeckPage.Desktop];
+    public static readonly IReadOnlyList<DeckPage> Order = [DeckPage.Work, DeckPage.Usage, DeckPage.Music, DeckPage.Monitor, DeckPage.Clipboard, DeckPage.Devices, DeckPage.Services, DeckPage.Desktop, DeckPage.Software];
     // Each known page once, in the saved order; a page missing from the file takes its default place after the others.
     // 老存档里还带着 DeckPage.Boxes：它已经不是一页了，从顺序里丢掉。
     public static List<DeckPage> Normalize(IEnumerable<DeckPage>? order) => [.. (order ?? []).Where(page => Enum.IsDefined(page) && page != DeckPage.Boxes).Concat(Order).Distinct()];
@@ -16,7 +16,8 @@ public static class DeckPages
     {
         DeckPage.Usage => settings.UsagePage, DeckPage.Music => settings.MusicPage, DeckPage.Monitor => settings.MonitorPage, DeckPage.Devices => settings.DevicesPage,
         DeckPage.Clipboard => settings.ClipboardPage, DeckPage.Services => settings.ServicesPage,
-        DeckPage.Desktop => settings.DesktopPage, DeckPage.Work => settings.WorkPage, _ => false
+        DeckPage.Desktop => settings.DesktopPage, DeckPage.Work => settings.WorkPage,
+        DeckPage.Software => settings.SoftwarePage, _ => false
     };
 
     public static IReadOnlyList<DeckPage> Visible(DeckSettings settings) => settings.PageOrder.Where(page => Shown(settings, page)).ToList();
@@ -31,7 +32,8 @@ public static class DeckPages
     {
         DefaultDeckPage.Usage => DeckPage.Usage, DefaultDeckPage.Music => DeckPage.Music, DefaultDeckPage.Monitor => DeckPage.Monitor, DefaultDeckPage.Devices => DeckPage.Devices,
         DefaultDeckPage.Clipboard => DeckPage.Clipboard, DefaultDeckPage.Services => DeckPage.Services,
-        DefaultDeckPage.Desktop => DeckPage.Desktop, DefaultDeckPage.Work => DeckPage.Work, _ => null
+        DefaultDeckPage.Desktop => DeckPage.Desktop, DefaultDeckPage.Work => DeckPage.Work,
+        DefaultDeckPage.Software => DeckPage.Software, _ => null
     };
 
     // Every page's size lies within these; the usage page is also at least as wide as its columns need (MinimumWidth).
@@ -57,6 +59,7 @@ public static class DeckPages
             case DeckPage.Services: settings.ServicesWidth = width; settings.ServicesHeight = height; break;
             case DeckPage.Desktop: settings.DesktopWidth = width; settings.DesktopHeight = height; break;
             case DeckPage.Work: settings.WorkWidth = width; settings.WorkHeight = height; break;
+            case DeckPage.Software: settings.SoftwareWidth = width; settings.SoftwareHeight = height; break;
             default: settings.Width = width; settings.Height = height; break;
         }
     }
@@ -70,6 +73,7 @@ public static class DeckPages
         DeckPage.Services => (settings.ServicesWidth, settings.ServicesHeight),
         DeckPage.Desktop => (settings.DesktopWidth, settings.DesktopHeight),
         DeckPage.Work => (settings.WorkWidth, settings.WorkHeight),
+        DeckPage.Software => (settings.SoftwareWidth, settings.SoftwareHeight),
         _ => (Math.Max(settings.Width, settings.MinimumWidth), settings.Height)
     };
 

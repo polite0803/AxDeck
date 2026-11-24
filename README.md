@@ -171,6 +171,16 @@ For what it reads and how the takeover works, see [Desktop page](docs/en-US/desk
 
 For what each part shows and what it needs, see [Services and tools](docs/en-US/services.md).
 
+### Software updates
+
+- The available updates of every app installed on the PC, gathered on one page: name, `current version → available version`, and whether it came from `WinGet` or a vendor.
+- Three sources feed it: the output of `winget upgrade`, a built-in table shipped with AxDeck (VS Code, Firefox, GitHub CLI, DBeaver, Obsidian), and the installed list read from Windows' uninstall information.
+- A WinGet item updates silently in the background when you select Update, and a new check follows; an item with only a download page opens that page.
+- A check runs about 90 seconds after start, then every 6 hours; a failure is retried after 15 minutes, an hour, then four. The first check takes 1–2 minutes, all in the background.
+- WinGet missing, a failed check and a genuine "nothing to update" are shown apart; "could not check" is never shown as "up to date".
+
+For the schedule, how versions are compared and the limits, see [Software updates](docs/en-US/software-updates.md).
+
 ### Panel themes
 
 <img src="docs/en-US/images/themes.png" width="100%" alt="The same AI usage page in the Dark, Light, Island Holiday 2, Pixel Blocks and Cyberpunk: Edgerunners themes, and in an example custom theme">
