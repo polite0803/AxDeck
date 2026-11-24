@@ -42,6 +42,29 @@ internal static class SoftwareUpdateTests
         check("winget table parses the Chinese output identically", Matches(chinese, Real));
         check("the Chinese header is recognised as a table", chinese.Complete && chinese.Found);
 
+        // 真实的 winget 输出还带第五列「源」（名称 | ID | 版本 | 可用 | 源）。上面两份 fixture 是早期的四列输出，
+        // 少了这一列，解析器就少切一段：可用版本拿到「源」、包 ID 拿到可用版本，点「更新」时拿版本号去升级，
+        // 界面上不会发生任何事。这份 fixture 是这台机器 winget 1.30.310 的真实输出，逐项覆盖两列错位。
+        var sourced = Scan("winget-upgrade-zh-source.txt");
+        check("a source-column table is read complete", sourced.Complete && sourced.Unparsed.Count == 0);
+        check("every row of the source-column table is kept", sourced.Entries.Count == 21);
+        check("the source column does not become the available version",
+            sourced.Entries.All(entry => entry.Available != "winget" && entry.Available != "msstore"));
+        check("the id stays the package id",
+            sourced.Entries.Any(entry => entry is { Id: "Tencent.WeChat.Universal", Version: "4.2.1.8", Available: "4.2.1.9" }) &&
+            !sourced.Entries.Any(entry => entry.Id == "4.2.1.9"));
+        check("an msstore item keeps its own columns apart",
+            sourced.Entries.Any(entry => entry is { Name: "PotPlayer-64 bit", Id: "XP8BSBGQW2DKS0", Version: "26.10.21.0", Available: "210428" }));
+        check("a name and an id one space apart are still cut apart",
+            sourced.Entries.Any(entry => entry is { Name: "CMake", Id: "Kitware.CMake" }) &&
+            sourced.Entries.Any(entry => entry is { Id: "Microsoft.VCRedist.2013.x64" } && entry.Name.StartsWith("Microsoft Visual C++ 2013")));
+
+        var englishSourced = WingetTable.Parse("Name        Id        Version   Available   Source\n" +
+            new string('-', 60) + "\nA  B.C  1.0  2.0  winget\n1 upgrades available.\n");
+        check("a five-column header in English is recognised too",
+            englishSourced.Complete && englishSourced.Entries.Count == 1 &&
+            englishSourced.Entries[0] is { Name: "A", Id: "B.C", Version: "1.0", Available: "2.0" });
+
         var none = Scan("winget-upgrade-none.txt");
         check("no matching packages is a complete empty scan", none.Complete && !none.Found && none.Unparsed.Count == 0);
         check("the no-match sentence is kept as the message", none.Message?.Contains("找不到与输入条件匹配") == true);
@@ -234,12 +257,34 @@ internal static class SoftwareUpdateTests
                     Origin: SoftwareUpdateOrigin.Winget, Id: "DBeaver.DBeaver.Community", Icon: @"C:\x\icon.ico",
                 });
 
+            check("the saved cache records the parser version that wrote it",
+                loaded.Format == SoftwareUpdateStore.Format);
+
             check("a result younger than 12 hours is fresh", SoftwareUpdateStore.IsFresh(loaded, now + TimeSpan.FromHours(11)));
             check("a result older than 12 hours is stale", !SoftwareUpdateStore.IsFresh(loaded, now + TimeSpan.FromHours(13)));
             check("a clock turned backwards keeps the result fresh", SoftwareUpdateStore.IsFresh(loaded, now - TimeSpan.FromHours(2)));
             check("a never-checked state is not fresh", !SoftwareUpdateStore.IsFresh(new SoftwareUpdateState(), now));
             check("only a checked state has a result",
                 SoftwareUpdateStore.HasResult(loaded) && !SoftwareUpdateStore.HasResult(new SoftwareUpdateState()));
+
+            // 旧解析器写下的 winget 行：「可用版本」拿到的是源名、包 ID 拿到的是版本号。
+            // 这种行不能继续拿来渲染——点「更新」时拿版本号去升级，winget 找不到包，看起来就是点了没反应。
+            File.WriteAllText(store.FilePath, """
+            {
+              "CheckedAt": "2026-11-25T10:00:00+08:00",
+              "Format": 0,
+              "Installed": 3,
+              "Updates": [
+                { "Name": "微信  Tencent.WeChat.Universal", "Current": "4.2.1.9", "Available": "winget", "Origin": "Winget", "Id": "4.2.1.8" },
+                { "Name": "Obsidian", "Current": "1.9.10", "Available": "1.9.14", "Origin": "Catalog", "Page": "https://obsidian.md/download" }
+              ]
+            }
+            """);
+            var legacy = store.Load();
+            check("a cache from the old parser keeps only the rows it read correctly",
+                legacy.Updates.Count == 1 && legacy.Updates[0].Name == "Obsidian");
+            check("a cache from the old parser is treated as never checked, so the page checks again",
+                legacy.CheckedAt is null && legacy.Format == SoftwareUpdateStore.Format);
 
             File.WriteAllText(store.FilePath, "{ not json");
             check("a corrupted cache file loads as an empty state", store.Load() is { CheckedAt: null, Updates.Count: 0 });

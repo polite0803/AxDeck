@@ -23,6 +23,9 @@ public partial class MainWindow
     private DateTimeOffset _softwareStarted;
     // 行内状态（更新中 / 已更新 / 失败）。键是 InstalledApps.Key，重画时按名称找回来。
     private readonly Dictionary<string, SoftwareRowState> _softwareRows = [];
+    // 最近一次点「更新」的结果说明（winget 的原始报错首行）。显示在状态行右侧：
+    // 升级失败不能只在按钮上变一个「重试」就算交代，用户得看得到为什么。
+    private string? _softwareNotice;
 
     private void InitializeSoftware()
     {
@@ -117,11 +120,12 @@ public partial class MainWindow
             : state.MissingTool ? Loc.T("未检测到 WinGet", "WinGet not found")
             : failed ? Loc.T("暂时无法检查更新", "Updates cannot be checked right now")
             : Loc.T($"共 {count} 项可更新", $"{count} updates available");
-        string? note = _softwareChecking ? Loc.T("首次检查约需 1–2 分钟", "The first check takes 1–2 minutes")
+        // 点「更新」的结果优先：它比「上次检查」更近、更该让用户看见。检查重新跑过之后它就被清掉。
+        string? note = _softwareNotice ?? (_softwareChecking ? Loc.T("首次检查约需 1–2 分钟", "The first check takes 1–2 minutes")
             : failed ? state.Failure
             : state.MissingTool ? Loc.T("安装「应用安装程序」(App Installer) 后即可检查", "Install App Installer to check for updates")
             : state.CheckedAt is { } at ? Loc.T($"上次检查：{at:MM-dd HH:mm}", $"Last checked {at:MM-dd HH:mm}")
-            : null;
+            : null);
         string empty = count > 0 ? ""
             : _softwareChecking ? Loc.T("正在检查…", "Checking…")
             : state.MissingTool ? Loc.T("未检测到 WinGet", "WinGet not found")
@@ -148,7 +152,8 @@ public partial class MainWindow
         {
             var state = await _softwareChecker.CheckAsync(source.Token);
             _softwareState = state;
-            if (state.Failure is null) { _softwareFailures = 0; _softwareLastFailure = null; }
+            // 一轮检查已经把列表换成新的，之前那次升级的提示就过期了。
+            if (state.Failure is null) { _softwareFailures = 0; _softwareLastFailure = null; _softwareNotice = null; }
             else { _softwareFailures++; _softwareLastFailure = DateTimeOffset.Now; }
         }
         catch (OperationCanceledException) { }
@@ -197,22 +202,45 @@ public partial class MainWindow
     private async void UpdateSoftwareRow(SoftwareItem item)
     {
         var update = _softwareState.Updates.FirstOrDefault(candidate => InstalledApps.Key(candidate.Name) == item.Key);
-        if (update is null) return;
+        // 找不到对应项（列表刚被一轮检查换掉、这一行还在离开中）：按钮变成「重试」，并说明原因。
+        // 什么都不做会让这一下点击看起来没有发生。
+        if (update is null) { Fail(item.Key, Loc.T("这一项已不在列表中，请重新检查。", "This item is no longer in the list. Check again.")); return; }
         if (update.Id is { Length: > 0 } id)
         {
             SetSoftwareRow(item.Key, SoftwareRowState.Busy);
             try
             {
                 var result = await Task.Run(() => WingetCli.Upgrade(id));
-                SetSoftwareRow(item.Key, result.ExitCode == 0 ? SoftwareRowState.Done : SoftwareRowState.Failed);
+                if (result.ExitCode == 0) SetSoftwareRow(item.Key, SoftwareRowState.Done);
+                else Fail(item.Key, ResultLine(result));
             }
-            catch (Exception) { SetSoftwareRow(item.Key, SoftwareRowState.Failed); }
+            catch (Exception ex) { Fail(item.Key, ex.Message); }
             await CheckSoftwareAsync(manual: true);
             return;
         }
         if (update.Page is { Length: > 0 } page)
+        {
             try { UI.OpenUrl(page); }
-            catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or InvalidOperationException) { }
+            catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or InvalidOperationException)
+            {
+                Fail(item.Key, Loc.T("下载页打不开，请手动到官网下载。", "The download page could not be opened. Get it from the vendor's site."));
+            }
+        }
+    }
+
+    // 升级失败：按钮变「重试」，状态行给出 winget 的原始说法（没有可用文本时用一句白话），不只留个死按钮。
+    private void Fail(string key, string? reason)
+    {
+        _softwareNotice = string.IsNullOrWhiteSpace(reason) ? Loc.T("升级失败，可重试。", "The upgrade failed. Try again.") : reason.Trim();
+        SetSoftwareRow(key, SoftwareRowState.Failed);
+    }
+
+    // winget 的报错可能在 stderr，也可能只在 stdout，取第一行有字的。
+    private static string? ResultLine(WingetCli.RunResult result)
+    {
+        foreach (var line in result.Combined.Split('\n'))
+            if (line.Trim() is { Length: > 0 } text) return text;
+        return null;
     }
 
     private void SetSoftwareRow(string key, SoftwareRowState state)

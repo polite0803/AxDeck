@@ -64,6 +64,11 @@ public static class WingetTable
             !(header.Contains("name", StringComparison.OrdinalIgnoreCase) || header.Contains("名称")))
             return NoTable(lines);
 
+        // 表格可能有第五列「源」（名称 | ID | 版本 | 可用 | 源），也可能没有（早期输出只有前四列）。
+        // 源列在升级时用不上，但它占掉最右一段的位置：不先把它切掉，可用版本与 ID 都会错位一格。
+        // 判断依据只能是表头——行数、列宽都不可靠，而源列名是稳定的。
+        bool hasSource = header.Contains("source", StringComparison.OrdinalIgnoreCase) || header.Contains("源");
+
         var rows = new List<string>();
         for (var i = separator + 1; i < lines.Length; i++)
         {
@@ -82,7 +87,7 @@ public static class WingetTable
         var unparsed = new List<string>();
         foreach (var row in rows)
         {
-            if (TryParseRow(row, out var entry)) entries.Add(entry);
+            if (TryParseRow(row, hasSource, out var entry)) entries.Add(entry);
             else unparsed.Add(row.Trim());
         }
 
@@ -110,10 +115,12 @@ public static class WingetTable
     // 从右往左切：最后一段是「可用」、倒数第二段是「当前版本」，剩下的左侧再从最后一个空白处切成「ID | 名称」。
     // winget ID 不含空格，所以这条切口恒成立——哪怕名称与 ID 之间只有一个空格
     // （Microsoft Visual C++ 2013 Redistributable (x64) - 12.0.30501 Microsoft.VCRedist.2013.x64）。
-    private static bool TryParseRow(string row, out WingetEntry entry)
+    // 表头带「源」列时，最右一段是源（winget / msstore），必须先切掉它，否则可用、版本与 ID 全部左移一格。
+    private static bool TryParseRow(string row, bool hasSource, out WingetEntry entry)
     {
         entry = null!;
         var end = row.Length;
+        if (hasSource && !Take(row, ref end, out _)) return false;
         if (!Take(row, ref end, out var available)) return false;
         available = Widen(row, ref end, available);
         if (!Take(row, ref end, out var version)) return false;
