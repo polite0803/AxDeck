@@ -34,9 +34,10 @@ The table is meant to grow: when an app publishes a version endpoint, one entry 
 
 - A `WinGet` item has an "Update" button: the one package is upgraded silently in the background, the button reads "Updating…", then "Updated", and a new check runs by itself.
 - An item with only a download page has a "Download" button: the app's download page opens in your browser, and the rest is yours to do.
-- A failed upgrade turns the button into "Retry" and puts winget's own words in the status line (no matching package, administrator rights needed, and so on); selecting it tries again.
+- One upgrade runs at a time: select several items and the rest read "Queued…" until the one in progress finishes, then start in turn. WinGet holds a lock, and concurrent runs fail each other; several large installers downloading together also saturate the link and time out more easily.
+- A failed upgrade turns the button into "Retry" and puts winget's own words in the status line — the failure line picked from its output (no matching installed package, administrator rights needed, a download timeout, and so on), not progress lines such as "Found …". That reason stays there after the automatic recheck; selecting the button tries again.
+- Some packages, PowerShell among them, are installed by MSI and carry no winget package id in the installed records, so winget refuses an exact `--id` upgrade. AxDeck then retries with the name shown in the list; nothing is asked of you.
 - An item that is no longer in the list, or a download page that will not open, also says so in the status line, so a click never looks ignored.
-- Upgrades run one at a time: WinGet holds a lock, and concurrent runs fail each other.
 - Nothing is updated on its own; every item waits for your click.
 
 ## Empty states

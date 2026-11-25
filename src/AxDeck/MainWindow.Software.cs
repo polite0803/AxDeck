@@ -21,9 +21,15 @@ public partial class MainWindow
     private int _softwareFailures;
     private DateTimeOffset? _softwareLastFailure;
     private DateTimeOffset _softwareStarted;
-    // 行内状态（更新中 / 已更新 / 失败）。键是 InstalledApps.Key，重画时按名称找回来。
+    // 行内状态（排队中 / 更新中 / 已更新 / 失败）。键是 InstalledApps.Key，重画时按名称找回来。
     private readonly Dictionary<string, SoftwareRowState> _softwareRows = [];
-    // 最近一次点「更新」的结果说明（winget 的原始报错首行）。显示在状态行右侧：
+    // 升级一次只跑一个。winget 自己有锁，同时跑几项会互相失败；十几项并发下载还会把带宽打满，
+    // 大包（CMake、LLVM、WinFsp）因此下载超时——用户看到的就是「这几项怎么都更新不了」。
+    private readonly SemaphoreSlim _softwareGate = new(1, 1);
+    // 最近一次升级失败的原因，离开状态行也要留到下一轮检查之后：重新检查会清掉 _softwareNotice，
+    // 不能让按钮停在「重试」却把原因弄丢。
+    private string? _softwareRowNotice;
+    // 最近一次点「更新」的结果说明（从 winget 输出里挑出的失败原因行）。显示在状态行右侧：
     // 升级失败不能只在按钮上变一个「重试」就算交代，用户得看得到为什么。
     private string? _softwareNotice;
 
@@ -152,8 +158,9 @@ public partial class MainWindow
         {
             var state = await _softwareChecker.CheckAsync(source.Token);
             _softwareState = state;
-            // 一轮检查已经把列表换成新的，之前那次升级的提示就过期了。
-            if (state.Failure is null) { _softwareFailures = 0; _softwareLastFailure = null; _softwareNotice = null; }
+            // 一轮检查已经把列表换成新的，之前那次检查的提示就过期了。行内状态与升级失败的说明
+            // 跟着新列表走：只有还留在列表里的「重试」行才保留原因。
+            if (state.Failure is null) { _softwareFailures = 0; _softwareLastFailure = null; SettleSoftwareRows(state); }
             else { _softwareFailures++; _softwareLastFailure = DateTimeOffset.Now; }
         }
         catch (OperationCanceledException) { }
@@ -197,7 +204,7 @@ public partial class MainWindow
         return _softwareState;
     }
 
-    // 一行里的「更新」/「下载」。WinGet 项逐个串行升级（winget 自己有锁，并发会互相失败），
+    // 一行里的「更新」/「下载」。WinGet 项排成一队逐个升级（winget 自己有锁，并发会互相失败），
     // 完成后重新检查一次；映射表项没有静默安装的办法，打开它的下载页。
     private async void UpdateSoftwareRow(SoftwareItem item)
     {
@@ -207,14 +214,27 @@ public partial class MainWindow
         if (update is null) { Fail(item.Key, Loc.T("这一项已不在列表中，请重新检查。", "This item is no longer in the list. Check again.")); return; }
         if (update.Id is { Length: > 0 } id)
         {
-            SetSoftwareRow(item.Key, SoftwareRowState.Busy);
+            // 已经在这条队里（视图里按钮此时不接点击，防重入）：不再排第二次。
+            if (_softwareRows.GetValueOrDefault(item.Key) is SoftwareRowState.Queued or SoftwareRowState.Busy) return;
+            SetSoftwareRow(item.Key, SoftwareRowState.Queued);
+            await _softwareGate.WaitAsync();
             try
             {
-                var result = await Task.Run(() => WingetCli.Upgrade(id));
-                if (result.ExitCode == 0) SetSoftwareRow(item.Key, SoftwareRowState.Done);
-                else Fail(item.Key, ResultLine(result));
+                SetSoftwareRow(item.Key, SoftwareRowState.Busy);
+                // 名称是表格第一列，winget 按 --id 匹配不到已安装项时用它回退（PowerShell 7 这类 MSI 装的包）。
+                var result = await Task.Run(() => WingetCli.Upgrade(id, update.Name));
+                if (result.ExitCode == 0)
+                {
+                    _softwareRowNotice = null;
+                    SetSoftwareRow(item.Key, SoftwareRowState.Done);
+                }
+                else Fail(item.Key, WingetOutput.Failure(result.Stdout, result.Stderr, result.TimedOut));
             }
             catch (Exception ex) { Fail(item.Key, ex.Message); }
+            finally { _softwareGate.Release(); }
+            // 队里还有别的项在等：让它们先跑，最后一项完成后再统一检查一次，
+            // 免得每升完一项都插一次 1～2 分钟的 winget 查询。
+            if (_softwareRows.Values.Any(state => state == SoftwareRowState.Queued)) return;
             await CheckSoftwareAsync(manual: true);
             return;
         }
@@ -228,19 +248,25 @@ public partial class MainWindow
         }
     }
 
+    // 检查把列表换掉之后，行内状态跟着新列表走：升级成功的项已经离开列表，它的「已更新」也随之过期
+    // （键会一直累积）；还留在列表里的失败行保留「重试」与原因，不能让按钮说明原因不明地消失。
+    private void SettleSoftwareRows(SoftwareUpdateState state)
+    {
+        foreach (var key in _softwareRows.Keys.ToList())
+            if (!state.Updates.Any(update => InstalledApps.Key(update.Name) == key)) _softwareRows.Remove(key);
+        _softwareNotice = _softwareRows.ContainsValue(SoftwareRowState.Failed) ? _softwareRowNotice : null;
+        if (_softwareNotice is null) _softwareRowNotice = null;
+    }
+
     // 升级失败：按钮变「重试」，状态行给出 winget 的原始说法（没有可用文本时用一句白话），不只留个死按钮。
     private void Fail(string key, string? reason)
     {
-        _softwareNotice = string.IsNullOrWhiteSpace(reason) ? Loc.T("升级失败，可重试。", "The upgrade failed. Try again.") : reason.Trim();
+        var text = string.IsNullOrWhiteSpace(reason)
+            ? Loc.T("升级失败，可重试。", "The upgrade failed. Try again.")
+            : reason.Trim();
+        _softwareRowNotice = text;
+        _softwareNotice = text;
         SetSoftwareRow(key, SoftwareRowState.Failed);
-    }
-
-    // winget 的报错可能在 stderr，也可能只在 stdout，取第一行有字的。
-    private static string? ResultLine(WingetCli.RunResult result)
-    {
-        foreach (var line in result.Combined.Split('\n'))
-            if (line.Trim() is { Length: > 0 } text) return text;
-        return null;
     }
 
     private void SetSoftwareRow(string key, SoftwareRowState state)

@@ -95,6 +95,38 @@ internal static class SoftwareUpdateTests
         RunInstalledApps(check);
         RunMerge(check);
         RunStore(check);
+        RunWingetOutput(check);
+    }
+
+    // 升级失败时给用户看的是哪一句，以及「按包 ID 匹配不到已安装项」要不要换名称再试。
+    // 两件事都决定用户点「更新」之后看到什么，之前只看第一行会把「已找到 PowerShell」当成失败原因。
+    private static void RunWingetOutput(Action<string, bool> check)
+    {
+        const string progress = "已找到 PowerShell [Microsoft.PowerShell]\n正在下载 https://example.invalid/x.msi\n";
+        const string failure = "安装失败：需要管理员权限。\n";
+
+        check("the failure line wins over the progress lines", WingetOutput.Failure(progress + failure, "", false) == "安装失败：需要管理员权限。");
+        check("a failure line on stderr is found first",
+            WingetOutput.Failure("已找到 CMake\n", "下载失败：网络连接超时\n", false) == "下载失败：网络连接超时");
+        check("an English failure line is found too",
+            WingetOutput.Failure("Found CMake\nDownloading...\n", "Installer failed with exit code: 1603\n", false) == "Installer failed with exit code: 1603");
+        check("the hresult of a failed download is a reason",
+            WingetOutput.Failure("已找到 WinFsp\n", "Terminating context: 0x8A150041\n", false) == "Terminating context: 0x8A150041");
+        check("with no failure wording the last line is the reason",
+            WingetOutput.Failure("已找到 CMake\n未能安装此包。\n", "", false) == "未能安装此包。");
+        check("no output at all yields no reason", WingetOutput.Failure("", "", false) is null);
+        check("a timeout says so in the user's language",
+            WingetOutput.Failure("", "", true) == Loc.T("升级超时，已中止。", "The upgrade timed out and was stopped."));
+
+        // 0x8A150014 是 winget 对「--id 精确匹配不到已安装项」的回答；用 MSI 装的包（PowerShell 7）就是这样，
+        // 换表格第一列的名称还能命中。文本兜底是为了本地化差异，正常命中不能被误判成这个失败。
+        check("an unmatched package id is recognised by its exit code", WingetOutput.Unmatched(unchecked((int)0x8A150014), ""));
+        check("an unmatched package id is recognised by its English text", WingetOutput.Unmatched(1, "No app found matching input criteria"));
+        check("an unmatched package id is recognised by its Chinese text", WingetOutput.UnmatchedText("找不到与输入条件匹配的已安装程序包。"));
+        check("the list wording is recognised as unmatched too", WingetOutput.UnmatchedText("找不到与输入标准匹配的已安装程序包。"));
+        check("a matched package is not treated as unmatched",
+            !WingetOutput.UnmatchedText("Found one app. App id: Microsoft.PowerShell App name: PowerShell 7-x64") &&
+            !WingetOutput.UnmatchedText(null));
     }
 
     private static void RunCatalog(Action<string, bool> check)

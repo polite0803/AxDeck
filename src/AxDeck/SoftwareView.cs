@@ -5,8 +5,8 @@ using AxDeck.Core;
 
 namespace AxDeck;
 
-// 一行更新在界面上的状态。控制器推进它，视图只按它画：更新中时按钮不接点击，失败后可以重试。
-internal enum SoftwareRowState { Idle, Busy, Done, Failed }
+// 一行更新在界面上的状态。控制器推进它，视图只按它画：排队中与更新中不接点击，失败后可以重试。
+internal enum SoftwareRowState { Idle, Busy, Done, Failed, Queued }
 
 // 面板上的一行。Name 与两个版本串都已成形，视图不再加工；Action 是按钮上的字（更新 / 下载），
 // Badge 是来源标记（WinGet / GitHub / 厂商名），为空则不画。
@@ -324,7 +324,7 @@ internal sealed class SoftwareView : FrameworkElement
     private void DrawAction(DrawingContext drawing, Row row, Rect action, double now, double ppd)
     {
         var item = row.Item;
-        bool enabled = item.Actionable && item.State != SoftwareRowState.Busy;
+        bool enabled = item.Actionable && item.State is not (SoftwareRowState.Busy or SoftwareRowState.Queued);
         bool hot = enabled && row.ActionHot;
         bool pressed = hot && ReferenceEquals(_pressed, row);
         double opacity = enabled ? (pressed ? .9 : hot ? .6 : .35) : .25;
@@ -333,6 +333,7 @@ internal sealed class SoftwareView : FrameworkElement
         drawing.Pop();
         string label = item.State switch
         {
+            SoftwareRowState.Queued => Loc.T("排队中…", "Queued…"),
             SoftwareRowState.Busy => Loc.T("更新中…", "Updating…"),
             SoftwareRowState.Done => Loc.T("已更新", "Updated"),
             SoftwareRowState.Failed => Loc.T("重试", "Retry"),

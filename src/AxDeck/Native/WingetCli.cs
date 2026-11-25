@@ -87,7 +87,10 @@ internal static class WingetCli
 
     // 升级一个包。winget 自己有锁，调用方必须逐个串行。
     // 首选不带任何 accept 参数；只有 winget 明确要求接受包协议时才补一个参数重试一次。
-    public static RunResult Upgrade(string id)
+    // 「--id」的精确匹配只认已安装记录里挂着这个包 ID 的项。用 MSI 装的包（PowerShell 7 这类）注册表里只有
+    // DisplayName、没有 winget 包 ID，winget 会答 0x8A150014「No app found matching input criteria」；
+    // 表格第一列就是它认得的名称，改用 --name 再试一次（名单仍由 Core 的表格解析给出，不在这里编造）。
+    public static RunResult Upgrade(string id, string? name = null)
     {
         var arguments = new List<string>
         {
@@ -95,6 +98,11 @@ internal static class WingetCli
         };
 
         var result = Run([.. arguments], UpgradeTimeoutSeconds);
+        if (name is { Length: > 0 } && WingetOutput.Unmatched(result.ExitCode, result.Combined))
+        {
+            arguments = ["upgrade", "--name", name, "--exact", "--silent", "--disable-interactivity"];
+            result = Run([.. arguments], UpgradeTimeoutSeconds);
+        }
         if (!NeedsAgreement(result)) return result;
 
         arguments.Add("--accept-package-agreements");
