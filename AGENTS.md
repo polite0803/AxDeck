@@ -123,3 +123,14 @@ dotnet run --project tests/AxDeck.WindowsTests -c Release --no-build -- --hosted
 - **子进程的控制台与句柄**：WinExe 启动控制台程序会让它自开可见窗口；`CreateFileW` 的 `SECURITY_ATTRIBUTES` 不设 `bInheritHandle` 时子进程拿不到句柄。读别人正在写的日志文件要用 `FileShare.ReadWrite`。
 - **懒加载页面的元素复用**：反复重建行并把同一个控件塞进新父容器会抛「指定元素已是另一个元素的逻辑子级」。构造时建一次，之后只改文本。
 - 改动 `DeckPages`、页面集合或默认页面后，检查 `AxDeck.Tests` 里硬编码页集合的断言（`ShelfTests`、`SystemMonitorTests`、`DevicesPageTests` 等）。
+
+<!-- codex-obsidian-kb:start -->
+## Obsidian 知识库引用
+
+在本仓库工作时，如 Obsidian connector 可用，请读取以下笔记作为补充项目约定：
+
+- [[02 项目/Codex工作区/AxDeck-3a84a25f/00 AGENTS]]
+- [[02 项目/Codex工作区/AxDeck-3a84a25f/01 Docs]]
+- [[00 索引/Codex 项目工作区]]
+
+<!-- codex-obsidian-kb:end -->
