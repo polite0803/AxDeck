@@ -14,7 +14,14 @@ public partial class MainWindow
 {
     internal static int ServicesDiagnosticCalls { get; set; }
     internal static int ServicesResumeCalls { get; set; }
-    internal void ServicesRefresh(bool probe) { }
+    internal static int ServicesOpenSettingsCalls { get; set; }
+    internal static int ServicesRefreshCalls { get; set; }
+    internal static int ServicesStartBgeCalls { get; set; }
+    internal static int ServicesInstallApkCalls { get; set; }
+    internal static int ServicesScreenshotCalls { get; set; }
+    internal string ServicesApkPath { get; set; } = "";
+    internal void ServicesOpenSettings() => ServicesOpenSettingsCalls++;
+    internal void ServicesRefresh(bool probe) => ServicesRefreshCalls++;
     internal void ServicesSshTest(string host) { }
     internal void ServicesContainer(string action) { }
     internal void ServicesEditConfig() { }
@@ -26,7 +33,7 @@ public partial class MainWindow
     internal DiagnosticAction? ServicesDiagnosticAction(DiagnosticFact fact) => AppDiagnostics.ActionFor(fact.Subject, fact.State);
     internal void ServicesDiagnostic(DiagnosticAction action) => ServicesDiagnosticCalls++;
     internal void ServicesResumeReading(SensorStop stop) => ServicesResumeCalls++;
-    internal void ServicesStartBge() { }
+    internal void ServicesStartBge() => ServicesStartBgeCalls++;
     internal void ServicesStopBge() { }
     internal void ServicesCopyBgeApi() { }
     internal void ServicesOpenBgeLog() { }
@@ -35,7 +42,7 @@ public partial class MainWindow
     internal bool ServicesBgeAutostartEnabled() => false;
     internal void ServicesSetBgeAutostart(bool enabled) { }
     internal void ServicesBrowseApk() { }
-    internal void ServicesInstallApk() { }
+    internal void ServicesInstallApk() => ServicesInstallApkCalls++;
     internal void ServicesAxTvStart() { }
     internal void ServicesAxTvStop() { }
     internal void ServicesAxTvForceKill() { }
@@ -48,7 +55,7 @@ public partial class MainWindow
     internal void ServicesAxTvLaunchApp() { }
     internal void ServicesAxTvStopApp() { }
     internal void ServicesAxTvUninstallApp() { }
-    internal void ServicesAxTvScreenshot() { }
+    internal void ServicesAxTvScreenshot() => ServicesScreenshotCalls++;
     internal void ServicesAxTvOpenLog() { }
 }
 
@@ -63,8 +70,7 @@ internal static class ServicesViewTests
         var window = new MainWindow { Width = 600, Height = 900, Left = -20000, Top = -20000, ShowActivated = false, WindowStyle = WindowStyle.None };
         try
         {
-            MainWindow.ServicesDiagnosticCalls = 0;
-            MainWindow.ServicesResumeCalls = 0;
+            MainWindow.ServicesOpenSettingsCalls = 0;
             var view = new ServicesView(window);
             window.Content = view;
             window.Show();
@@ -95,8 +101,9 @@ internal static class ServicesViewTests
             check("the emulator's state is shown", texts.Any(t => t.Contains("axtv_tv", StringComparison.Ordinal)));
             check("the window's shape is shown", texts.Any(t => t.Contains("1344x796", StringComparison.Ordinal)));
             check("the app's version is shown", texts.Any(t => t.Contains("0.1.8", StringComparison.Ordinal)));
-            check("the buttons of the emulator are there",
-                texts.Any(t => t.Contains("切换 AVD", StringComparison.Ordinal)) && texts.Any(t => t.Contains("截图", StringComparison.Ordinal)));
+            var panelActions = VisibleButtons(view).Select(button => System.Windows.Automation.AutomationProperties.GetName(button) ?? "").ToList();
+            check("the emulator has no action buttons in the panel",
+                !panelActions.Any(name => name.Contains("切换 AVD", StringComparison.Ordinal) || name == "截图"));
             check("the runtime diagnostics section is shown", texts.Any(t => t.Contains("运行开销与能力", StringComparison.Ordinal)));
 
             var diagnostics = AppDiagnostics.Build(
@@ -123,7 +130,79 @@ internal static class ServicesViewTests
             check("the diagnostics are refreshed without rebuilding their rows",
                 DiagnosticsRows(view).SequenceEqual(diagnosticRows));
 
-            var facts = diagnostics.Facts;
+            var stop = new SensorStop(GuardedReading.CpuTemperature, "CPU", "CPU", 1, DateTimeOffset.Now);
+            view.UpdateDiagnostics(AppDiagnostics.Build(
+                Reading<ProcessResourceUsage>.Unavailable("test"), null, null, 16, SensorStates.Unknown, [stop], DateTimeOffset.Now));
+            check("a stopped reading is named in the panel",
+                Texts(view).Any(t => t.Contains("需要恢复", StringComparison.Ordinal)));
+            check("repair and resume stay out of the panel",
+                VisibleButtons(view).All(button => System.Windows.Automation.AutomationProperties.GetName(button) == "在设置中操作")
+                && !VisualTreeOf<Button>(view).Any(button => System.Windows.Automation.AutomationProperties.GetName(button).StartsWith("重新开启：", StringComparison.Ordinal)));
+
+            var entry = VisibleButtons(view).SingleOrDefault(button => System.Windows.Automation.AutomationProperties.GetName(button) == "在设置中操作");
+            check("the panel keeps exactly one entry into the settings page", entry is not null);
+            if (entry is not null) Click(entry);
+            check("that entry opens the services settings page", MainWindow.ServicesOpenSettingsCalls == 1);
+        }
+        finally { window.Close(); }
+    }
+
+    // The settings page carries every action the panel gave up, along with the same readings. The controller is stubbed,
+    // so a click is checked by the call it makes, and the APK box is checked as the value the controller will install.
+    public static void RunActions(Action<string, bool> check)
+    {
+        var app = Application.Current ?? new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
+        if (app.Resources["SegmentButton"] is null) app.Resources["SegmentButton"] = new Style(typeof(Button));
+
+        var window = new MainWindow { Width = 900, Height = 1000, Left = -20000, Top = -20000, ShowActivated = false, WindowStyle = WindowStyle.None };
+        try
+        {
+            MainWindow.ServicesRefreshCalls = 0;
+            MainWindow.ServicesStartBgeCalls = 0;
+            MainWindow.ServicesInstallApkCalls = 0;
+            MainWindow.ServicesScreenshotCalls = 0;
+            MainWindow.ServicesDiagnosticCalls = 0;
+            MainWindow.ServicesResumeCalls = 0;
+            window.ServicesApkPath = "";
+
+            var view = new ServicesActionsView(window);
+            window.Content = view;
+            window.Show();
+            Pump();
+
+            var names = VisibleButtons(view).Select(button => System.Windows.Automation.AutomationProperties.GetName(button) ?? "").ToList();
+            check("the settings page exposes the tunnel actions", names.Contains("刷新环境") && names.Contains("探测全部站点") && names.Contains("容器状态"));
+            check("the settings page exposes the embedding and emulator actions",
+                names.Contains("启动 BGE-M3") && names.Contains("启动模拟器") && names.Contains("模拟器截图") && names.Contains("安装 APK"));
+            check("the settings page does not link to itself", !names.Contains("在设置中操作"));
+
+            check("refresh is clickable", ClickNamed(view, "刷新环境"));
+            check("probe is clickable", ClickNamed(view, "探测全部站点"));
+            check("refresh and probe reach the controller", MainWindow.ServicesRefreshCalls == 2);
+            check("the BGE start is clickable", ClickNamed(view, "启动 BGE-M3"));
+            check("the BGE start reaches the controller", MainWindow.ServicesStartBgeCalls == 1);
+            check("the emulator screenshot is clickable", ClickNamed(view, "模拟器截图"));
+            check("the screenshot reaches the controller", MainWindow.ServicesScreenshotCalls == 1);
+
+            var apk = VisualTreeOf<TextBox>(view).Single(box => System.Windows.Automation.AutomationProperties.GetName(box) == "APK 路径");
+            apk.Text = @"C:\Users\someone\Downloads\AxTV-0.1.8-x86_64.apk";
+            check("the APK box writes back to the controller", window.ServicesApkPath == apk.Text);
+            view.SetApkPath(@"D:\packages\AxTV-0.1.9.apk");
+            check("a path picked in the dialog appears in the box and the controller",
+                apk.Text == @"D:\packages\AxTV-0.1.9.apk" && window.ServicesApkPath == apk.Text);
+            check("install is clickable", ClickNamed(view, "安装 APK"));
+            check("install reaches the controller", MainWindow.ServicesInstallApkCalls == 1);
+
+            view.SetStatus("设置页状态");
+            check("the settings page shows its own status feedback", Texts(view).Any(t => t.Contains("设置页状态", StringComparison.Ordinal)));
+            var status = new AxTvEmulator.StatusSnapshot(
+                SdkFound: true, AdbFound: true, EmulatorFound: true, DeviceOnline: true, ProcessAlive: true,
+                AvdName: "axtv_tv", AvdLabel: "横屏 TV", Panel: "1920×1080", Portrait: false,
+                WindowMode: "small", WindowRect: "1344x796@(288,142)", Orientation: "landscape",
+                AppVersion: "0.1.8", BootCompleted: true, Detail: "ready");
+            view.UpdateAxTv(status, "axtv_tv");
+            check("the settings page shows the same readings as the panel", Texts(view).Any(t => t.Contains("1344x796", StringComparison.Ordinal)));
+
             var confirmed = AppDiagnostics.Build(
                 Reading<ProcessResourceUsage>.Unavailable("test"), null, null, 16,
                 new SensorStates(SensorState.None, SensorState.None, SensorState.None, SensorState.None)
@@ -133,42 +212,34 @@ internal static class ServicesViewTests
                     Frames = SensorState.None,
                 }, [], DateTimeOffset.Now);
             view.UpdateDiagnostics(confirmed);
-            var confirmedFacts = confirmed.Facts;
-            var cpuTemperature = confirmedFacts.Single(fact => fact.Subject == DiagnosticSubject.CpuTemperature);
-            var gpuTemperature = confirmedFacts.Single(fact => fact.Subject == DiagnosticSubject.GpuTemperature);
-            var gpuTemperatureRow = DiagnosticRow(view, gpuTemperature);
-            var cpuTemperatureRow = DiagnosticRow(view, cpuTemperature);
-            var gpuAction = DiagnosticActionButton(gpuTemperatureRow);
-            var cpuAction = DiagnosticActionButton(cpuTemperatureRow);
-            check("only facts with an existing repair show an action button",
-                gpuAction is { Visibility: Visibility.Visible } && cpuAction is { Visibility: Visibility.Visible }
-                && DiagnosticActionButton(DiagnosticRow(view, confirmedFacts.Single(fact => fact.Subject == DiagnosticSubject.Battery))) is null);
-            check("diagnostic actions have a useful keyboard and screen-reader name",
-                gpuAction is not null && System.Windows.Automation.AutomationProperties.GetName(gpuAction).Contains("GPU 温度", StringComparison.Ordinal)
-                && cpuAction is not null && System.Windows.Automation.AutomationProperties.GetName(cpuAction).Contains("CPU 温度", StringComparison.Ordinal));
-            check("diagnostic action buttons can take keyboard focus",
-                gpuAction is { Focusable: true } && cpuAction is { Focusable: true });
-            if (gpuAction is not null) Click(gpuAction);
-            if (cpuAction is not null) Click(cpuAction);
-            check("diagnostic action buttons call the controller", MainWindow.ServicesDiagnosticCalls == 2);
+            var gpu = FindButton(view, name => name.Contains("GPU 温度", StringComparison.Ordinal));
+            var cpu = FindButton(view, name => name.Contains("CPU 温度", StringComparison.Ordinal));
+            check("facts with a repair get a labelled action in settings", gpu is not null && cpu is not null);
+            if (gpu is not null) Click(gpu);
+            if (cpu is not null) Click(cpu);
+            check("repair actions reach the controller", MainWindow.ServicesDiagnosticCalls == 2);
 
             var stop = new SensorStop(GuardedReading.CpuTemperature, "CPU", "CPU", 1, DateTimeOffset.Now);
             view.UpdateDiagnostics(AppDiagnostics.Build(
                 Reading<ProcessResourceUsage>.Unavailable("test"), null, null, 16, SensorStates.Unknown, [stop], DateTimeOffset.Now));
-            var resume = VisualTreeOf<Button>(view)
-                .FirstOrDefault(button => System.Windows.Automation.AutomationProperties.GetName(button).StartsWith("重新开启：", StringComparison.Ordinal));
-            check("a stopped reading keeps a direct resume action", resume is { Visibility: Visibility.Visible });
+            var resume = FindButton(view, name => name.StartsWith("重新开启：", StringComparison.Ordinal));
+            check("a stopped reading keeps a resume action in settings", resume is not null);
             if (resume is not null) Click(resume);
-            check("the resume action calls the controller", MainWindow.ServicesResumeCalls == 1);
-
-            // The path the user put in survives the next reading.
-            view.SetApkPath(@"C:\Users\someone\Downloads\AxTV-0.1.8-x86_64.apk");
-            view.UpdateAxTv(status, "axtv_tv");
-            check("the path of the package stays where the user put it",
-                view.ApkPath == @"C:\Users\someone\Downloads\AxTV-0.1.8-x86_64.apk");
+            check("the resume action reaches the controller", MainWindow.ServicesResumeCalls == 1);
         }
         finally { window.Close(); }
     }
+
+    private static bool ClickNamed(DependencyObject root, string name)
+    {
+        var button = VisibleButtons(root).FirstOrDefault(b => System.Windows.Automation.AutomationProperties.GetName(b) == name);
+        if (button is null) return false;
+        Click(button);
+        return true;
+    }
+
+    private static Button? FindButton(DependencyObject root, Func<string, bool> nameMatches)
+        => VisibleButtons(root).FirstOrDefault(button => nameMatches(System.Windows.Automation.AutomationProperties.GetName(button) ?? ""));
 
     // Lets the layout run, so the page is measured before it is looked at.
     private static void Pump()
@@ -206,12 +277,8 @@ internal static class ServicesViewTests
             .Select(label => Enum.GetValues<DiagnosticSubject>().Single(subject => AppDiagnostics.SubjectName(subject) == label))
             .ToList();
 
-    private static Grid DiagnosticRow(DependencyObject root, DiagnosticFact fact)
-        => VisualTreeOf<Grid>(root).First(grid => grid.Children.OfType<TextBlock>()
-            .Any(block => block.Text == AppDiagnostics.SubjectName(fact.Subject)));
-
-    private static Button? DiagnosticActionButton(DependencyObject root)
-        => VisualTreeOf<Button>(root).FirstOrDefault(button => button.Visibility != Visibility.Collapsed);
+    private static IReadOnlyList<Button> VisibleButtons(DependencyObject root)
+        => VisualTreeOf<Button>(root).Where(button => button.Visibility == Visibility.Visible && button.IsEnabled).ToList();
 
     private static void Click(Button button)
     {

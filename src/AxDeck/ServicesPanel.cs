@@ -13,6 +13,12 @@ namespace AxDeck;
 public partial class MainWindow
 {
     private ServicesView? _servicesView;
+    // Two places show these readings: the panel tab and the settings actions page. The controller reads a snapshot once and
+    // broadcasts it, so neither place opens its own sampler or keeps a second copy of the state.
+    private readonly ServicesDisplays _feedback = new();
+    private ServicesActionsView? _servicesActionsView;
+    // The APK path belongs to the controller: the settings page's text box writes into it, and the browse button updates both.
+    internal string ServicesApkPath { get; set; } = "";
     private string _servicesKey = "";
     private bool _servicesFade;
 
@@ -52,8 +58,8 @@ public partial class MainWindow
         var header = PanelHeader.For(ToolbarFor(height), height < 170 ? 14 : 20);
         ApplyHeader(Settings.UsagePage ? header.WithControlsOf(CachedUsageHeader()) : header);
         ServicesContent.Margin = new Thickness(_header.Side, 0, _header.Side, 10);
-        // The embedding server is watched while this page is open, the way the old panel watched it every two seconds.
-        EnsureBgeTimer();
+        // The embedding server is watched while this page or the settings actions page is open.
+        ServicesPollingChanged();
         // The emulator's state is read as the page opens, so it is never shown as unknown.
         ServicesRefreshAxTv();
         // Built once: rebuilding on every resize would re-read the network. The data is refreshed by the buttons and on first open.
@@ -62,7 +68,9 @@ public partial class MainWindow
         if (_servicesView is not null && key == _servicesKey && ServicesContent.Children.Contains(_servicesView)) return;
         _servicesKey = key;
         var old = shown ? _servicesView : null;
+        if (old is not null) _feedback.Detach(old);
         _servicesView = new ServicesView(this);
+        _feedback.Attach(_servicesView);
         if (old is not null) MonitorCrossfade.Swap(ServicesContent, _servicesView, old, Soft.Enabled);
         else
         {
@@ -81,7 +89,7 @@ public partial class MainWindow
     internal void ServicesRefresh(bool probe)
     {
         ServicesReloadConfig();
-        _servicesView?.SetStatus(Loc.T("读取中…", "Reading…"));
+        _feedback.SetStatus(Loc.T("读取中…", "Reading…"));
         Task.Run(() =>
         {
             var status = CloudflareTunnel.CollectStatus();
@@ -90,14 +98,14 @@ public partial class MainWindow
             if (probe)
             {
                 try { probes = CloudflareTunnel.ProbeSites(); }
-                catch (System.Exception ex) { OnUi(() => _servicesView?.SetStatus(Loc.T("探测出错：", "Probe error: ") + ex.Message)); }
+                catch (System.Exception ex) { OnUi(() => _feedback.SetStatus(Loc.T("探测出错：", "Probe error: ") + ex.Message)); }
             }
             var snap = status; var list = probes;
             OnUi(() =>
             {
-                _servicesView?.Update(snap, list);
-                _servicesView?.UpdateDiagnostics(diagnostics);
-                _servicesView?.SetStatus(probe ? Loc.T("已探测全部站点", "All sites probed") : Loc.T("已刷新环境", "Environment refreshed"));
+                _feedback.Update(snap, list);
+                _feedback.UpdateDiagnostics(diagnostics);
+                _feedback.SetStatus(probe ? Loc.T("已探测全部站点", "All sites probed") : Loc.T("已刷新环境", "Environment refreshed"));
             });
         });
     }
@@ -159,7 +167,7 @@ public partial class MainWindow
                     Loc.T("读取帧率需要把当前用户加入 Windows 的“Performance Log Users”组。授权时 Windows 会请求管理员确认，重新登录 Windows 后生效。",
                         "Reading frame rates needs the user in Windows' Performance Log Users group. Windows asks an administrator to confirm, and it works from the next sign-in."),
                     Loc.T("授权", "Allow"))) return;
-                _servicesView?.SetStatus(Loc.T("正在授权读取帧率…", "Allowing frame rate access…"));
+                _feedback.SetStatus(Loc.T("正在授权读取帧率…", "Allowing frame rate access…"));
                 _ = GrantFrameAccessFromServices();
                 break;
         }
@@ -170,15 +178,15 @@ public partial class MainWindow
         try
         {
             await FramePermission.GrantAsync();
-            _servicesView?.SetStatus(Loc.T("已授权；重新登录 Windows 后显示帧率", "Allowed; the frame rate shows after you sign in to Windows again"));
+            _feedback.SetStatus(Loc.T("已授权；重新登录 Windows 后显示帧率", "Allowed; the frame rate shows after you sign in to Windows again"));
         }
         catch (OperationCanceledException)
         {
-            _servicesView?.SetStatus(Loc.T("管理员确认超时", "The administrator prompt timed out"), warning: true);
+            _feedback.SetStatus(Loc.T("管理员确认超时", "The administrator prompt timed out"), warning: true);
         }
         catch (Exception ex) when (ex is InvalidOperationException or System.ComponentModel.Win32Exception)
         {
-            _servicesView?.SetStatus(Loc.T("授权失败：", "Could not allow: ") + ex.Message, warning: true);
+            _feedback.SetStatus(Loc.T("授权失败：", "Could not allow: ") + ex.Message, warning: true);
         }
         ServicesRefresh(false);
     }
@@ -194,15 +202,15 @@ public partial class MainWindow
         // Without a host in services.json there is nothing to connect to; say so instead of running `ssh ""`.
         if (string.IsNullOrWhiteSpace(host))
         {
-            _servicesView?.SetStatus(Loc.T("services.json 里还没有配置 SSH Host（tunnel.defaultSshHost）。", "No SSH host configured yet: set tunnel.defaultSshHost in services.json."));
+            _feedback.SetStatus(Loc.T("services.json 里还没有配置 SSH Host（tunnel.defaultSshHost）。", "No SSH host configured yet: set tunnel.defaultSshHost in services.json."));
             return;
         }
-        _servicesView?.SetStatus(Loc.T("SSH 测试中…", "SSH test…"));
+        _feedback.SetStatus(Loc.T("SSH 测试中…", "SSH test…"));
         Task.Run(() =>
         {
             var (ok, detail, rc) = CloudflareTunnel.SshLoginTest(host);
             var note = CloudflareTunnel.ExplainFailure(host, detail);
-            OnUi(() => _servicesView?.SetStatus(
+            OnUi(() => _feedback.SetStatus(
                 (ok ? Loc.T("SSH 登录成功", "SSH login ok") : Loc.T("SSH 登录失败", "SSH login failed")) + $" (rc={rc})\n{detail}"
                 + (note.Length > 0 ? "\n" + note : "")));
         });
@@ -212,10 +220,10 @@ public partial class MainWindow
     {
         if (string.IsNullOrWhiteSpace(CloudflareTunnel.DefaultSshHost))
         {
-            _servicesView?.SetStatus(Loc.T("services.json 里还没有配置 SSH Host（tunnel.defaultSshHost）。", "No SSH host configured yet: set tunnel.defaultSshHost in services.json."));
+            _feedback.SetStatus(Loc.T("services.json 里还没有配置 SSH Host（tunnel.defaultSshHost）。", "No SSH host configured yet: set tunnel.defaultSshHost in services.json."));
             return;
         }
-        _servicesView?.SetStatus(Loc.T("容器操作中…", "Container op…"));
+        _feedback.SetStatus(Loc.T("容器操作中…", "Container op…"));
         Task.Run(() =>
         {
             var result = action switch
@@ -225,7 +233,7 @@ public partial class MainWindow
                 _ => CloudflareTunnel.RemoteContainerStatus(CloudflareTunnel.DefaultSshHost),
             };
             var text = result.ReturnCode == 0 ? result.Stdout : $"rc={result.ReturnCode}\n{result.Stderr}\n{result.Stdout}";
-            OnUi(() => _servicesView?.SetStatus($"{action}: rc={result.ReturnCode}\n{text}"));
+            OnUi(() => _feedback.SetStatus($"{action}: rc={result.ReturnCode}\n{text}"));
         });
     }
 
@@ -234,9 +242,9 @@ public partial class MainWindow
         try
         {
             Process.Start(new ProcessStartInfo("notepad.exe", CloudflareTunnel.SshConfig) { UseShellExecute = true });
-            _servicesView?.SetStatus(Loc.T("已用记事本打开 SSH 配置", "Opened SSH config in Notepad"));
+            _feedback.SetStatus(Loc.T("已用记事本打开 SSH 配置", "Opened SSH config in Notepad"));
         }
-        catch (System.Exception ex) { _servicesView?.SetStatus(Loc.T("打开失败：", "Open failed: ") + ex.Message); }
+        catch (System.Exception ex) { _feedback.SetStatus(Loc.T("打开失败：", "Open failed: ") + ex.Message); }
     }
 
     // services.json: the site list, the tunnel host and the model path. Written from a template the first time, so the file
@@ -252,9 +260,9 @@ public partial class MainWindow
                 System.IO.File.WriteAllText(config.FilePath, config.Template());
             }
             Process.Start(new ProcessStartInfo("notepad.exe", config.FilePath) { UseShellExecute = true });
-            _servicesView?.SetStatus(Loc.T("已打开 ", "Opened ") + config.FilePath + Loc.T("，保存后点「刷新」生效", "; save it, then press Refresh"));
+            _feedback.SetStatus(Loc.T("已打开 ", "Opened ") + config.FilePath + Loc.T("，保存后点「刷新」生效", "; save it, then press Refresh"));
         }
-        catch (System.Exception ex) { _servicesView?.SetStatus(Loc.T("打开失败：", "Open failed: ") + ex.Message); }
+        catch (System.Exception ex) { _feedback.SetStatus(Loc.T("打开失败：", "Open failed: ") + ex.Message); }
     }
 
     internal void ServicesOpenSite(CloudflareTunnel.Site site)
@@ -263,9 +271,9 @@ public partial class MainWindow
         {
             var url = CloudflareTunnel.ClientCommand(site);
             Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
-            _servicesView?.SetStatus(Loc.T("已在浏览器打开 ", "Opened in browser: ") + url);
+            _feedback.SetStatus(Loc.T("已在浏览器打开 ", "Opened in browser: ") + url);
         }
-        catch (System.Exception ex) { _servicesView?.SetStatus(Loc.T("打开失败：", "Open failed: ") + ex.Message); }
+        catch (System.Exception ex) { _feedback.SetStatus(Loc.T("打开失败：", "Open failed: ") + ex.Message); }
     }
 
     internal void ServicesToggleForwarder(CloudflareTunnel.Site site)
@@ -273,12 +281,12 @@ public partial class MainWindow
         if (CloudflareTunnel.ForwarderRunning(site.Host))
         {
             var (ok, detail) = CloudflareTunnel.StopForwarder(site.Host);
-            _servicesView?.SetStatus((ok ? Loc.T("已停止转发 ", "Forwarder stopped ") : Loc.T("停止失败 ", "Stop failed ")) + site.Host + " — " + detail);
+            _feedback.SetStatus((ok ? Loc.T("已停止转发 ", "Forwarder stopped ") : Loc.T("停止失败 ", "Stop failed ")) + site.Host + " — " + detail);
         }
         else
         {
             var (ok, detail) = CloudflareTunnel.StartForwarder(site);
-            _servicesView?.SetStatus((ok ? Loc.T("已启动转发 ", "Forwarder started ") : Loc.T("启动失败 ", "Start failed ")) + site.Host + " — " + detail);
+            _feedback.SetStatus((ok ? Loc.T("已启动转发 ", "Forwarder started ") : Loc.T("启动失败 ", "Start failed ")) + site.Host + " — " + detail);
         }
         ServicesRefresh(true);
     }
@@ -286,13 +294,13 @@ public partial class MainWindow
     internal void ServicesCopyCommand(CloudflareTunnel.Site site)
     {
         var cmd = CloudflareTunnel.ClientCommand(site);
-        try { Clipboard.SetText(cmd); _servicesView?.SetStatus(Loc.T("已复制连接命令", "Copied connect command")); }
-        catch (System.Exception ex) { _servicesView?.SetStatus(Loc.T("复制失败：", "Copy failed: ") + ex.Message); }
+        try { Clipboard.SetText(cmd); _feedback.SetStatus(Loc.T("已复制连接命令", "Copied connect command")); }
+        catch (System.Exception ex) { _feedback.SetStatus(Loc.T("复制失败：", "Copy failed: ") + ex.Message); }
     }
 
     internal void ServicesCopyDiagnostics()
     {
-        _servicesView?.SetStatus(Loc.T("读取诊断…", "Reading diagnostics…"));
+        _feedback.SetStatus(Loc.T("读取诊断…", "Reading diagnostics…"));
         Task.Run(() =>
         {
             var s = CloudflareTunnel.CollectStatus();
@@ -310,8 +318,8 @@ public partial class MainWindow
                 + Loc.T($"站点数量：{CloudflareTunnel.Sites.Count}", $"Site entries: {CloudflareTunnel.Sites.Count}");
             OnUi(() =>
             {
-                try { Clipboard.SetText(text); _servicesView?.SetStatus(Loc.T("诊断已复制到剪贴板", "Diagnostics copied")); }
-                catch (System.Exception ex) { _servicesView?.SetStatus(Loc.T("复制失败：", "Copy failed: ") + ex.Message); }
+                try { Clipboard.SetText(text); _feedback.SetStatus(Loc.T("诊断已复制到剪贴板", "Diagnostics copied")); }
+                catch (System.Exception ex) { _feedback.SetStatus(Loc.T("复制失败：", "Copy failed: ") + ex.Message); }
             });
         });
     }
@@ -320,10 +328,14 @@ public partial class MainWindow
     // BGE-M3 embedding server (the old "BGE-M3 控制面板", ported to native C#)
     // ----------------------------------------------------------------------
 
-    // The old panel watched the server from a background thread every two seconds. Here the page drives the same
-    // poll with a timer that stops as soon as another page takes over.
-    private void EnsureBgeTimer()
+    // 面板页和设置操作页共用同一份读数。两边都看不到时停表，避免收起或停在别的设置页时还每两秒读一次本机服务。
+    private bool ServicesPollingWanted =>
+        (CurrentPage == DeckPage.Services && ServicesContent.Visibility == Visibility.Visible)
+        || (_servicesActionsView is not null && _app.ServicesActionsVisible);
+
+    internal void ServicesPollingChanged()
     {
+        if (!ServicesPollingWanted) { _bgeTimer?.Stop(); _axtvTimer?.Stop(); return; }
         if (_bgeTimer is null)
         {
             _bgeTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
@@ -338,16 +350,38 @@ public partial class MainWindow
         if (!_axtvTimer.IsEnabled) _axtvTimer.Start();
     }
 
+    // 从面板底部跳到设置里的操作页；页 id 是设置窗口内部的编号，不进 DeckPage 枚举。
+    internal void ServicesOpenSettings() => _app.OpenSettingsPage(SettingsWindow.ServicesActionsPage);
+
+    // 设置页进入/离开时注册或注销操作视图，并刷新一次状态：设置页可能开着而面板已经收起。
+    internal void ServicesSettingsOpen(ServicesActionsView view)
+    {
+        if (_servicesActionsView is { } old) _feedback.Detach(old);
+        _servicesActionsView = view;
+        _feedback.Attach(view);
+        ServicesReloadConfig();
+        ServicesRefresh(false);
+        ServicesRefreshAxTv();
+        ServicesPollingChanged();
+    }
+
+    internal void ServicesSettingsClose()
+    {
+        if (_servicesActionsView is { } old) _feedback.Detach(old);
+        _servicesActionsView = null;
+        ServicesPollingChanged();
+    }
+
     internal void ServicesPollBge()
     {
-        if (CurrentPage != DeckPage.Services || ServicesContent.Visibility != Visibility.Visible) { _bgeTimer?.Stop(); _axtvTimer?.Stop(); return; }
+        if (!ServicesPollingWanted) { _bgeTimer?.Stop(); _axtvTimer?.Stop(); return; }
         if (_bgePolling) return;
         _bgePolling = true;
         Task.Run(() =>
         {
             var snapshot = _bge.Poll();
             _bgePolling = false;
-            OnUi(() => _servicesView?.UpdateBge(snapshot));
+            OnUi(() => _feedback.UpdateBge(snapshot));
         });
     }
 
@@ -355,7 +389,7 @@ public partial class MainWindow
     // through adb, which is slower than a local HTTP call.
     internal void ServicesPollAxTv()
     {
-        if (CurrentPage != DeckPage.Services || ServicesContent.Visibility != Visibility.Visible) { _axtvTimer?.Stop(); return; }
+        if (!ServicesPollingWanted) { _axtvTimer?.Stop(); return; }
         if (_axtvPolling) return;
         _axtvPolling = true;
         Task.Run(() =>
@@ -363,44 +397,44 @@ public partial class MainWindow
             string avd = AxTvAvd;
             var status = AxTvEmulator.CollectStatus(avd, quick: true);
             _axtvPolling = false;
-            OnUi(() => _servicesView?.UpdateAxTv(status, avd));
+            OnUi(() => _feedback.UpdateAxTv(status, avd));
         });
     }
 
     internal void ServicesStartBge()
     {
-        _servicesView?.SetStatus(Loc.T("正在启动 llama-server…", "Starting llama-server…"));
+        _feedback.SetStatus(Loc.T("正在启动 llama-server…", "Starting llama-server…"));
         Task.Run(() =>
         {
             var (ok, detail) = _bge.Start();
             var snapshot = _bge.Poll();
             OnUi(() =>
             {
-                _servicesView?.UpdateBge(snapshot);
-                _servicesView?.SetStatus(ok ? Loc.T("BGE-M3 已启动", "BGE-M3 started") : Loc.T("启动失败：", "Start failed: ") + detail);
+                _feedback.UpdateBge(snapshot);
+                _feedback.SetStatus(ok ? Loc.T("BGE-M3 已启动", "BGE-M3 started") : Loc.T("启动失败：", "Start failed: ") + detail);
             });
         });
     }
 
     internal void ServicesStopBge()
     {
-        _servicesView?.SetStatus(Loc.T("正在停止…", "Stopping…"));
+        _feedback.SetStatus(Loc.T("正在停止…", "Stopping…"));
         Task.Run(() =>
         {
             var (ok, detail) = _bge.Stop();
             var snapshot = _bge.Poll();
             OnUi(() =>
             {
-                _servicesView?.UpdateBge(snapshot);
-                _servicesView?.SetStatus(ok ? Loc.T("BGE-M3 已停止", "BGE-M3 stopped") : Loc.T("停止失败：", "Stop failed: ") + detail);
+                _feedback.UpdateBge(snapshot);
+                _feedback.SetStatus(ok ? Loc.T("BGE-M3 已停止", "BGE-M3 stopped") : Loc.T("停止失败：", "Stop failed: ") + detail);
             });
         });
     }
 
     internal void ServicesCopyBgeApi()
     {
-        try { Clipboard.SetText(BgeM3Service.EmbeddingsApi); _servicesView?.SetStatus(Loc.T("已复制 API 地址", "API address copied")); }
-        catch (System.Exception ex) { _servicesView?.SetStatus(Loc.T("复制失败：", "Copy failed: ") + ex.Message); }
+        try { Clipboard.SetText(BgeM3Service.EmbeddingsApi); _feedback.SetStatus(Loc.T("已复制 API 地址", "API address copied")); }
+        catch (System.Exception ex) { _feedback.SetStatus(Loc.T("复制失败：", "Copy failed: ") + ex.Message); }
     }
 
     internal void ServicesOpenBgeLog()
@@ -411,9 +445,9 @@ public partial class MainWindow
                 Process.Start(new ProcessStartInfo("notepad.exe", BgeM3Service.LogPath) { UseShellExecute = true });
             else
                 Process.Start(new ProcessStartInfo("explorer.exe", System.IO.Path.GetDirectoryName(BgeM3Service.LogPath) ?? "") { UseShellExecute = true });
-            _servicesView?.SetStatus(Loc.T("已打开日志", "Log opened"));
+            _feedback.SetStatus(Loc.T("已打开日志", "Log opened"));
         }
-        catch (System.Exception ex) { _servicesView?.SetStatus(Loc.T("打开失败：", "Open failed: ") + ex.Message); }
+        catch (System.Exception ex) { _feedback.SetStatus(Loc.T("打开失败：", "Open failed: ") + ex.Message); }
     }
 
     // The log in a window of its own, read out of the file the server writes. The file is read off the UI thread: a long
@@ -462,24 +496,24 @@ public partial class MainWindow
                 var server = BgeM3Service.ResolveServerPath();
                 if (BgeAutostart.Refusal(server, _bge.ModelPath) is { } refusal)
                 {
-                    _servicesView?.SetStatus(refusal, true);
-                    _servicesView?.SetBgeAutostart(false);
+                    _feedback.SetStatus(refusal, true);
+                    _servicesActionsView?.SetBgeAutostart(false);
                     return;
                 }
                 StartupRegistration.SetBgeEnabled(true, BgeAutostart.Command(server!, _bge.ModelPath));
-                _servicesView?.SetStatus(Loc.T("已设置 BGE-M3 开机自启", "BGE-M3 now starts with Windows"));
+                _feedback.SetStatus(Loc.T("已设置 BGE-M3 开机自启", "BGE-M3 now starts with Windows"));
             }
             else
             {
                 StartupRegistration.SetBgeEnabled(false, "");
-                _servicesView?.SetStatus(Loc.T("已取消 BGE-M3 开机自启", "BGE-M3 no longer starts with Windows"));
+                _feedback.SetStatus(Loc.T("已取消 BGE-M3 开机自启", "BGE-M3 no longer starts with Windows"));
             }
-            _servicesView?.SetBgeAutostart(enabled);
+            _servicesActionsView?.SetBgeAutostart(enabled);
         }
         catch (System.Exception ex) when (ex is System.IO.IOException or UnauthorizedAccessException or System.Security.SecurityException)
         {
-            _servicesView?.SetStatus(Loc.T("无法设置开机自启：", "Could not change the startup setting: ") + ex.Message, true);
-            _servicesView?.SetBgeAutostart(ServicesBgeAutostartEnabled());
+            _feedback.SetStatus(Loc.T("无法设置开机自启：", "Could not change the startup setting: ") + ex.Message, true);
+            _servicesActionsView?.SetBgeAutostart(ServicesBgeAutostartEnabled());
         }
     }
 
@@ -506,7 +540,7 @@ public partial class MainWindow
         {
             string avd = AxTvAvd;
             var status = AxTvEmulator.CollectStatus(avd, quick);
-            OnUi(() => _servicesView?.UpdateAxTv(status, avd));
+            OnUi(() => _feedback.UpdateAxTv(status, avd));
         });
     }
 
@@ -518,14 +552,18 @@ public partial class MainWindow
             Filter = Loc.T("Android 安装包 (*.apk)|*.apk|所有文件 (*.*)|*.*", "Android package (*.apk)|*.apk|All files (*.*)|*.*"),
             InitialDirectory = System.IO.Directory.Exists(AxTvEmulator.ShotDir) ? null : null,
         };
-        if (dialog.ShowDialog() == true) _servicesView?.SetApkPath(dialog.FileName);
+        if (dialog.ShowDialog() == true)
+        {
+            ServicesApkPath = dialog.FileName;
+            _servicesActionsView?.SetApkPath(ServicesApkPath);
+        }
     }
 
     internal void ServicesInstallApk()
     {
-        string path = _servicesView?.ApkPath.Trim() ?? "";
-        if (path.Length == 0) { _servicesView?.SetStatus(Loc.T("请先选择一个 .apk 文件", "Choose an .apk file first")); return; }
-        _servicesView?.SetStatus(Loc.T("安装中…", "Installing…"));
+        string path = ServicesApkPath.Trim();
+        if (path.Length == 0) { _feedback.SetStatus(Loc.T("请先选择一个 .apk 文件", "Choose an .apk file first")); return; }
+        _feedback.SetStatus(Loc.T("安装中…", "Installing…"));
         Task.Run(() =>
         {
             var result = AxTvEmulator.InstallApk(path, Settings.AxTvAutoReinstall);
@@ -539,7 +577,7 @@ public partial class MainWindow
             };
             OnUi(() =>
             {
-                _servicesView?.SetStatus(text + "\n" + result.Detail);
+                _feedback.SetStatus(text + "\n" + result.Detail);
                 ServicesRefreshAxTv();
             });
         });
@@ -548,13 +586,13 @@ public partial class MainWindow
     internal void ServicesAxTvStart()
     {
         string avd = AxTvAvd;
-        _servicesView?.SetStatus(Loc.T("正在启动模拟器…", "Starting the emulator…"));
+        _feedback.SetStatus(Loc.T("正在启动模拟器…", "Starting the emulator…"));
         Task.Run(() =>
         {
             var (ok, detail) = AxTvEmulator.Start(avd);
             OnUi(() =>
             {
-                _servicesView?.SetStatus(ok ? Loc.T("模拟器已启动，正在等待设备上线…", "The emulator started; waiting for the device…") : Loc.T("启动失败：", "Start failed: ") + detail);
+                _feedback.SetStatus(ok ? Loc.T("模拟器已启动，正在等待设备上线…", "The emulator started; waiting for the device…") : Loc.T("启动失败：", "Start failed: ") + detail);
                 ServicesRefreshAxTv();
             });
         });
@@ -562,13 +600,13 @@ public partial class MainWindow
 
     internal void ServicesAxTvStop()
     {
-        _servicesView?.SetStatus(Loc.T("正在关闭模拟器…", "Stopping the emulator…"));
+        _feedback.SetStatus(Loc.T("正在关闭模拟器…", "Stopping the emulator…"));
         Task.Run(() =>
         {
             var (ok, detail) = AxTvEmulator.Stop();
             OnUi(() =>
             {
-                _servicesView?.SetStatus(ok ? Loc.T("模拟器已关闭", "The emulator is closed") : Loc.T("关闭未完成：", "Closing did not finish: ") + detail);
+                _feedback.SetStatus(ok ? Loc.T("模拟器已关闭", "The emulator is closed") : Loc.T("关闭未完成：", "Closing did not finish: ") + detail);
                 ServicesRefreshAxTv();
             });
         });
@@ -576,13 +614,13 @@ public partial class MainWindow
 
     internal void ServicesAxTvForceKill()
     {
-        _servicesView?.SetStatus(Loc.T("正在结束模拟器进程…", "Ending the emulator processes…"));
+        _feedback.SetStatus(Loc.T("正在结束模拟器进程…", "Ending the emulator processes…"));
         Task.Run(() =>
         {
             var (ok, detail) = AxTvEmulator.ForceKill();
             OnUi(() =>
             {
-                _servicesView?.SetStatus(ok ? Loc.T("进程已清空", "The processes are gone") : Loc.T("仍有残留进程", "Processes are still running") + "\n" + detail);
+                _feedback.SetStatus(ok ? Loc.T("进程已清空", "The processes are gone") : Loc.T("仍有残留进程", "Processes are still running") + "\n" + detail);
                 ServicesRefreshAxTv();
             });
         });
@@ -590,7 +628,7 @@ public partial class MainWindow
 
     internal void ServicesAxTvRestart()
     {
-        _servicesView?.SetStatus(Loc.T("正在重启模拟器…", "Restarting the emulator…"));
+        _feedback.SetStatus(Loc.T("正在重启模拟器…", "Restarting the emulator…"));
         Task.Run(() =>
         {
             AxTvEmulator.Stop();
@@ -598,7 +636,7 @@ public partial class MainWindow
             var (ok, detail) = AxTvEmulator.Start(AxTvAvd);
             OnUi(() =>
             {
-                _servicesView?.SetStatus(ok ? Loc.T("模拟器已重启", "The emulator restarted") : Loc.T("重启失败：", "Restart failed: ") + detail);
+                _feedback.SetStatus(ok ? Loc.T("模拟器已重启", "The emulator restarted") : Loc.T("重启失败：", "Restart failed: ") + detail);
                 ServicesRefreshAxTv();
             });
         });
@@ -611,11 +649,11 @@ public partial class MainWindow
         string next = NextAxTvAvd();
         if (string.Equals(next, AxTvAvd, StringComparison.OrdinalIgnoreCase))
         {
-            _servicesView?.SetStatus(Loc.T("这台机器上只有这一个 AVD", "This machine has only this one AVD"));
+            _feedback.SetStatus(Loc.T("这台机器上只有这一个 AVD", "This machine has only this one AVD"));
             return;
         }
         Settings.AxTvAvd = next; _app.QueueSave();
-        _servicesView?.SetStatus(Loc.T("正在切换到 ", "Switching to ") + next + Loc.T("，先关闭当前的…", ", closing the current one first…"));
+        _feedback.SetStatus(Loc.T("正在切换到 ", "Switching to ") + next + Loc.T("，先关闭当前的…", ", closing the current one first…"));
         Task.Run(() =>
         {
             if (AxTvEmulator.DeviceOnline() || AxTvEmulator.EmulatorProcessAlive())
@@ -627,7 +665,7 @@ public partial class MainWindow
             var (ok, detail) = AxTvEmulator.Start(next);
             OnUi(() =>
             {
-                _servicesView?.SetStatus(ok ? Loc.T("已切换到 ", "Switched to ") + next : Loc.T("切换失败：", "Switch failed: ") + detail);
+                _feedback.SetStatus(ok ? Loc.T("已切换到 ", "Switched to ") + next : Loc.T("切换失败：", "Switch failed: ") + detail);
                 ServicesRefreshAxTv();
             });
         });
@@ -639,12 +677,12 @@ public partial class MainWindow
         Task.Run(() =>
         {
             IntPtr window = EmulatorWindow.FindEmulatorWindow();
-            if (window == IntPtr.Zero) { OnUi(() => _servicesView?.SetStatus(Loc.T("没找到模拟器窗口", "The emulator window was not found"))); return; }
+            if (window == IntPtr.Zero) { OnUi(() => _feedback.SetStatus(Loc.T("没找到模拟器窗口", "The emulator window was not found"))); return; }
             var profile = AxTvEmulator.ProfileFor(avd);
             var rect = EmulatorWindow.EnterFullscreen(window, profile.Aspect, profile.Portrait);
             OnUi(() =>
             {
-                _servicesView?.SetStatus(Loc.T("已切到无边框全屏，窗口 ", "Borderless full screen, window ") + rect);
+                _feedback.SetStatus(Loc.T("已切到无边框全屏，窗口 ", "Borderless full screen, window ") + rect);
                 ServicesRefreshAxTv(true);
             });
         });
@@ -656,12 +694,12 @@ public partial class MainWindow
         Task.Run(() =>
         {
             IntPtr window = EmulatorWindow.FindEmulatorWindow();
-            if (window == IntPtr.Zero) { OnUi(() => _servicesView?.SetStatus(Loc.T("没找到模拟器窗口", "The emulator window was not found"))); return; }
+            if (window == IntPtr.Zero) { OnUi(() => _feedback.SetStatus(Loc.T("没找到模拟器窗口", "The emulator window was not found"))); return; }
             var profile = AxTvEmulator.ProfileFor(avd);
             var rect = EmulatorWindow.MoveSmall(window, profile.Aspect, profile.Portrait);
             OnUi(() =>
             {
-                _servicesView?.SetStatus(Loc.T("窗口已归位到小窗：", "The window is back in its small shape: ") + rect);
+                _feedback.SetStatus(Loc.T("窗口已归位到小窗：", "The window is back in its small shape: ") + rect);
                 ServicesRefreshAxTv(true);
             });
         });
@@ -677,17 +715,17 @@ public partial class MainWindow
     internal void ServicesAxTvToggleOrientation()
     {
         string avd = AxTvAvd;
-        _servicesView?.SetStatus(Loc.T("正在切换显示方向…", "Switching the orientation…"));
+        _feedback.SetStatus(Loc.T("正在切换显示方向…", "Switching the orientation…"));
         Task.Run(() =>
         {
             var profile = AxTvEmulator.ProfileFor(avd);
             if (profile.Portrait)
             {
-                OnUi(() => _servicesView?.SetStatus(Loc.T("当前是竖屏 AVD：窗口的形状由物理面板定死，要换方向得冷启动另一个 AVD",
+                OnUi(() => _feedback.SetStatus(Loc.T("当前是竖屏 AVD：窗口的形状由物理面板定死，要换方向得冷启动另一个 AVD",
                     "This is a portrait AVD: the window's shape is fixed by its physical panel; switching needs a cold start of the other AVD")));
                 return;
             }
-            if (!AxTvEmulator.DeviceOnline()) { OnUi(() => _servicesView?.SetStatus(Loc.T("模拟器未运行", "The emulator is not running"))); return; }
+            if (!AxTvEmulator.DeviceOnline()) { OnUi(() => _feedback.SetStatus(Loc.T("模拟器未运行", "The emulator is not running"))); return; }
             bool goPortrait = AxTvEmulator.WmOverride() != AxTvEmulator.PortraitSize;
             IntPtr window = EmulatorWindow.FindEmulatorWindow();
             bool wasFullscreen = window != IntPtr.Zero && EmulatorWindow.IsFullscreen(window);
@@ -705,7 +743,7 @@ public partial class MainWindow
                 // The picture did not come up: the screen goes back to its native size and the window is restored.
                 AxTvEmulator.SetWmOverride(null);
                 if (window != IntPtr.Zero) EmulatorWindow.ApplyWindowRect(window, EmulatorWindow.SmallWindowRect(EmulatorWindow.ActiveMonitorRect(window), profile.Aspect));
-                OnUi(() => _servicesView?.SetStatus(Loc.T("画面自检未通过，已回滚到横屏", "The picture check failed; rolled back to landscape") + $" ({bytes} B)"));
+                OnUi(() => _feedback.SetStatus(Loc.T("画面自检未通过，已回滚到横屏", "The picture check failed; rolled back to landscape") + $" ({bytes} B)"));
                 ServicesRefreshAxTv();
                 return;
             }
@@ -713,7 +751,7 @@ public partial class MainWindow
             if (wasFullscreen && window != IntPtr.Zero) EmulatorWindow.SetFullscreenGeometry(window, profile.Aspect, profile.Portrait);
             OnUi(() =>
             {
-                _servicesView?.SetStatus((goPortrait ? Loc.T("已切换到竖屏", "Switched to portrait") : Loc.T("已切换到横屏", "Switched to landscape"))
+                _feedback.SetStatus((goPortrait ? Loc.T("已切换到竖屏", "Switched to portrait") : Loc.T("已切换到横屏", "Switched to landscape"))
                     + $" ({bytes} B" + (relaunched ? Loc.T(", 已重启 AxTV", ", AxTV restarted") : "") + ")");
                 ServicesRefreshAxTv();
             });
@@ -725,7 +763,7 @@ public partial class MainWindow
         Task.Run(() =>
         {
             var (ok, detail) = AxTvEmulator.LaunchApp();
-            OnUi(() => _servicesView?.SetStatus((ok ? Loc.T("已启动 AxTV", "AxTV started") : Loc.T("启动失败：", "Start failed: ")) + detail));
+            OnUi(() => _feedback.SetStatus((ok ? Loc.T("已启动 AxTV", "AxTV started") : Loc.T("启动失败：", "Start failed: ")) + detail));
         });
     }
 
@@ -734,7 +772,7 @@ public partial class MainWindow
         Task.Run(() =>
         {
             var (ok, detail) = AxTvEmulator.StopApp();
-            OnUi(() => _servicesView?.SetStatus((ok ? Loc.T("已停止 AxTV", "AxTV stopped") : Loc.T("停止失败：", "Stop failed: ")) + detail));
+            OnUi(() => _feedback.SetStatus((ok ? Loc.T("已停止 AxTV", "AxTV stopped") : Loc.T("停止失败：", "Stop failed: ")) + detail));
         });
     }
 
@@ -745,7 +783,7 @@ public partial class MainWindow
             var (ok, detail) = AxTvEmulator.UninstallApp();
             OnUi(() =>
             {
-                _servicesView?.SetStatus((ok ? Loc.T("已卸载 AxTV", "AxTV uninstalled") : Loc.T("卸载失败：", "Uninstall failed: ")) + detail);
+                _feedback.SetStatus((ok ? Loc.T("已卸载 AxTV", "AxTV uninstalled") : Loc.T("卸载失败：", "Uninstall failed: ")) + detail);
                 ServicesRefreshAxTv();
             });
         });
@@ -753,11 +791,11 @@ public partial class MainWindow
 
     internal void ServicesAxTvScreenshot()
     {
-        _servicesView?.SetStatus(Loc.T("截图中…", "Taking a screenshot…"));
+        _feedback.SetStatus(Loc.T("截图中…", "Taking a screenshot…"));
         Task.Run(() =>
         {
             var (ok, detail) = AxTvEmulator.Screenshot();
-            OnUi(() => _servicesView?.SetStatus((ok ? Loc.T("截图已保存：", "Screenshot saved: ") : Loc.T("截图失败：", "Screenshot failed: ")) + detail));
+            OnUi(() => _feedback.SetStatus((ok ? Loc.T("截图已保存：", "Screenshot saved: ") : Loc.T("截图失败：", "Screenshot failed: ")) + detail));
         });
     }
 
@@ -769,8 +807,8 @@ public partial class MainWindow
                 Process.Start(new ProcessStartInfo("notepad.exe", AxTvEmulator.LogPath) { UseShellExecute = true });
             else
                 Process.Start(new ProcessStartInfo("explorer.exe", System.IO.Path.GetDirectoryName(AxTvEmulator.LogPath) ?? "") { UseShellExecute = true });
-            _servicesView?.SetStatus(Loc.T("已打开日志", "Log opened"));
+            _feedback.SetStatus(Loc.T("已打开日志", "Log opened"));
         }
-        catch (System.Exception ex) { _servicesView?.SetStatus(Loc.T("打开失败：", "Open failed: ") + ex.Message); }
+        catch (System.Exception ex) { _feedback.SetStatus(Loc.T("打开失败：", "Open failed: ") + ex.Message); }
     }
 }

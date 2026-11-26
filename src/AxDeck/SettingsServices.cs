@@ -12,6 +12,27 @@ namespace AxDeck;
 // The page itself (ServicesPanel.cs) reads the personal Cloudflare tunnel infrastructure live while it is open.
 public partial class SettingsWindow
 {
+    // 设置窗口内部的页号，不写进 settings.json，也不占 DeckPage 的编号。19 排在软件更新（18）之后。
+    internal const int ServicesActionsPage = 19;
+
+    private ServicesActionsView? _servicesActions;
+    internal bool ServicesActionsVisible => IsVisible && WindowState != WindowState.Minimized && _page == ServicesActionsPage;
+
+    // 服务与工具的操作页：状态读数复用面板的 ServicesView（去掉跳转按钮），操作全部交给 MainWindow 的控制器。
+    private void ServicesActions()
+    {
+        _servicesActions = new ServicesActionsView(_app.Deck);
+        Target.Children.Add(_servicesActions);
+        _app.Deck.ServicesSettingsOpen(_servicesActions);
+    }
+
+    internal void ServicesPageLeaving()
+    {
+        if (_servicesActions is null) return;
+        _app.Deck.ServicesSettingsClose();
+        _servicesActions = null;
+    }
+
     private void ServicesSizeControls()
     {
         var dimensions = new Grid { Margin = new Thickness(0, 8, 0, 0) }; dimensions.ColumnDefinitions.Add(new()); dimensions.ColumnDefinitions.Add(new());

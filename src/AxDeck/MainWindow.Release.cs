@@ -50,6 +50,7 @@ public partial class MainWindow
                     break;
                 case DeckPage.Services:
                     held |= _servicesView is not null;
+                    if (_servicesView is not null) _feedback.Detach(_servicesView);
                     _servicesView = null; _servicesKey = "";
                     break;
                 case DeckPage.Desktop:

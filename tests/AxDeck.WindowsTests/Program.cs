@@ -29,6 +29,7 @@ internal static class Program
             if (args is ["--only", "bge"]) { BgeM3Checks.Run(Check); return Finish(); }
             if (args is ["--only", "axtv"]) { AxTvChecks.Run(Check); return Finish(); }
             if (args is ["--only", "services"]) { AxDeck.ServicesViewTests.Run(Check); return Finish(); }
+            if (args is ["--only", "services-actions"]) { AxDeck.ServicesViewTests.RunActions(Check); return Finish(); }
             if (args is ["--only", "work"]) { AxDeck.WorkViewTests.Run(Check); return Finish(); }
             if (args is ["--only", "pages"]) { AxDeck.PageContentShowingTests.Run(Check); return Finish(); }
             if (args is ["--only", "desktop"]) { AxDeck.DesktopChecks.Run(Check); return Finish(); }
@@ -88,6 +89,7 @@ internal static class Program
             BgeM3Checks.Run(Check);
             AxTvChecks.Run(Check);
             AxDeck.ServicesViewTests.Run(Check);
+            AxDeck.ServicesViewTests.RunActions(Check);
             AxDeck.WorkViewTests.Run(Check);
 
             return Finish();

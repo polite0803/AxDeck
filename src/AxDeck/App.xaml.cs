@@ -220,6 +220,8 @@ public partial class App : Application
     }
     // The clipboard page's menus open the settings at its own pages (SettingsWindow.ClipboardSettingsPage, TransferSettingsPage).
     internal void OpenSettingsPage(int page) { ShowSettings(false); _settingsWindow?.ShowPage(page); }
+    // 服务页的 BGE/AxTV 轮询在面板或设置操作页任一可见时进行；设置窗口自己知道当前停在哪一页。
+    internal bool ServicesActionsVisible => _settingsWindow?.ServicesActionsVisible == true;
     // 桌面页的数据变了（Settings.Boxes 已指向新的快照）：让设置窗口里的「桌面页」跟着重画。
     internal void OrganizerChanged() => _settingsWindow?.OrganizerChanged();
     // Starting AxDeck while it runs shows the hidden panels as well as the settings, so the panels come back even without

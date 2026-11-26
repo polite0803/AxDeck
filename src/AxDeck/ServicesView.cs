@@ -7,31 +7,27 @@ using AxDeck.Native;
 
 namespace AxDeck;
 
-// The services & tools page: the personal Cloudflare tunnel at a glance. The view is built once and filled by Update from the
-// live status the controller reads off the UI thread; the actions route back to the controller (MainWindow.ServicesPanel.cs),
-// which runs the side effects and refreshes the data. No network is touched here.
-internal sealed class ServicesView : Grid
+// The services & tools page in the panel: readings only. The view is built once and filled by Update from the live status
+// the controller reads off the UI thread. All actions live in the settings page's ServicesActionsView; this page shows
+// the same readings plus one link to get there. No network is touched here.
+internal sealed class ServicesView : Grid, IServicesDisplay
 {
-    private static readonly string OkColor = "#3FB950", BadColor = "#F85149", WarnColor = "#D29922", IdleColor = "#8B949E";
+    internal static readonly string OkColor = "#3FB950", BadColor = "#F85149", WarnColor = "#D29922", IdleColor = "#8B949E";
 
     private readonly MainWindow _owner;
     private readonly StackPanel _envPanel = new() { Margin = new Thickness(0, 0, 0, 14) };
     private readonly StackPanel _sitesPanel = new();
     private readonly StackPanel _bgePanel = new();
-    private readonly StackPanel _bgeAutostartPanel = new();
     private readonly StackPanel _axtvPanel = new();
     private readonly StackPanel _diagnosticsPanel = new();
     private readonly TextBlock _status = UI.Text("", 12, UI.Tertiary);
-    // The path of the package to install, and the name of the AVD to start. Both belong to the controller: the view
-    // only shows them and reports the changes.
-    private readonly TextBox _apkPath = new();
-    private string _avd = "";
 
-    // The emulator's rows. They are built once and filled in as the state is read, so the path in the text box
-    // stays where the user put it.
+    // The emulator's rows. They are built once and filled in as the state is read.
     private Row _axtvState = null!, _axtvAvd = null!, _axtvWindow = null!, _axtvOrientation = null!, _axtvVersion = null!, _axtvShotDir = null!;
 
-    public ServicesView(MainWindow owner)
+    // The actions page in settings embeds this view with its link hidden, so both places show the same readings from one
+    // implementation. The panel itself keeps the link as its only way into the settings page.
+    public ServicesView(MainWindow owner, bool showSettingsLink = true)
     {
         _owner = owner;
         _status.Margin = new Thickness(0, 0, 0, 8);
@@ -48,8 +44,6 @@ internal sealed class ServicesView : Grid
         content.Children.Add(_sitesPanel);
         content.Children.Add(Section(Loc.T("BGE-M3 向量服务", "BGE-M3 embedding service")));
         content.Children.Add(_bgePanel);
-        content.Children.Add(_bgeAutostartPanel);
-        BuildBgeAutostart();
         content.Children.Add(Section(Loc.T("AxTV 模拟器", "AxTV emulator")));
         content.Children.Add(_axtvPanel);
         BuildAxTv();
@@ -59,25 +53,19 @@ internal sealed class ServicesView : Grid
         scroll.Content = content;
         Children.Add(scroll);
 
-        // 状态与动作条：上面一条两端淡出的细线把它同可滚动的读数分开，否则滚动区最后一行贴着状态文字，看上去像被裁掉了半截。
-        var foot = new StackPanel { Margin = new Thickness(0, 6, 0, 0) };
-        foot.Children.Add(new Border { Height = 1, Background = UI.Fade(UI.Hairline, vertical: false, tails: .08), Margin = new Thickness(0, 0, 0, 6) });
-        var bar = new StackPanel();
-        foot.Children.Add(bar);
-        bar.Children.Add(_status);
-        var buttons = new WrapPanel { Orientation = Orientation.Horizontal, ItemWidth = double.NaN, Margin = new Thickness(-4, 0, -4, 0) };
-        buttons.Children.Add(ActionButton(Loc.T("刷新", "Refresh"), () => _owner.ServicesRefresh(false)));
-        buttons.Children.Add(ActionButton(Loc.T("探测站点", "Probe sites"), () => _owner.ServicesRefresh(true)));
-        buttons.Children.Add(ActionButton(Loc.T("SSH 登录测试", "SSH login test"), () => _owner.ServicesSshTest(CloudflareTunnel.DefaultSshHost)));
-        buttons.Children.Add(ActionButton(Loc.T("容器状态", "Container status"), () => _owner.ServicesContainer("status")));
-        buttons.Children.Add(ActionButton(Loc.T("容器日志", "Container logs"), () => _owner.ServicesContainer("logs")));
-        buttons.Children.Add(ActionButton(Loc.T("容器重启", "Restart container"), () => _owner.ServicesContainer("restart")));
-        buttons.Children.Add(ActionButton(Loc.T("打开配置", "Open config"), () => _owner.ServicesOpenConfig()));
-        buttons.Children.Add(ActionButton(Loc.T("编辑 SSH 配置", "Edit SSH config"), () => _owner.ServicesEditConfig()));
-        buttons.Children.Add(ActionButton(Loc.T("复制诊断", "Copy diagnostics"), () => _owner.ServicesCopyDiagnostics()));
-        bar.Children.Add(buttons);
-        Grid.SetRow(foot, 1);
-        Children.Add(foot);
+        // 面板底部是状态行与唯一的入口：一条两端淡出的细线把它同可滚动的读数分开，否则滚动区最后一行贴着状态文字，
+        // 看上去像被裁掉了半截。设置页内嵌这份读数时状态已经在操作区上方显示，不再重复一遍。
+        if (showSettingsLink)
+        {
+            var foot = new StackPanel { Margin = new Thickness(0, 6, 0, 0) };
+            foot.Children.Add(new Border { Height = 1, Background = UI.Fade(UI.Hairline, vertical: false, tails: .08), Margin = new Thickness(0, 0, 0, 6) });
+            foot.Children.Add(_status);
+            var open = ActionButton(Loc.T("在设置中操作", "Manage in settings"), () => _owner.ServicesOpenSettings());
+            open.Margin = new Thickness(4, 2, 4, 0);
+            foot.Children.Add(open);
+            Grid.SetRow(foot, 1);
+            Children.Add(foot);
+        }
     }
 
     private Row _diagnosticCost = null!, _diagnosticTraffic = null!, _diagnosticMonitor = null!;
@@ -125,11 +113,6 @@ internal sealed class ServicesView : Grid
             row.SetLabel(AppDiagnostics.SubjectName(fact.Subject));
             row.Set($"{AppDiagnostics.StateName(fact.State)} · {fact.Detail}", DiagnosticColor(fact.State));
             row.Grid.ToolTip = fact.Detail;
-            var action = _owner.ServicesDiagnosticAction(fact);
-            row.SetAction(action is { } value ? DiagnosticActionLabel(value) : null,
-                action is { } named ? DiagnosticActionName(named, fact) : null,
-                action is not null ? Loc.T("打开对应的设置，检查这项读数", "Open the matching settings and check this reading") : null,
-                action is { } run ? () => _owner.ServicesDiagnostic(run) : null);
         }
         _diagnosticMonitor.Set(
             Loc.T($"{diagnostics.Stops.Count} 项自动停用的读数", $"{Loc.Count(diagnostics.Stops.Count, "reading", "readings")} automatically stopped"),
@@ -137,8 +120,8 @@ internal sealed class ServicesView : Grid
         UpdateStops(diagnostics.Stops);
     }
 
-    // Stops change only when SensorGuard stops or resumes a reading. Rebuilding then keeps each stop's direct resume action current,
-    // while ordinary refreshes keep even these rows in place.
+    // Stops change only when SensorGuard stops or resumes a reading. Rebuilding then keeps the rows current, while ordinary
+    // refreshes leave even these rows in place. The resume action itself lives in the settings page.
     private void UpdateStops(IReadOnlyList<SensorStop> stops)
     {
         string key = string.Join("|", stops.Select(stop => $"{stop.Reading}:{stop.Device}:{stop.Method}:{stop.Name}"));
@@ -150,26 +133,22 @@ internal sealed class ServicesView : Grid
             var row = new Row(Loc.T("需要恢复", "Needs resume"));
             row.Set(SensorStops.Notice(stop), WarnColor);
             row.Grid.ToolTip = SensorStops.Notice(stop);
-            row.SetAction(Loc.T("重新开启", "Turn on again"),
-                Loc.T("重新开启：", "Turn on again: ") + SensorStops.Notice(stop),
-                Loc.T("重新开启后如果电脑再次卡住，AxDeck 会再次自动停止读取。", "Should the PC freeze again, AxDeck stops the reading again by itself."),
-                () => _owner.ServicesResumeReading(stop));
             _diagnosticStops.Children.Add(row.Grid);
         }
     }
 
-    private static string DiagnosticActionLabel(DiagnosticAction action) => action switch
+    internal static string DiagnosticActionLabel(DiagnosticAction action) => action switch
     {
         DiagnosticAction.OpenSensorSettings => Loc.T("传感器设置", "Sensor settings"),
         DiagnosticAction.AllowFrames => Loc.T("授权", "Allow"),
         _ => Loc.T("监控设置", "Monitor settings"),
     };
 
-    private static string DiagnosticActionName(DiagnosticAction action, DiagnosticFact fact) => Loc.T(
+    internal static string DiagnosticActionName(DiagnosticAction action, DiagnosticFact fact) => Loc.T(
         $"{DiagnosticActionLabel(action)}：{AppDiagnostics.SubjectName(fact.Subject)}，{AppDiagnostics.StateName(fact.State)} · {fact.Detail}",
         $"{DiagnosticActionLabel(action)}: {AppDiagnostics.SubjectName(fact.Subject)}, {AppDiagnostics.StateName(fact.State)} · {fact.Detail}");
 
-    private static string DiagnosticColor(DiagnosticState state) => state switch
+    internal static string DiagnosticColor(DiagnosticState state) => state switch
     {
         DiagnosticState.Available => OkColor,
         DiagnosticState.Estimated => WarnColor,
@@ -185,24 +164,6 @@ internal sealed class ServicesView : Grid
         _status.Text = text;
         _status.Foreground = UI.Brush(warning ? "#D29922" : UI.Tertiary);
     }
-
-    // Whether the embedding server is set to start with Windows. The state is kept here, because the block is rebuilt
-    // every two seconds: reading the registry on every poll would be wasteful, and the switch would flicker.
-    private bool _bgeAutostart;
-
-    /// <summary>Shows whether the embedding server starts with Windows.</summary>
-    public void SetBgeAutostart(bool enabled)
-    {
-        _bgeAutostart = enabled;
-        if (_bgeAutostartButton is null) return;
-        _bgeAutostartButton.Content = UI.Fixed(AutostartLabel(enabled), 11.5, 18, UI.Secondary);
-    }
-
-    private static string AutostartLabel(bool enabled) => enabled
-        ? Loc.T("开机自启：已开启", "Start with Windows: on")
-        : Loc.T("开机自启：已关闭", "Start with Windows: off");
-
-    private Button? _bgeAutostartButton;
 
     // Filled by the controller from a fresh status snapshot; never blocks (it is called on the UI thread after a background read).
     public void Update(CloudflareTunnel.StatusSnapshot status, IReadOnlyList<CloudflareTunnel.SiteProbe>? probes)
@@ -266,39 +227,6 @@ internal sealed class ServicesView : Grid
         _bgePanel.Children.Add(EnvRow(Loc.T("模型文件", "Model file"),
             snapshot.ModelPath.Length > 0 ? snapshot.ModelPath : Loc.T("未配置（在 services.json 里设置 bge.modelPath）", "not configured (set bge.modelPath in services.json)"),
             snapshot.ModelPath.Length > 0 ? IdleColor : BadColor));
-
-        var actions = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 6, 0, 0) };
-        actions.Children.Add(ActionButton(Loc.T("启动", "Start"), () => _owner.ServicesStartBge(), small: true));
-        actions.Children.Add(ActionButton(Loc.T("停止", "Stop"), () => _owner.ServicesStopBge(), small: true));
-        actions.Children.Add(ActionButton(Loc.T("复制 API", "Copy API"), () => _owner.ServicesCopyBgeApi(), small: true));
-        actions.Children.Add(ActionButton(Loc.T("查看日志", "View log"), () => _owner.ServicesShowBgeLog(), small: true));
-        actions.Children.Add(ActionButton(Loc.T("打开日志", "Open log"), () => _owner.ServicesOpenBgeLog(), small: true));
-        _bgePanel.Children.Add(actions);
-    }
-
-    // The row that says whether the embedding server starts with Windows. The state comes from the Run key, which is
-    // read once when the page is built; the button asks the controller to write it.
-    private void BuildBgeAutostart()
-    {
-        _bgeAutostart = _owner.ServicesBgeAutostartEnabled();
-        var grid = new Grid { Margin = new Thickness(0, 6, 0, 2) };
-        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(96) });
-        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        var label = UI.Fixed(Loc.T("开机自启", "Start with Windows"), 12.5, 18, UI.Secondary);
-        label.VerticalAlignment = VerticalAlignment.Center;
-        grid.Children.Add(label);
-        _bgeAutostartButton = ActionButton(AutostartLabel(_bgeAutostart), () => _owner.ServicesSetBgeAutostart(!_bgeAutostart), small: true);
-        _bgeAutostartButton.HorizontalAlignment = HorizontalAlignment.Left;
-        Grid.SetColumn(_bgeAutostartButton, 1);
-        grid.Children.Add(_bgeAutostartButton);
-        _bgeAutostartPanel.Children.Add(grid);
-        var hint = UI.Text(Loc.T(
-            "打开后，BGE-M3 服务会随 Windows 启动，不需要先开 AxDeck。它在后台运行，端口 8091，模型文件取自 services.json。",
-            "When on, the BGE-M3 service starts with Windows, without AxDeck running first. It runs in the background on port 8091, with the model file from services.json."), 11.5, UI.Tertiary);
-        hint.TextWrapping = TextWrapping.Wrap;
-        hint.Margin = new Thickness(0, 2, 0, 0);
-        _bgeAutostartPanel.Children.Add(hint);
     }
 
     // The Android emulator (the old "AxTV 模拟器管理器"): the AVD to run, the window's shape and the app on the
@@ -307,7 +235,6 @@ internal sealed class ServicesView : Grid
     // each time would take the text box with the path in it apart from its place.
     public void UpdateAxTv(AxTvEmulator.StatusSnapshot status, string avd)
     {
-        _avd = avd;
         bool missing = !status.SdkFound;
         string state = missing ? Loc.T("未找到 Android SDK", "Android SDK not found")
             : status.DeviceOnline ? Loc.T("在线", "online")
@@ -323,8 +250,7 @@ internal sealed class ServicesView : Grid
         _axtvShotDir.Set(AxTvEmulator.ShotDir, IdleColor);
     }
 
-    // Builds the emulator's block: the rows that show its state, the row with the package to install and the
-    // buttons that act on it.
+    // Builds the emulator's reading rows once. The buttons that change any of this live in the settings page.
     private void BuildAxTv()
     {
         _axtvState = new Row(Loc.T("模拟器", "Emulator"));
@@ -339,60 +265,10 @@ internal sealed class ServicesView : Grid
         _axtvPanel.Children.Add(_axtvOrientation.Grid);
         _axtvPanel.Children.Add(_axtvVersion.Grid);
         _axtvPanel.Children.Add(_axtvShotDir.Grid);
-
-        // The package to install: a path, a button to pick one and the install itself.
-        var apkRow = new Grid { Margin = new Thickness(0, 6, 0, 2) };
-        apkRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        apkRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        apkRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        _apkPath.Height = 24;
-        _apkPath.Margin = new Thickness(0, 0, 4, 0);
-        _apkPath.Padding = new Thickness(6, 2, 6, 2);
-        _apkPath.FontSize = 11.5;
-        _apkPath.VerticalContentAlignment = VerticalAlignment.Center;
-        _apkPath.ToolTip = Loc.T("要安装到模拟器里的 .apk 文件", "The .apk file to install on the emulator");
-        apkRow.Children.Add(_apkPath);
-        var browse = ActionButton(Loc.T("浏览…", "Browse…"), () => _owner.ServicesBrowseApk(), small: true);
-        Grid.SetColumn(browse, 1);
-        apkRow.Children.Add(browse);
-        var install = ActionButton(Loc.T("安装", "Install"), () => _owner.ServicesInstallApk(), small: true);
-        Grid.SetColumn(install, 2);
-        apkRow.Children.Add(install);
-        _axtvPanel.Children.Add(apkRow);
-
-        var run = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 4, 0, 0) };
-        run.Children.Add(ActionButton(Loc.T("启动", "Start"), () => _owner.ServicesAxTvStart(), small: true));
-        run.Children.Add(ActionButton(Loc.T("关闭", "Stop"), () => _owner.ServicesAxTvStop(), small: true));
-        run.Children.Add(ActionButton(Loc.T("强制结束", "Force end"), () => _owner.ServicesAxTvForceKill(), small: true));
-        run.Children.Add(ActionButton(Loc.T("重启", "Restart"), () => _owner.ServicesAxTvRestart(), small: true));
-        run.Children.Add(ActionButton(Loc.T("切换 AVD", "Switch AVD"), () => _owner.ServicesAxTvSwitchAvd(), small: true));
-        _axtvPanel.Children.Add(run);
-
-        var window = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 2, 0, 0) };
-        window.Children.Add(ActionButton(Loc.T("全屏", "Full screen"), () => _owner.ServicesAxTvFullscreen(), small: true));
-        window.Children.Add(ActionButton(Loc.T("小窗", "Small window"), () => _owner.ServicesAxTvSmall(), small: true));
-        window.Children.Add(ActionButton(Loc.T("窗口归位", "Reset window"), () => _owner.ServicesAxTvResetWindow(), small: true));
-        window.Children.Add(ActionButton(Loc.T("切换方向", "Switch orientation"), () => _owner.ServicesAxTvToggleOrientation(), small: true));
-        _axtvPanel.Children.Add(window);
-
-        var app = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 2, 0, 0) };
-        app.Children.Add(ActionButton(Loc.T("启动应用", "Launch app"), () => _owner.ServicesAxTvLaunchApp(), small: true));
-        app.Children.Add(ActionButton(Loc.T("停止应用", "Stop app"), () => _owner.ServicesAxTvStopApp(), small: true));
-        app.Children.Add(ActionButton(Loc.T("卸载", "Uninstall"), () => _owner.ServicesAxTvUninstallApp(), small: true));
-        app.Children.Add(ActionButton(Loc.T("截图", "Screenshot"), () => _owner.ServicesAxTvScreenshot(), small: true));
-        app.Children.Add(ActionButton(Loc.T("查看日志", "View log"), () => _owner.ServicesShowAxTvLog(), small: true));
-        app.Children.Add(ActionButton(Loc.T("打开日志", "Open log"), () => _owner.ServicesAxTvOpenLog(), small: true));
-        _axtvPanel.Children.Add(app);
     }
 
-    /// <summary>The path of the package to install, as the user typed or picked it.</summary>
-    public string ApkPath => _apkPath.Text;
-
-    /// <summary>Shows the package that is going to be installed.</summary>
-    public void SetApkPath(string path) => _apkPath.Text = path;
-
     // A labelled row whose value can be filled in later, so the panel is built once and only its text changes.
-    private sealed class Row
+    internal sealed class Row
     {
         private readonly TextBlock _value = UI.Text("", 12.5, UI.Primary);
         private readonly Ellipse _dot = new() { Width = 8, Height = 8, VerticalAlignment = VerticalAlignment.Center };
@@ -450,14 +326,14 @@ internal sealed class ServicesView : Grid
         }
     }
 
-    private static string WindowText(AxTvEmulator.StatusSnapshot status) => status.WindowMode switch
+    internal static string WindowText(AxTvEmulator.StatusSnapshot status) => status.WindowMode switch
     {
         "fullscreen" => Loc.T("全屏", "full screen") + "  " + status.WindowRect,
         "small" => Loc.T("小窗", "small window") + "  " + status.WindowRect,
         _ => Loc.T("未启动", "not running"),
     };
 
-    private static string OrientationText(AxTvEmulator.StatusSnapshot status) => status.Orientation switch
+    internal static string OrientationText(AxTvEmulator.StatusSnapshot status) => status.Orientation switch
     {
         "portrait_avd" => Loc.T("竖屏 AVD（物理 1080×1920）", "portrait AVD (physical 1080×1920)"),
         "portrait" => Loc.T("竖屏 1080×1920", "portrait 1080×1920"),
@@ -466,10 +342,10 @@ internal sealed class ServicesView : Grid
         _ => "--",
     };
 
-    private static TextBlock Section(string text) => UI.Fixed(text, 13, 20, UI.Tertiary, FontWeights.SemiBold);
-    private static Grid CoreRow(bool ok) => EnvRow(Loc.T("基础环境", "Core infra"), ok ? Loc.T("就绪", "ready") : Loc.T("缺失", "incomplete"), ok ? OkColor : WarnColor);
+    internal static TextBlock Section(string text) => UI.Fixed(text, 13, 20, UI.Tertiary, FontWeights.SemiBold);
+    internal static Grid CoreRow(bool ok) => EnvRow(Loc.T("基础环境", "Core infra"), ok ? Loc.T("就绪", "ready") : Loc.T("缺失", "incomplete"), ok ? OkColor : WarnColor);
 
-    private static Grid EnvRow(string label, string value, string color)
+    internal static Grid EnvRow(string label, string value, string color)
     {
         var grid = new Grid { Margin = new Thickness(0, 1, 0, 1) };
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(96) });
@@ -488,12 +364,11 @@ internal sealed class ServicesView : Grid
         return grid;
     }
 
-    private Grid SiteRow(CloudflareTunnel.Site site, CloudflareTunnel.SiteProbe? probe)
+    internal static Grid SiteRow(CloudflareTunnel.Site site, CloudflareTunnel.SiteProbe? probe)
     {
         var grid = new Grid { Margin = new Thickness(0, 2, 0, 2) };
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
         var left = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
         string dot = IdleColor;
@@ -519,29 +394,13 @@ internal sealed class ServicesView : Grid
         detail.TextTrimming = TextTrimming.CharacterEllipsis;
         Grid.SetColumn(detail, 1);
 
-        var actions = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
-        if (site.Kind == CloudflareTunnel.SiteKind.Http)
-            actions.Children.Add(ActionButton(Loc.T("打开", "Open"), () => _owner.ServicesOpenSite(site), small: true));
-        else if (site.Kind == CloudflareTunnel.SiteKind.Ssh)
-        {
-            actions.Children.Add(ActionButton(Loc.T("测试", "Test"), () => _owner.ServicesSshTest(site.Host), small: true));
-            actions.Children.Add(ActionButton(Loc.T("复制", "Copy"), () => _owner.ServicesCopyCommand(site), small: true));
-        }
-        else
-        {
-            bool running = CloudflareTunnel.ForwarderRunning(site.Host);
-            var toggle = ActionButton(running ? Loc.T("停止", "Stop") : Loc.T("启动", "Start"), () => _owner.ServicesToggleForwarder(site), small: true);
-            actions.Children.Add(toggle);
-            actions.Children.Add(ActionButton(Loc.T("复制", "Copy"), () => _owner.ServicesCopyCommand(site), small: true));
-        }
-        Grid.SetColumn(actions, 2);
-        grid.Children.Add(left); grid.Children.Add(detail); grid.Children.Add(actions);
+        grid.Children.Add(left); grid.Children.Add(detail);
         return grid;
     }
 
-    private static Ellipse Dot(string color) => new() { Width = 8, Height = 8, Fill = UI.Brush(color), VerticalAlignment = VerticalAlignment.Center };
+    internal static Ellipse Dot(string color) => new() { Width = 8, Height = 8, Fill = UI.Brush(color), VerticalAlignment = VerticalAlignment.Center };
 
-    private static Border KindBadge(CloudflareTunnel.SiteKind kind)
+    internal static Border KindBadge(CloudflareTunnel.SiteKind kind)
     {
         string text = kind switch { CloudflareTunnel.SiteKind.Http => "HTTP", CloudflareTunnel.SiteKind.Tcp => "TCP", CloudflareTunnel.SiteKind.Rdp => "RDP", CloudflareTunnel.SiteKind.Ssh => "SSH", _ => "?" };
         var border = new Border
@@ -554,7 +413,7 @@ internal sealed class ServicesView : Grid
         return border;
     }
 
-    private static Button ActionButton(string label, Action onClick, bool small = false)
+    internal static Button ActionButton(string label, Action onClick, bool small = false)
     {
         var button = new Button
         {
@@ -563,6 +422,7 @@ internal sealed class ServicesView : Grid
             Margin = new Thickness(4, 4, 4, 0), Padding = new Thickness(small ? 8 : 10, 0, small ? 8 : 10, 0), Height = small ? 22 : 26,
         };
         button.Click += (_, _) => onClick();
+        System.Windows.Automation.AutomationProperties.SetName(button, label);
         return button;
     }
 }
